@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+    Stack to manage a gaming container
+
+Parameters:
+    GameContainer:
+        Type: String
+        Description: "uri of the container image to run"
+        Default: itzg/minecraft-server:latest
+
+    GamePort:
+      Type: Number
+      Description: "The port to open"
+      Default: 25565
+
+    GameProtocol:
+      Type: String
+      AllowedValues: [tcp, udp]
+      Description: The protocol to use
+      Default: tcp
+
+Resources:
+  FargateTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities:
+        - "FARGATE"
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
+      Cpu: 256
+      Memory: 512
+      NetworkMode: "awsvpc"
+      ContainerDefinitions:
+        - Name: !Sub "GameManager-${AWS::StackName}"
+          Image: !Ref GameContainer
+          MemoryReservation: 256
+          Memory: 512
+          PortMappings:
+            - ContainerPort: !Ref GamePort
+              Protocol: tcp
