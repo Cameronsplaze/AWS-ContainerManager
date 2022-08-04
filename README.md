@@ -24,5 +24,15 @@ Setup a basic virtual environment, with the different packages:
 sudo apt install python3-pip python3-virtualenv # I think? It's been a bit since I installed this. Don't use the (pip install virtualenv) version though
 virtualenv --python=python3 ~/GameManager-env
 source ~/GameManager-env/bin/activate
-python3 -m pip install boto3
+python3 -m pip install boto3 cfn-lint
 ```
+
+Linting the CF file gives output faster than deploying. First check for errors after editing it:
+
+```bash
+cfn-lint stack.yml
+```
+
+## Notes
+
+- [Services will always maintain the desired number of tasks and this behavior can't be modified](https://stackoverflow.com/questions/51701260/how-can-i-do-to-not-let-the-container-restart-in-aws-ecs), so it'll be up to the Watchdog, to set desired count back to 0 if the container is failing to start.

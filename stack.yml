@@ -1,25 +1,81 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: 2010-09-09
+
 Description: >-
-    Stack to manage a gaming container
+  AWS CloudFormation sample template. 
+  Create a custom VPC with a pair of public and private subnets spread across two AZs
 
+## =================== PARAMETERS =================== #
 Parameters:
-    GameContainer:
-        Type: String
-        Description: "uri of the container image to run"
-        Default: itzg/minecraft-server:latest
 
-    GamePort:
-      Type: Number
-      Description: "The port to open"
-      Default: 25565
+  ## Game Manager container stuff:
+  # GameContainer:
+  #     Type: String
+  #     Description: "uri of the container image to run"
+  #     Default: itzg/minecraft-server:latest
 
-    GameProtocol:
-      Type: String
-      AllowedValues: [tcp, udp]
-      Description: The protocol to use
-      Default: tcp
+  GamePort:
+    Type: Number
+    Description: "The port to open"
+    Default: 25565
 
+  GameProtocol:
+    Type: String
+    AllowedValues: [tcp, udp]
+    Description: The protocol to use
+    Default: tcp
+
+Mappings:
+  ## Networking IP stuff:
+
+  SubnetConfig:
+    VPC:
+      CIDR: 10.69.0.0/16
+
+    PublicOne:
+      CIDR: 10.69.0.0/24
+    PublicTwo:
+      CIDR: 10.69.1.0/24
+    PrivateOne:
+      CIDR: 10.69.2.0/24
+    PrivateTwo:
+      CIDR: 10.69.3.0/24
+
+
+## =================== RESOURCES =================== #
 Resources:
+
+  #############################
+  ## Services inside the VPC ##
+  #############################
+
+  # To control the overall manager/cluster:
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html
+  EcsService:
+    Type: AWS::ECS::Service
+    Properties:
+      DesiredCount: 0
+      # TODO: add option to toggle to FARGATE_SPOT too
+      LaunchType: FARGATE
+      TaskDefinition: !Ref FargateTask
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref myPublicSubnet1
+            - !Ref myPublicSubnet2            
+            # - !Ref myPrivateSubnet1
+            # - !Ref myPrivateSubnet2
+          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+          SecurityGroups:
+            - !Ref InstanceSecurityGroup
+      # Don't keep trying if the container fails to start:
+      # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: True
+          Rollback: False
+
+  # What a single object in the cluster looks like:
   FargateTask:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -28,12 +84,227 @@ Resources:
       ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
       Cpu: 256
       Memory: 512
+      # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking-awsvpc.html
       NetworkMode: "awsvpc"
       ContainerDefinitions:
         - Name: !Sub "GameManager-${AWS::StackName}"
-          Image: !Ref GameContainer
+          # Image: !Ref GameContainer
+          Image: itzg/minecraft-server:latest
           MemoryReservation: 256
           Memory: 512
           PortMappings:
             - ContainerPort: !Ref GamePort
-              Protocol: tcp
+              Protocol: !Ref GameProtocol
+          Environment:
+            - Name: EULA
+              Value: "TRUE"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub GameManager-${AWS::StackName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-create-group: true
+              awslogs-stream-prefix: GameManager
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow game traffic
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: !Ref GameProtocol
+          FromPort: !Ref GamePort
+          ToPort: !Ref GamePort
+          CidrIp: 0.0.0.0/0
+      ## Container needs to pull from docker.io
+      # SecurityGroupEgress:
+      #   - IpProtocol: !Ref GameProtocol
+      #     FromPort: !Ref GamePort
+      #     ToPort: !Ref GamePort
+      #     CidrIp: 0.0.0.0/0
+
+
+  ######################
+  ## Networking Stuff ##
+  ######################
+  # Guide from:
+  # https://dev.to/tiamatt/hands-on-aws-cloudformation-part-4-create-vpc-with-private-and-public-subnets-85d
+
+  # ----------------  Step 1 ----------------
+  ## 1.a) Create a VPC
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap ['SubnetConfig', 'VPC', 'CIDR']
+      EnableDnsSupport: true # let instances in the VPC get DNS hostnames
+      EnableDnsHostnames: true # allow DNS resolution
+      Tags:
+        - Key: Name
+          Value: !Sub GameManager-${AWS::StackName}
+
+  ## 1.b) Create a Internet Gateway
+  myInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+
+  ## 1.c) Attach the Internet Gateway to the VPC
+  myVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref myVPC
+      InternetGatewayId: !Ref myInternetGateway
+
+  # ----------------  Step 2 ----------------
+  ## 2.a) Create a public route table for the VPC (will be public once it is associated with the Internet Gateway)
+  myPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+
+  ## 2.b) Associate the public route table with the Internet Gateway
+  myPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: myVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref myPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+
+  ## 2.c) Create a public subnet in AZ 1 (will be public once it is associated with public route table)
+  myPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ] # AZ 1
+      CidrBlock: !FindInMap ['SubnetConfig', 'PublicOne', 'CIDR']
+      MapPublicIpOnLaunch: true # allow instances launched in this subnet receive a public IPv4 address
+      Tags:
+        - Key: Name
+          Value: !Sub GameManager-${AWS::StackName}-Public1
+  # Create a public subnet in AZ 2 (will be public once it is associated with public route table)
+  myPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ] # AZ 2
+      CidrBlock: !FindInMap ['SubnetConfig', 'PublicTwo', 'CIDR']
+      MapPublicIpOnLaunch: true # allow instances launched in this subnet receive a public IPv4 address
+      Tags:
+        - Key: Name
+          Value: !Sub GameManager-${AWS::StackName}-Public2
+
+  ## 2.d) Associate the public route table with the public subnet in AZ 1
+  myPublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref myPublicRouteTable
+      SubnetId: !Ref myPublicSubnet1
+  # Associate the public route table with the public subnet in AZ 2
+  myPublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref myPublicRouteTable
+      SubnetId: !Ref myPublicSubnet2
+
+  # ----------------  Step 3 ----------------
+  ## 3.a) Specify an Elastic IP (EIP) address for a NAT Gateway in AZ 1
+  myEIPforNatGateway1:
+    Type: AWS::EC2::EIP
+    DependsOn: myVPCGatewayAttachment
+    Properties:
+      Domain: vpc # if the region supports EC2-Classic, the default is "standard", otherwise - "vpc"
+  # Specify an Elastic IP (EIP) address for a NAT Gateway in AZ 2
+  myEIPforNatGateway2:
+    Type: AWS::EC2::EIP
+    DependsOn: myVPCGatewayAttachment
+    Properties:
+      Domain: vpc # if the region supports EC2-Classic, the default is "standard", otherwise - "vpc"
+
+  ## 3.b) Create a NAT Gateway in the public subnet for AZ 1
+  myNatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt myEIPforNatGateway1.AllocationId
+      SubnetId: !Ref myPublicSubnet1
+  # Create a NAT Gateway in the public subnet for AZ 2
+  myNatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt myEIPforNatGateway2.AllocationId
+      SubnetId: !Ref myPublicSubnet2
+
+  ## 3.c) Create a private route table for AZ 1
+  myPrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+  # Create a private route table for AZ 2
+  myPrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+
+  ## 3.d) Associate the private route table with the Nat Gateway in AZ 1
+  myPrivateRouteForAz1:
+    Type: AWS::EC2::Route
+    DependsOn: myVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref myPrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref myNatGateway1 
+  #  Associate the private route table with the Nat Gateway in AZ 2
+  myPrivateRouteForAz2:
+    Type: AWS::EC2::Route
+    DependsOn: myVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref myPrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref myNatGateway2
+
+  ## 3.e) Create a private subnet in AZ 1
+  myPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ] # AZ 1
+      CidrBlock: !FindInMap ['SubnetConfig', 'PrivateOne', 'CIDR']
+      MapPublicIpOnLaunch: false # private subnet doesn't need public IP
+      Tags:
+        - Key: Name
+          Value: !Sub GameManager-${AWS::StackName}-Private1
+  # Create a private subnet in AZ 2
+  myPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ] # AZ 2
+      CidrBlock: !FindInMap ['SubnetConfig', 'PrivateTwo', 'CIDR']
+      MapPublicIpOnLaunch: false # private subnet doesn't need public IP
+      Tags:
+        - Key: Name
+          Value: !Sub GameManager-${AWS::StackName}-Private2
+
+  ## 3.f) Associate the private route table with the private subnet in AZ 1
+  myPrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref myPrivateRouteTable1
+      SubnetId: !Ref myPrivateSubnet1
+  #  Associate the private route table with the private subnet in AZ 2
+  myPrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref myPrivateRouteTable2
+      SubnetId: !Ref myPrivateSubnet2
+
+## =================== OUTPUTS =================== #
+Outputs:
+  outputVPC:
+    Description: A reference to the created VPC
+    Value: !Ref myVPC
+  outputPublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref myPublicSubnet1, !Ref myPublicSubnet2 ]]
+  outputPrivateSubnets:
+    Description: A list of the private subnets
+    Value: !Join [ ",", [ !Ref myPrivateSubnet1, !Ref myPrivateSubnet2 ]]
