@@ -59,16 +59,17 @@ Resources:
       TaskDefinition: !Ref FargateTask
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
+          # AssignPublicIp: ENABLED
+          AssignPublicIp: DISABLED
           Subnets:
-            - !Ref myPublicSubnet1
-            - !Ref myPublicSubnet2            
-            # - !Ref myPrivateSubnet1
-            # - !Ref myPrivateSubnet2
+            # - !Ref myPublicSubnet1
+            # - !Ref myPublicSubnet2            
+            - !Ref myPrivateSubnet1
+            - !Ref myPrivateSubnet2
           # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
           SecurityGroups:
             - !Ref InstanceSecurityGroup
-      # Don't keep trying if the container fails to start:
+      # Don't keep trying if the FIRST container fails to start:
       # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html
       DeploymentConfiguration:
         DeploymentCircuitBreaker:
@@ -86,8 +87,13 @@ Resources:
       Memory: 512
       # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking-awsvpc.html
       NetworkMode: "awsvpc"
+      # TaskRoleArn: !Ref ContainerPermissions
       ContainerDefinitions:
         - Name: !Sub "GameManager-${AWS::StackName}"
+          # TODO: Cache this in same region AWS, so you don't pull a new image from dockerhub
+          #       every time someone joins the server. (SUPER slow windup time)
+          #       Fargate doesn't support this directly, might have to do a cron-lambda with
+          #       ECR: https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html
           # Image: !Ref GameContainer
           Image: itzg/minecraft-server:latest
           MemoryReservation: 256
@@ -101,6 +107,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
+              # awslogs-group: !Ref CloudwatchLogsGroup
               awslogs-group: !Sub GameManager-${AWS::StackName}
               awslogs-region: !Ref AWS::Region
               awslogs-create-group: true
@@ -116,13 +123,43 @@ Resources:
           FromPort: !Ref GamePort
           ToPort: !Ref GamePort
           CidrIp: 0.0.0.0/0
-      ## Container needs to pull from docker.io
+      ## Container needs to pull from docker.io, this breaks that...
       # SecurityGroupEgress:
       #   - IpProtocol: !Ref GameProtocol
       #     FromPort: !Ref GamePort
       #     ToPort: !Ref GamePort
       #     CidrIp: 0.0.0.0/0
 
+  ## TODO: Figure out to give the ECS Task, permissions to create *ONLY IT'S*
+  ##        logs, and add logs to that group.
+  # CloudwatchLogsGroup:
+  #   Type: 'AWS::Logs::LogGroup'
+  #   Properties:
+  #     LogGroupName: !Sub 'GameManager-${AWS::StackName}'
+  #     RetentionInDays: 14
+  # ContainerPermissions:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     RoleName: !Sub GameManager-${AWS::StackName}-ContainerRole
+  #     Description: Permissions inside the game container itself
+  #     AssumeRolePolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service:
+  #               - ec2.amazonaws.com
+  #           Action:
+  #             - sts:AssumeRole
+  #     Policies:
+  #       - PolicyName: !Sub GameManager-${AWS::StackName}-ContainerPolicy
+  #         PolicyDocument:
+  #           Version: "2012-10-17"
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - logs:CreateLogGroup
+  #               Resource: !GetAtt CloudwatchLogsGroup.Arn
 
   ######################
   ## Networking Stuff ##
