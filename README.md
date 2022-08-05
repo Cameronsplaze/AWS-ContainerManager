@@ -46,3 +46,5 @@ Quick notes on where I left of, for when I pick this up again one day:
 2) In the VPC, there's one AWS::EC2::RouteTable for the public side, but each private subnet has their own. Why?? Is this a place we can simplify? Guide I worked from at: <https://dev.to/tiamatt/hands-on-aws-cloudformation-part-4-create-vpc-with-private-and-public-subnets-85d>.
 
 3) When a container first starts, it takes a bit since it PULLS a fresh one from Dockerhub. Look into having the container mirrored in ECR, and how to keep that up to date (Maybe cron? Is there a built in automatic way?). Pulls from the same ECR region are insanely fast. (Setup rules since you only ever need one, no backups, and get's nuked if you switch to a new container/game in the same stack. That's what the original repo is for).
+
+First DoI Slides (Private): https://docs.google.com/presentation/d/1WiPHAqWpCft2M5jKnNh05txxDQSTm5wNUTH-mmoHbgw/edit#slide=id.g35f391192_00
