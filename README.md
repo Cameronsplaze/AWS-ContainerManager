@@ -41,6 +41,8 @@ cfn-lint stack.yml
 
 Quick notes on where I left of, for when I pick this up again one day (Hopefully in order of importance):
 
+- Found ECS / EC2 file. Should be cheaper than fargate?: https://github.com/nathanpeck/ecs-cloudformation/blob/master/cluster/cluster-ec2-private-vpc.yml
+
 - Get EFS working. Just let it talk to EC2 with networking, need to setup permissions. Thought the container was killing itself because of health check, so I disabled it, BUT it might be EFS not connecting that kills it. Can remove health check code after to see if it was also killing it.
   - Basic EFS + Fargate Guide: <https://aws.amazon.com/blogs/containers/developers-guide-to-using-amazon-efs-with-amazon-ecs-and-aws-fargate-part-3/>
   - Complicated but complete example: <https://github.com/aws-samples/drupal-on-ecs-fargate/blob/4258e15cb9d4b013612adfabcd61479e56e04565/template/template.yaml#L470>
