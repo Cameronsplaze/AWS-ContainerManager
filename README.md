@@ -42,6 +42,9 @@ cfn-lint stack.yml
 Quick notes on where I left of, for when I pick this up again one day (Hopefully in order of importance):
 
 - Found ECS / EC2 file. Should be cheaper than fargate?: https://github.com/nathanpeck/ecs-cloudformation/blob/master/cluster/cluster-ec2-private-vpc.yml
+  - Nice guide on [ECS here](https://www.freecodecamp.org/news/amazon-ecs-terms-and-architecture-807d8c4960fd/). If I understand it right, use one ECS Cluster per game. This lets you scale up one Container Instance, along with one AutoScaling Group. I think you can grab the instance through boto3, and communicate with that directly, removing the need for a second container to route traffic through? The instance runs some form of docker, so watch the network connections to that.
+    - Is there a way in cloudformation to grab the vCPU/Memory of an instance? This would let you only pass in one param (instance type) to CF, then subtract 1 CPU/Mem before passing *that* to the task deffiniton. (This is at least possible in python, maybe add this in after switching to CDK? [filter instances](https://docs.aws.amazon.com/code-library/latest/ug/ec2_example_ec2_DescribeInstanceTypes_section.html))
+  - Also by removing the second container, this lets you use a lambda/cron to see when people disconnect from the game, so it'd be amazingly cheap.
 
 - Get EFS working. Just let it talk to EC2 with networking, need to setup permissions. Thought the container was killing itself because of health check, so I disabled it, BUT it might be EFS not connecting that kills it. Can remove health check code after to see if it was also killing it.
   - Basic EFS + Fargate Guide: <https://aws.amazon.com/blogs/containers/developers-guide-to-using-amazon-efs-with-amazon-ecs-and-aws-fargate-part-3/>
