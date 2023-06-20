@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: >-
-  AWS CloudFormation sample template. 
-  Create a custom VPC with a pair of public and private subnets spread across two AZs
+  Spin up EC2 when someone tries to connect to it,
+  then destroy it when they're done! (Eventually...)
 
 ## =================== PARAMETERS =================== #
 Parameters:
@@ -45,7 +45,7 @@ Mappings:
 Resources:
 
   #############################
-  ## Services inside the VPC ##
+  ## Services INSIDE the VPC ##
   #############################
 
   # To control the overall manager/cluster:
@@ -54,9 +54,7 @@ Resources:
     Type: AWS::ECS::Service
     Properties:
       DesiredCount: 0
-      # TODO: add option to toggle to FARGATE_SPOT too
-      LaunchType: FARGATE
-      TaskDefinition: !Ref FargateTask
+      TaskDefinition: !Ref EcsTask
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
@@ -75,14 +73,10 @@ Resources:
           Rollback: False
 
   # What a single object in the cluster looks like:
-  FargateTask:
+  EcsTask:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      RequiresCompatibilities:
-        - "FARGATE"
       ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
-      # List of acceptable Cpu/Memory combo's here:
-      # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
       Cpu: 2048
       Memory: 8192
       # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking-awsvpc.html
@@ -91,8 +85,8 @@ Resources:
       ContainerDefinitions:
         - Name: !Sub "GameManager-${AWS::StackName}"
           # TODO: Cache this in same region AWS, so you don't pull a new image from dockerhub
-          #       every time someone joins the server. (SUPER slow windup time)
-          #       Fargate doesn't support this directly, might have to do a cron-lambda with
+          #       every time someone joins the server. (SUPER slow windup time).
+          #       Might have to do a cron-lambda with:
           #       ECR: https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html
           Image: !Ref GameContainer
           MemoryReservation: 2048
@@ -104,7 +98,6 @@ Resources:
             - Name: EULA
               Value: "TRUE"
 
-            ####################################### START - Health check stuff that might not be important
             # Doing this since server was stopped from rcon command. BUT security group only opens up
             # 25565, NOT 25575 which rcon listens on... Not sure what happened here...
             - Name: ENABLE_RCON
@@ -117,19 +110,19 @@ Resources:
             # Adding this to debug/test:
             - Name: DISABLE_HEALTHCHECK
               Value: "true"
-          HealthCheck:
-            Command:
-                - "CMD-SHELL"
-                - "echo hello"
-            Interval: 5
-            Retries: 2
-            Timeout: 3
+          # HealthCheck:
+          #   Command:
+          #       - "CMD-SHELL"
+          #       - "echo hello"
+          #   Interval: 5
+          #   Retries: 2
+          #   Timeout: 3
             ####################################### START - Health check stuff that might not be important
 
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref FargateTaskLogGroup
+              awslogs-group: !Ref EcsTaskLogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-create-group: true
               awslogs-stream-prefix: GameManager
@@ -177,13 +170,13 @@ Resources:
           FromPort: !Ref GamePort
           ToPort: !Ref GamePort
           CidrIp: 0.0.0.0/0
-        - Description: For enabling EFS access
-          IpProtocol: tcp
-          FromPort: 2049
-          ToPort: 2049
-          CidrIp: !Ref VpcCIDR
+        # - Description: For enabling EFS access
+        #   IpProtocol: tcp
+        #   FromPort: 2049
+        #   ToPort: 2049
+        #   CidrIp: !Ref myVPC
 
-  FargateTaskLogGroup:
+  EcsTaskLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
       LogGroupName: !Sub '/aws/ecs/GameManager-${AWS::StackName}'
@@ -211,7 +204,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
-                Resource: !GetAtt FargateTaskLogGroup.Arn
+                Resource: !GetAtt EcsTaskLogGroup.Arn
 
   ######################
   ## Networking Stuff ##

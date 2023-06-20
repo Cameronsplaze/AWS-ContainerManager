@@ -14,7 +14,6 @@ To create your own stack:
 aws --region us-west-2 cloudformation deploy --capabilities CAPABILITY_NAMED_IAM --template-file stack.yml --stack-name STACK_NAME_HERE
 ```
 
-There's params inside `stack.yml` that you can override, but defaults to minecraft for now.
 
 ## Devel Stuff
 
@@ -33,33 +32,27 @@ Linting the CF file gives output faster than deploying. First check for errors a
 cfn-lint stack.yml
 ```
 
-## Notes
-
-- [Services will always maintain the desired number of tasks and this behavior can't be modified](https://stackoverflow.com/questions/51701260/how-can-i-do-to-not-let-the-container-restart-in-aws-ecs), so it'll be up to the Watchdog, to set desired count back to 0 if the container is failing to start.
-
-## TODO
+## TODO (In order)
 
 Quick notes on where I left of, for when I pick this up again one day (Hopefully in order of importance):
 
-- Found ECS / EC2 file. Should be cheaper than fargate?: https://github.com/nathanpeck/ecs-cloudformation/blob/master/cluster/cluster-ec2-private-vpc.yml
-  - Nice guide on [ECS here](https://www.freecodecamp.org/news/amazon-ecs-terms-and-architecture-807d8c4960fd/). If I understand it right, use one ECS Cluster per game. This lets you scale up one Container Instance, along with one AutoScaling Group. I think you can grab the instance through boto3, and communicate with that directly, removing the need for a second container to route traffic through? The instance runs some form of docker, so watch the network connections to that.
-    - Is there a way in cloudformation to grab the vCPU/Memory of an instance? This would let you only pass in one param (instance type) to CF, then subtract 1 CPU/Mem before passing *that* to the task deffiniton. (This is at least possible in python, maybe add this in after switching to CDK? [filter instances](https://docs.aws.amazon.com/code-library/latest/ug/ec2_example_ec2_DescribeInstanceTypes_section.html))
-  - Also by removing the second container, this lets you use a lambda/cron to see when people disconnect from the game, so it'd be amazingly cheap.
+- Start splitting up each cloudformation chunk into it's own yml. Almost have VPC, need to do ECS. [This link here](https://github.com/aws-samples/ecs-refarch-cloudformation/blob/master/master.yaml) has it kinda. Use dependency stacks instead so we don't have to re-build EVERYTHING from scratch. This'll speed up deployment so we don't have to wait for VPC/etc to constantly rebuild to see if LoadBalancer can deploy, for example.
+
+- Rewriting ECS + Load Balancer:
+  - <https://github.com/nathanpeck/ecs-cloudformation#privately-networked-service-with-public-load-balancer>
+  - Didn't use above link yet. I'm stuck on getting the Load Balancer Group to talk with the containers, health check keeps failing. Above is HTTP Group, so I'm trying adding a minimal nginx server to respond to http requests.
+
+- Add minimal Makefile, to add/remove container and task. Simulate spinning up/down the container.
 
 - Get EFS working. Just let it talk to EC2 with networking, need to setup permissions. Thought the container was killing itself because of health check, so I disabled it, BUT it might be EFS not connecting that kills it. Can remove health check code after to see if it was also killing it.
   - Basic EFS + Fargate Guide: <https://aws.amazon.com/blogs/containers/developers-guide-to-using-amazon-efs-with-amazon-ecs-and-aws-fargate-part-3/>
   - Complicated but complete example: <https://github.com/aws-samples/drupal-on-ecs-fargate/blob/4258e15cb9d4b013612adfabcd61479e56e04565/template/template.yaml#L470>
 
-- Instead of using lambda + ssm to talk with ecs and see if users are active, would using a custom [ecs healthcheck](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-healthcheck.html) work? (Probably not, I'm guessing you can't set the desired count to 0, so a new container would just start up again eventually....)
-  - Was thinking lambda + ssm to run netstat inside the ec2 task, BUT that requires the container to have netstat installed, and we want this to work with ANY container the user might throw at us. (Another reason the health check idea is bad too.). Maybe having a separate container and route the traffic through THAT is the way to go.
+- See if you can jump into the ECS Host, and see the docker connection traffic to the containers. (If not, maybe the load balancer can?). Then Create a lambda that can grab that info.
 
-- The EFS is in the same subnet (public) as EC2 is running in. Should it be private, and edit security groups between the two? Or should we drop the private subnet entirely?
+- Have lambda control the ECS container, to spin it up and down.
 
-- In the VPC, there's one AWS::EC2::RouteTable for the public side, but each private subnet has their own. Why?? Is this a place we can simplify? Guide I worked from at: <https://dev.to/tiamatt/hands-on-aws-cloudformation-part-4-create-vpc-with-private-and-public-subnets-85d>.
-
-- When a container first starts, it takes a bit since it PULLS a fresh one from Dockerhub. Look into having the container mirrored in ECR, and how to keep that up to date (Maybe cron? Is there a built in automatic way?). Pulls from the same ECR region are insanely fast. (Setup rules since you only ever need one, no backups, and get's nuked if you switch to a new container/game in the same stack. That's what the original repo is for).
-
-- Split apart the VPC stack, from the "GameManager" stack. Each instance of a GameManager, runs a *single* game, and multiple can be tied to the same VPC stack.
+- Figure out routing, Route53 stuff. Basically finish off the automation.
 
 - Covert to CDK from cloudfront (Mayyybe do sooner, might solve some other problems by letting us dynamically create subnets, and attach EFS to each one; etc.).
 
