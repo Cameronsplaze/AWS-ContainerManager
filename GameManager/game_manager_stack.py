@@ -75,7 +75,8 @@ class GameManagerStack(Stack):
             )
         )
 
-        self.auto_scaling_group = autoscaling.AutoScalingGroup(self, f"{construct_id}-ASG",
+        self.auto_scaling_group = autoscaling.AutoScalingGroup(self,
+            "auto-scaling-group",
             vpc=self.vpc,
             instance_type=ec2.InstanceType("m5.large"),
             machine_image=ecs.EcsOptimizedImage.amazon_linux(),
@@ -85,7 +86,12 @@ class GameManagerStack(Stack):
             min_capacity=0,
             max_capacity=1,
         )
-        self.capacity_provider = ecs.AsgCapacityProvider(self, f"{construct_id}-AsgCapacityProvider", auto_scaling_group=self.auto_scaling_group)
+        self.capacity_provider = ecs.AsgCapacityProvider(
+            self,
+            "AsgCapacityProvider",
+            # capacity_provider_name=f"{construct_id}-AsgCapacityProvider",
+            auto_scaling_group=self.auto_scaling_group
+        )
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
 
         self.task_definition = ecs.Ec2TaskDefinition(
