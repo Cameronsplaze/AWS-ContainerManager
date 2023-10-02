@@ -2,7 +2,9 @@ SHELL:=/bin/bash
 .SILENT:
 .ONESHELL:
 # Default action:
-.PHONY := c
+.DEFAULT_GOAL := cdk-deploy
+# Force these to be commands, NOT files:
+.PHONY := cdk-deploy cdk-synth cdk-bootstrap
 
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
@@ -15,7 +17,9 @@ guard-%:
 cdk-deploy:
 	echo "Deploying Stack..." && \
 	. ~/.nvm/nvm.sh && \
-	cdk deploy --require-approval never --no-previous-parameters
+	cdk deploy \
+		--require-approval never \
+		--no-previous-parameters
 
 cdk-synth:
 	echo "Synthesizing Stack..." && \
