@@ -63,6 +63,12 @@ Currently the most processing. Exposing the EC2 instance directly to the interne
 
 - Figure out routing, Route53 stuff. Basically finish off the automation.
 
+### Phase 3, Split apart to run multiple games
+
+- Make sure they're locked down from each other too.
+
+### Slides
+
 All DoI Slides (Private):
 
 - <https://docs.google.com/presentation/d/1WiPHAqWpCft2M5jKnNh05txxDQSTm5wNUTH-mmoHbgw/edit#slide=id.g35f391192_00>
