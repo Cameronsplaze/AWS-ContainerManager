@@ -14,18 +14,27 @@ guard-%:
         exit 1; \
     fi
 
+#####################
+## Generic Helpers ##
+#####################
 cdk-deploy:
 	echo "Deploying Stack..." && \
-	. ~/.nvm/nvm.sh && \
 	cdk deploy \
 		--require-approval never \
 		--no-previous-parameters
 
 cdk-synth:
 	echo "Synthesizing Stack..." && \
-	. ~/.nvm/nvm.sh && \
 	cdk synth
 
+cdk-destroy:
+	echo "Destroying Stack..." && \
+	cdk destroy \
+		--force
+
+#######################
+## One Time Commands ##
+#######################
 cdk-bootstrap: guard-AWS_REGION
 	# This needs to be run once per account/region
 	if [ -z "${AWS_DEFAULT_PROFILE}" ]; then echo "WARNING: AWS_DEFAULT_PROFILE is not set"; fi && \
