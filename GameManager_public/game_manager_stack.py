@@ -9,8 +9,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-# DOCKER_IMAGE = "amazon/amazon-ecs-sample"
-DOCKER_IMAGE = "nginx:latest"
+DOCKER_IMAGE = "amazon/amazon-ecs-sample"
+# DOCKER_IMAGE = "nginx:latest"
 PORT = 80
 
 def get_param(stack: Stack, key: str, default: str=None, param_type: str="String", description: str="") -> str:
@@ -57,19 +57,18 @@ class GameManagerStack(Stack):
         # NOTE: No cost for Internet Gateways. Try to avoid having instances
         # getting public IP's by putting them behind a network load balancer
 
-        ## HTTPS Out Security Group:
+        ## ECS / EC2 Security Group (Same since using bridge I think?):
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SecurityGroup.html
-        self.sg_allow_https_out = ec2.SecurityGroup(self, "sg-https-traffic-out", vpc=self.vpc, allow_all_outbound=False)
+        self.sg_ecs_traffic = ec2.SecurityGroup(self, "sg-https-traffic-out", vpc=self.vpc, allow_all_outbound=False)
         self.sg_allow_https_out.connections.allow_to(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(443),
-            description="Allow HTTPS traffic OUT. For updates, and letting ECS talk with EC2 to register instances",
+            description="Allow HTTPS traffic OUT. Let ECS talk with EC2 to register instances",
         )
-
-        self.sg_allow_game_traffic_in = ec2.SecurityGroup(self, "sg-game-traffic-in", vpc=self.vpc, allow_all_outbound=False)
-        self.sg_allow_game_traffic_in.connections.allow_from(
+        self.sg_ecs_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(PORT),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
+            description="Game port to open traffic IN from",
         )
 
         ## Permissions for inside the container:
@@ -98,8 +97,8 @@ class GameManagerStack(Stack):
             # machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
             # machine_image=ec2.MachineImage.latest_amazon_linux(), # <--- Check if this pulls 2023 or what (if EcsOptimizedImage version exists)
             machine_image=ecs.EcsOptimizedImage.amazon_linux(),
-            # Needs https-out for registering to the cluster and updates:
-            security_group=self.sg_allow_https_out,
+            # Lets Specific traffic to/from the instance:
+            security_group=self.sg_ecs_traffic,
             user_data=self.ec2_user_data,
             role=self.ec2_role,
         )

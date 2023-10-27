@@ -6,55 +6,62 @@ An AWS manager to run games in the CLOUD!!!
 
 To create your own stack:
 
-1) Setup access keys. You can figure it out.
-
-2) Run something like:
-
 ```bash
-aws --region us-west-2 cloudformation deploy --capabilities CAPABILITY_NAMED_IAM --template-file stack.yml --stack-name STACK_NAME_HERE
+export AWS_PROFILE=your-profile
+export AWS_REGION=your-region
+make cdk-deploy
 ```
-
 
 ## Devel Stuff
 
-Setup a basic virtual environment, with the different packages:
+### GameManager_private Stack
 
-```bash
-sudo apt install python3-pip python3-virtualenv # I think? It's been a bit since I installed this. Don't use the (pip install virtualenv) version though
-virtualenv --python=python3 ~/GameManager-env
-source ~/GameManager-env/bin/activate
-python3 -m pip install boto3 cfn-lint
-```
+The idea of this stack was to have ec2 run in a private subnet, and have traffic route through NAT. The problem is you need one NAT per subnet, and they cost ~$32/month EACH. For this project to be usable, it has to cost less than ~$120/year.
 
-Linting the CF file gives output faster than deploying. First check for errors after editing it:
+Instead of a NAT, you can also have it in the public subnet, take the pubic IP away, and point a Network Load Balancer to it. Problem is they cost ~$194/year.
 
-```bash
-cfn-lint stack.yml
-```
+### GameManager_public Stack
+
+Currently the most processing. Exposing the EC2 instance directly to the internet isn't recommended for security, but I'm trying to lock down traffic as much as possible in the VPC/Security Groups. I keep thinking about changing this to Fargate in the future, there's lots of pros/cons to both.
+
+`awsvpc` requires being inside a private subnet for EC2, which goes into the cost mentioned in the private stack. Fargate can use `awsvpc`, need to research if **it** can in a public subnet. (Might switch to if the startup time hit is worth it.).
+
+#### ECS: EC2 vs Fargate
+
+**EC2**:
+
+- Pros:
+  - Networking `Bridge` mode spins up a couple seconds faster than `awsvpc`, due to the ENI card being attached.
+
+**Fargate**:
+
+- Pros:
+  - `awsvpc` is considered more secure, since you can use security groups to stop applications from talking. (It says "greater flexibility to control communications between tasks and services at a more granular level". With how this project is organized, each task will have it's own instance anyways. Maybe we can still lock down at the instance level?).
+  - `awsvpc` supports both Windows AND Linux containers.
+
+- Cons:
+  - Fargate does not cache images, would have to mirror ANY possible image in ECR. (<https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html>).
+  - No access to underlying AMI nor the configuration files (`/etc/ecs/ecs.config`)
 
 ## TODO (In order)
 
-Quick notes on where I left of, for when I pick this up again one day (Hopefully in order of importance):
+### Phase 1, MVP
 
-- Start splitting up each cloudformation chunk into it's own yml. Almost have VPC, need to do ECS. [This link here](https://github.com/aws-samples/ecs-refarch-cloudformation/blob/master/master.yaml) has it kinda. Use dependency stacks instead so we don't have to re-build EVERYTHING from scratch. This'll speed up deployment so we don't have to wait for VPC/etc to constantly rebuild to see if LoadBalancer can deploy, for example.
+- Get a basic script to spin up/down the ec2 instance + task. This is NOT automating it with DNS yet. Mainly to be a good segway to that, and have a tool to start measuring/optimizing startup time.
 
-- Rewriting ECS + Load Balancer:
-  - <https://github.com/nathanpeck/ecs-cloudformation#privately-networked-service-with-public-load-balancer>
-  - Didn't use above link yet. I'm stuck on getting the Load Balancer Group to talk with the containers, health check keeps failing. Above is HTTP Group, so I'm trying adding a minimal nginx server to respond to http requests.
-
-- Add minimal Makefile, to add/remove container and task. Simulate spinning up/down the container.
+- Get container to Cache `ECS_IMAGE_PULL_BEHAVIOR: prefer-cached` (if EC2/ECS route): [details here](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html#ec2-pull-behavior).
 
 - Get EFS working. Just let it talk to EC2 with networking, need to setup permissions. Thought the container was killing itself because of health check, so I disabled it, BUT it might be EFS not connecting that kills it. Can remove health check code after to see if it was also killing it.
   - Basic EFS + Fargate Guide: <https://aws.amazon.com/blogs/containers/developers-guide-to-using-amazon-efs-with-amazon-ecs-and-aws-fargate-part-3/>
   - Complicated but complete example: <https://github.com/aws-samples/drupal-on-ecs-fargate/blob/4258e15cb9d4b013612adfabcd61479e56e04565/template/template.yaml#L470>
+
+### Phase 2, Automation
 
 - See if you can jump into the ECS Host, and see the docker connection traffic to the containers. (If not, maybe the load balancer can?). Then Create a lambda that can grab that info.
 
 - Have lambda control the ECS container, to spin it up and down.
 
 - Figure out routing, Route53 stuff. Basically finish off the automation.
-
-- Covert to CDK from cloudfront (Mayyybe do sooner, might solve some other problems by letting us dynamically create subnets, and attach EFS to each one; etc.).
 
 All DoI Slides (Private):
 
