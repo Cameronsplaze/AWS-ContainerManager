@@ -1,3 +1,5 @@
+import os
+
 from aws_cdk import (
     Stack,
     CfnParameter,
