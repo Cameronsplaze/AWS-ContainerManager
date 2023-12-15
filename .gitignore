@@ -132,3 +132,5 @@ dmypy.json
 *.swp
 .cdk.staging
 cdk.out
+# This has account id's stored in it
+cdk.context.json
