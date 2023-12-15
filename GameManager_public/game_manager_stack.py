@@ -85,9 +85,8 @@ class GameManagerStack(Stack):
             "ASG-LaunchTemplate",
             instance_type=ec2.InstanceType(self.instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
-            # machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
-            # machine_image=ec2.MachineImage.latest_amazon_linux(), # <--- Check if this pulls 2023 or what (if EcsOptimizedImage version exists)
-            machine_image=ecs.EcsOptimizedImage.amazon_linux(),
+            machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
+            # machine_image=ecs.EcsOptimizedImage.amazon_linux(),
             # Lets Specific traffic to/from the instance:
             security_group=self.sg_ecs_traffic,
             user_data=self.ec2_user_data,
@@ -124,7 +123,6 @@ class GameManagerStack(Stack):
         self.capacity_provider = ecs.AsgCapacityProvider(
             self,
             "AsgCapacityProvider",
-            # capacity_provider_name=f"{construct_id}-AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
             # machine_image_type=ecs.MachineImageType.AMAZON_LINUX_2,
             # Let me delete the stack!!:
