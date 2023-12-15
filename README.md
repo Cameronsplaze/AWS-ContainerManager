@@ -4,6 +4,8 @@
 
 An AWS manager to run games in the CLOUD!!!
 
+First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html), and then run `python3 -m pip install -r requirements.txt` to install all the dependencies.
+
 To create your own stack:
 
 ```bash
