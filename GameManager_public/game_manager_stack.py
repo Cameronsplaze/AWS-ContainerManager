@@ -11,36 +11,26 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from .get_param import get_param
+
+### Defaults, override with env vars
 DOCKER_IMAGE = "amazon/amazon-ecs-sample"
 # DOCKER_IMAGE = "nginx:latest"
-PORT = 80
+# DOCKER_IMAGE = "itzg/minecraft-server"
+GAME_PORT = 80
+INSTANCE_TYPE = "m5.large"
 
-def get_param(stack: Stack, key: str, default: str=None, param_type: str="String", description: str="") -> str:
-    val = os.environ.get(key) or default
-    if val is None:
-        raise ValueError(f"Missing required parameter: '{key}', and no default is set.")
-
-    # This is to see what the stack was deployed with in the cfn parameters tab:
-    CfnParameter(
-        stack,
-        key,
-        type=param_type,
-        default=val,
-        # Since changing it in the console won't do anything, don't let them:
-        allowed_values=[val],
-        description=f"{description}{' ' if description else ''}(Re-deploy to change me!)"
-    )
-
-    # If you're expecting a number, change it away from a string:
-    #   (CfnParameter *wants* the input as a string, but nothing else does)
-    if param_type == "Number":
-        val = float(val) if "." in val else int(val)
-    return val
 
 class GameManagerStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        self.docker_image = get_param(self, "DOCKER_IMAGE", default=DOCKER_IMAGE)
+        self.game_port = get_param(self, "GAME_PORT", default=GAME_PORT, param_type="Number")
+
+        self.instance_type = get_param(self, "INSTANCE_TYPE", default=INSTANCE_TYPE)
+
 
         # Create a Public VPC to run instances in:
         self.vpc = ec2.Vpc(
@@ -52,7 +42,6 @@ class GameManagerStack(Stack):
                 ec2.SubnetConfiguration(
                     name=f"public-{construct_id}",
                     subnet_type=ec2.SubnetType.PUBLIC,
-                    cidr_mask=24,
                 )
             ]
         )
@@ -61,15 +50,15 @@ class GameManagerStack(Stack):
 
         ## ECS / EC2 Security Group (Same since using bridge I think?):
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SecurityGroup.html
-        self.sg_ecs_traffic = ec2.SecurityGroup(self, "sg-https-traffic-out", vpc=self.vpc, allow_all_outbound=False)
-        self.sg_allow_https_out.connections.allow_to(
+        self.sg_ecs_traffic = ec2.SecurityGroup(self, "sg-ecs-traffic", vpc=self.vpc, allow_all_outbound=False)
+        self.sg_ecs_traffic.connections.allow_to(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(443),
             description="Allow HTTPS traffic OUT. Let ECS talk with EC2 to register instances",
         )
         self.sg_ecs_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(PORT),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
+            ec2.Port.tcp(self.game_port),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
             description="Game port to open traffic IN from",
         )
 
@@ -94,7 +83,7 @@ class GameManagerStack(Stack):
         self.launch_template = ec2.LaunchTemplate(
             self,
             "ASG-LaunchTemplate",
-            instance_type=ec2.InstanceType("m5.large"),
+            instance_type=ec2.InstanceType(self.instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
             # machine_image=ec2.MachineImage.latest_amazon_linux(), # <--- Check if this pulls 2023 or what (if EcsOptimizedImage version exists)
@@ -160,10 +149,9 @@ class GameManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_container
         self.task_definition.add_container(
             "game-container",
-            # image=ecs.ContainerImage.from_registry("itzg/minecraft-server"),
-            image=ecs.ContainerImage.from_registry(DOCKER_IMAGE),
+            image=ecs.ContainerImage.from_registry(self.docker_image),
             port_mappings=[
-                ecs.PortMapping(host_port=PORT, container_port=PORT, protocol=ecs.Protocol.TCP),
+                ecs.PortMapping(host_port=self.game_port, container_port=self.game_port, protocol=ecs.Protocol.TCP),
             ],
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,
