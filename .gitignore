@@ -134,3 +134,6 @@ dmypy.json
 cdk.out
 # This has account id's stored in it
 cdk.context.json
+
+# Secret files
+vars.env
