@@ -21,11 +21,14 @@ cdk-deploy:
 	echo "Deploying Stack..." && \
 	cdk deploy \
 		--require-approval never \
-		--no-previous-parameters
+		--no-previous-parameters \
+		--all \
+		--profile cs-personal
 
 cdk-synth:
 	echo "Synthesizing Stack..." && \
-	cdk synth
+	cdk synth \
+		--profile cs-personal
 
 cdk-destroy:
 	echo "Destroying Stack..." && \
