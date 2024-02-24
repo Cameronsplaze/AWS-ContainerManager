@@ -2,11 +2,13 @@ import os
 
 from aws_cdk import (
     Stack,
-    CfnParameter,
+    Duration,
+    RemovalPolicy,
+    aws_lambda,
     aws_ec2 as ec2,
     aws_ecs as ecs,
-    aws_ecs_patterns as ecs_patterns,
     aws_iam as iam,
+    aws_efs as efs,
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
@@ -14,11 +16,14 @@ from constructs import Construct
 from .get_param import get_param
 
 ### Defaults, override with env vars
-DOCKER_IMAGE = "amazon/amazon-ecs-sample"
+# DOCKER_IMAGE = "amazon/amazon-ecs-sample"
 # DOCKER_IMAGE = "nginx:latest"
-# DOCKER_IMAGE = "itzg/minecraft-server"
-GAME_PORT = 80
+DOCKER_IMAGE = "itzg/minecraft-server"
+# GAME_PORT = 80
+GAME_PORT = 25565
 INSTANCE_TYPE = "m5.large"
+
+DATA_DIR = "/data"
 
 
 class GameManagerStack(Stack):
@@ -107,12 +112,33 @@ class GameManagerStack(Stack):
         )
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
 
+        ## Persistent Storage:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
+        self.efs_file_system = efs.FileSystem(
+            self,
+            "efs-file-system",
+            vpc=self.vpc,
+            # TODO: Just for developing. Keep users minecraft worlds SAFE!!
+            # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
+        ## Access the Persistent Storage:
+        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_efs/AccessPoint.html
+        self.access_point = efs.AccessPoint(
+            self,
+            "efs-access-point",
+            file_system=self.efs_file_system,
+        )
+
+
         ## The details of a task definition run on an EC2 cluster.
         # (Root task definition, attach containers to this)
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html
         self.task_definition = ecs.Ec2TaskDefinition(
             self,
             "task-definition",
+
             ## TODO: Says this can be locked down the most, and works with both windows/linux containers:
             ## BUT no way to assign it a public IP I can find. Compare with other MC Stack, see if they create
             ## A NAT or not. If they do, they're hella expensive though. (https://github.com/aws/aws-cdk/issues/13348)
@@ -120,9 +146,41 @@ class GameManagerStack(Stack):
             # execution_role= ecs agent permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for inside the container
         )
-        ## Details for the Minecraft Container:
+        self.volume_name = "efs-volume"
+        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
+        self.task_definition.add_volume(
+            name=self.volume_name,
+            efs_volume_configuration=ecs.EfsVolumeConfiguration(
+                file_system_id=self.efs_file_system.file_system_id,
+                authorization_config=ecs.AuthorizationConfig(
+                    access_point_id=self.access_point.access_point_id,
+                    # TODO: Look into enabling this:
+                    # iam="ENABLED",
+                ),
+                transit_encryption="ENABLED",
+            ),
+        )
+
+        # Allow the task to mount and Access EFS
+        self.task_definition.add_to_task_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "elasticfilesystem:ClientMount",
+                    "elasticfilesystem:ClientRootAccess",
+                    "elasticfilesystem:ClientWrite",
+                    "elasticfilesystem:DescribeMountTargets",
+                ],
+                # resources=[f"arn:aws:elasticfilesystem:{self.region}:{self.account}:file-system/{self.efs_file_system.file_system_id}"],
+                resources=[self.efs_file_system.file_system_arn],
+            )
+        )
+
+        ## Details for add_container:
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_container
-        self.task_definition.add_container(
+        ## And what it returns:
+        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/ContainerDefinition.html#aws_cdk.aws_ecs.ContainerDefinition
+        self.container = self.task_definition.add_container(
             "game-container",
             image=ecs.ContainerImage.from_registry(self.docker_image),
             port_mappings=[
@@ -132,8 +190,30 @@ class GameManagerStack(Stack):
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
-            # volumes= maybe persistent storage later on? Also has '.add_volume' method
         )
+        self.container.add_mount_points(
+            ecs.MountPoint(
+                container_path=DATA_DIR,
+                source_volume=self.volume_name,
+                read_only=False,
+            )
+        )
+
+
+        ## NO need for this I think? allow all outbound is the default anyways
+        # ## Container Security Group, to allow EFS traffic
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
+        # self.container_sg = ec2.SecurityGroup(
+        #     self,
+        #     "container-sg",
+        #     vpc=self.vpc,
+        #     description="Security Group for the container, allows EFS traffic",
+        # )
+        # self.container_sg.connections.allow_to(
+        #     self.efs_file_system.connections,
+        #     port_range=ec2.Port.tcp(2049),
+        #     description="Allow EFS traffic",
+        # )
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
@@ -150,6 +230,34 @@ class GameManagerStack(Stack):
             },
             ## security_groups is only valid with AWS_VPC network mode:
             # security_groups=[self.sg_allow_game_traffic_in],
+        )
+        self.efs_file_system.connections.allow_default_port_from(self.ec2_service.connections)
+
+        # Classic Lambda Function - for scaling up/down the container
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+        self.scale_container_lambda = aws_lambda.Function(
+            self,
+            "scale-container-lambda",
+            description="Triggers the services and instance to scale up or down.",
+            code=aws_lambda.Code.from_asset("./lambda-scale-container/"),
+            handler="lambda_handler",
+            runtime=aws_lambda.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(300),
+            # Lambda Functions in a public subnet can NOT access the internet.
+            # This just acknowledges that.
+            allow_public_subnet=True,
+            environment={
+                "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
+                "ECS_CLUSTER_SERVICE": self.ec2_service.service_name,
+                "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
+            },
+            # Events to trigger this function. TODO:
+            events=[],
+            # Any permissions this function will need (PolicyStatement):
+            initial_policy=[],
+            # VPC Permissions, might need to scale up EC2:
+            vpc=self.vpc,
+            security_groups=[],
         )
 
         ## TODO: When getting to auto-scaling ec2 instance, this might help? Supposed to grab
