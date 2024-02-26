@@ -67,4 +67,4 @@ def update_ecs_service(desired_count: int) -> dict:
     return response
 
 
-update_ecs_container(spin_up_container=True)
+update_ecs_container(spin_up_container=False)

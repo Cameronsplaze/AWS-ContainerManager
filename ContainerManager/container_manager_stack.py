@@ -18,13 +18,13 @@ from constructs import Construct
 from .get_param import get_param
 
 ### Defaults, override with env vars
-# DOCKER_IMAGE = "amazon/amazon-ecs-sample"
 # DOCKER_IMAGE = "nginx:latest"
-DOCKER_IMAGE = "itzg/minecraft-server"
 # GAME_PORT = 80
+DOCKER_IMAGE = "itzg/minecraft-server"
 GAME_PORT = 25565
-INSTANCE_TYPE = "m5.large"
 
+
+INSTANCE_TYPE = "m5.large"
 DATA_DIR = "/data"
 
 container_environment = {
@@ -77,7 +77,7 @@ class ContainerManagerStack(Stack):
         )
         Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/sg-container-traffic")
         self.sg_container_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),           # <---- TODO: Once stack is working again, test if this can be from VPC group instead
+            ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from vpc"? The sg_vpc_traffic doesn't do it.
             # self.sg_vpc_traffic,           
             ec2.Port.tcp(self.game_port),
             description="Game port to open traffic IN from",
@@ -120,7 +120,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
         self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
 
-        ## For Running Commands (on container creation I think?)
+        ## For Running Commands (on container creation I think? Keeping just in case we need it later)
         self.ec2_user_data = ec2.UserData.for_linux()
         # self.ec2_user_data.add_commands()
 
@@ -131,8 +131,8 @@ class ContainerManagerStack(Stack):
             "ASG-LaunchTemplate",
             instance_type=ec2.InstanceType(self.instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
+            # (There's also a windows version, long term TODO).
             machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
-            # machine_image=ecs.EcsOptimizedImage.amazon_linux(),
             # Lets Specific traffic to/from the instance:
             security_group=self.sg_container_traffic,
             user_data=self.ec2_user_data,
@@ -154,13 +154,12 @@ class ContainerManagerStack(Stack):
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
         # Can ensure that instances are not prematurely terminated while there are still tasks running on them.
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/AsgCapacityProvider.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AsgCapacityProvider.html
         self.capacity_provider = ecs.AsgCapacityProvider(
             self,
             "AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
-            # machine_image_type=ecs.MachineImageType.AMAZON_LINUX_2,
-            # Let me delete the stack!!:
+            # To let me delete the stack!!:
             enable_managed_termination_protection=False,
         )
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
@@ -175,9 +174,7 @@ class ContainerManagerStack(Stack):
             # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
             removal_policy=RemovalPolicy.DESTROY,
             security_group=self.sg_efs_traffic,
-            # TODO: Fix this
-            # allow_anonymous_access=False,
-            allow_anonymous_access=True,
+            allow_anonymous_access=False,
         )
 
         ## Access the Persistent Storage:
@@ -225,13 +222,13 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
         self.task_definition.add_volume(
             name=self.volume_name,
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
             efs_volume_configuration=ecs.EfsVolumeConfiguration(
                 file_system_id=self.efs_file_system.file_system_id,
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
                 authorization_config=ecs.AuthorizationConfig(
                     access_point_id=self.access_point.access_point_id,
-                    # TODO: Fix this:
-                    # iam="ENABLED",
-                    iam="DISABLED",
+                    iam="ENABLED",
                 ),
                 transit_encryption="ENABLED",
             ),
