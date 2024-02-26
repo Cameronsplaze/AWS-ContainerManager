@@ -22,18 +22,17 @@ cdk-deploy:
 	cdk deploy \
 		--require-approval never \
 		--no-previous-parameters \
-		--all \
-		--profile cs-personal
+		--all
 
 cdk-synth:
 	echo "Synthesizing Stack..." && \
-	cdk synth \
-		--profile cs-personal
+	cdk synth
 
 cdk-destroy:
 	echo "Destroying Stack..." && \
 	cdk destroy \
-		--force
+		--force \
+		--all
 
 #######################
 ## One Time Commands ##

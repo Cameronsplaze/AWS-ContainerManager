@@ -34,10 +34,20 @@ class VpcBaseStack(Stack):
 
         ## ECS / EC2 Security Group (Same since using bridge I think?):
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SecurityGroup.html
-        self.sg_ecs_traffic = ec2.SecurityGroup(self, "sg-ecs-traffic", vpc=self.vpc, allow_all_outbound=False)
-        self.sg_ecs_traffic.connections.allow_to(
+        self.sg_vpc_traffic = ec2.SecurityGroup(
+            self,
+            "sg-vpc-traffic",
+            description="Traffic for the VPC itself",
+            vpc=self.vpc,
+            allow_all_outbound=False
+        )
+        self.sg_vpc_traffic.connections.allow_to(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(443),
             description="Allow HTTPS traffic OUT. Let ECS talk with EC2 to register instances",
         )
-
+        # self.sg_vpc_traffic.connections.allow_to(
+        #     ec2.Peer.any_ipv4(),
+        #     ec2.Port.tcp(2049),
+        #     description="Allow EFS traffic OUT. Let ECS talk with EFS for persistent storage",
+        # )

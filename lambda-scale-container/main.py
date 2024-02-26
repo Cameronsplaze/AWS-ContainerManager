@@ -6,9 +6,9 @@ import boto3
 
 
 # Hard coded for now, will pass in as an env var eventually:
-ECS_CLUSTER_NAME = "GameManagerStack-ecs-cluster"
-ECS_CLUSTER_SERVICE = "GameManagerStack-ec2serviceServiceCAD2C483-TjTSbRQFMVHo"
-ASG_NAME = "GameManagerStack-ASG46ED3070-FEtdKSzDl6ds"
+ECS_CLUSTER_NAME = "ContainerManagerStack-ecs-cluster"
+ECS_CLUSTER_SERVICE = "ContainerManagerStack-ec2serviceServiceCAD2C483-vcsf0uelxIWm"
+ASG_NAME = "ContainerManagerStack-ASG46ED3070-mXdBkZhmnv6Y"
 
 required_vars = ["AWS_REGION"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
@@ -69,4 +69,4 @@ def update_ecs_service(desired_count: int) -> dict:
     return response
 
 
-update_ecs_container(spin_up_container=False)
+update_ecs_container(spin_up_container=True)

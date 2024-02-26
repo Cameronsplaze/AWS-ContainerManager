@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_iam as iam,
     aws_efs as efs,
+    aws_logs as logs,
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
@@ -17,18 +18,18 @@ from .get_param import get_param
 
 ### Defaults, override with env vars
 # DOCKER_IMAGE = "amazon/amazon-ecs-sample"
-# DOCKER_IMAGE = "nginx:latest"
-DOCKER_IMAGE = "itzg/minecraft-server"
-# GAME_PORT = 80
+DOCKER_IMAGE = "nginx:latest"
+# DOCKER_IMAGE = "itzg/minecraft-server"
+GAME_PORT = 80
 GAME_PORT = 25565
 INSTANCE_TYPE = "m5.large"
 
 DATA_DIR = "/data"
 
 
-class GameManagerStack(Stack):
+class ContainerManagerStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, vpc, sg_ecs_traffic, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, vpc, sg_vpc_traffic, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.docker_image = get_param(self, "DOCKER_IMAGE", default=DOCKER_IMAGE)
@@ -36,13 +37,56 @@ class GameManagerStack(Stack):
         self.instance_type = get_param(self, "INSTANCE_TYPE", default=INSTANCE_TYPE)
 
         self.vpc = vpc
-        self.sg_ecs_traffic = sg_ecs_traffic
+        self.sg_vpc_traffic = sg_vpc_traffic
 
-        self.sg_ecs_traffic.connections.allow_from(
+        ###########
+        ## Setup Security Groups
+        ###########
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
+
+        self.sg_vpc_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(self.game_port),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
             description="Game port to open traffic IN from",
         )
+
+        ## Security Group for EFS traffic:
+        self.sg_efs_traffic = ec2.SecurityGroup(
+            self,
+            "sg-efs-traffic",
+            vpc=self.vpc,
+            description="Traffic that can go into the EFS",
+        )
+
+        ## Security Group for container traffic:
+        self.sg_container_traffic = ec2.SecurityGroup(
+            self,
+            "sg-container-traffic",
+            vpc=self.vpc,
+            description="Traffic that can go into the container",
+        )
+        self.sg_container_traffic.connections.allow_from(
+            ec2.Peer.any_ipv4(),
+            ec2.Port.tcp(self.game_port),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
+            description="Game port to open traffic IN from",
+        )
+
+        ## Now allow the two groups to talk to each other:
+        self.sg_efs_traffic.connections.allow_from(
+            self.sg_container_traffic,
+            port_range=ec2.Port.tcp(2049),
+            description="Allow EFS traffic IN - from container",
+        )
+        self.sg_container_traffic.connections.allow_from(
+            # Allow efs traffic from within the Group.
+            self.sg_efs_traffic,
+            port_range=ec2.Port.tcp(2049),
+            description="Allow EFS traffic IN - from EFS Server",
+        )
+
+        ###########
+        ## Setup ECS
+        ###########
 
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/Cluster.html
         self.ecs_cluster = ecs.Cluster(
@@ -69,7 +113,7 @@ class GameManagerStack(Stack):
         # self.ec2_user_data.add_commands()
 
         ## Contains the configuration information to launch an instance, and stores launch parameters
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/LaunchTemplate.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
         self.launch_template = ec2.LaunchTemplate(
             self,
             "ASG-LaunchTemplate",
@@ -78,14 +122,13 @@ class GameManagerStack(Stack):
             machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
             # machine_image=ecs.EcsOptimizedImage.amazon_linux(),
             # Lets Specific traffic to/from the instance:
-            security_group=self.sg_ecs_traffic,
+            security_group=self.sg_container_traffic,
             user_data=self.ec2_user_data,
             role=self.ec2_role,
         )
 
-
         ## A Fleet represents a managed set of EC2 instances:
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_autoscaling/AutoScalingGroup.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
         self.auto_scaling_group = autoscaling.AutoScalingGroup(
             self,
             "ASG",
@@ -94,8 +137,6 @@ class GameManagerStack(Stack):
             desired_capacity=0,
             min_capacity=0,
             max_capacity=1,
-            # IDK why I have to set this, the default is False. Maybe if you switch AMI's, the old AMI's
-            # gain the protection? Test later and see if this needs to be set once the stack is more stable:
             new_instances_protected_from_scale_in=False,
         )
 
@@ -121,20 +162,26 @@ class GameManagerStack(Stack):
             # TODO: Just for developing. Keep users minecraft worlds SAFE!!
             # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
             removal_policy=RemovalPolicy.DESTROY,
+            security_group=self.sg_efs_traffic,
+            allow_anonymous_access=False,
         )
 
         ## Access the Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_efs/AccessPoint.html
-        self.access_point = efs.AccessPoint(
-            self,
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
+        self.access_point = self.efs_file_system.add_access_point(
             "efs-access-point",
-            file_system=self.efs_file_system,
+            posix_user=efs.PosixUser(
+                uid="1000",
+                gid="1000",
+            ),
+            create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
         )
 
 
         ## The details of a task definition run on an EC2 cluster.
         # (Root task definition, attach containers to this)
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html
         self.task_definition = ecs.Ec2TaskDefinition(
             self,
             "task-definition",
@@ -143,43 +190,49 @@ class GameManagerStack(Stack):
             ## BUT no way to assign it a public IP I can find. Compare with other MC Stack, see if they create
             ## A NAT or not. If they do, they're hella expensive though. (https://github.com/aws/aws-cdk/issues/13348)
             # network_mode=ecs.NetworkMode.AWS_VPC,
+
             # execution_role= ecs agent permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
-            # task_role= permissions for inside the container
+            # task_role= permissions for *inside* the container
         )
         self.volume_name = "efs-volume"
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
         self.task_definition.add_volume(
             name=self.volume_name,
             efs_volume_configuration=ecs.EfsVolumeConfiguration(
                 file_system_id=self.efs_file_system.file_system_id,
                 authorization_config=ecs.AuthorizationConfig(
                     access_point_id=self.access_point.access_point_id,
-                    # TODO: Look into enabling this:
-                    # iam="ENABLED",
+                    iam="ENABLED",
                 ),
                 transit_encryption="ENABLED",
             ),
         )
 
-        # Allow the task to mount and Access EFS
+        # Give the task logging permissions
+        # TODO: Lock this down more
         self.task_definition.add_to_task_role_policy(
             iam.PolicyStatement(
+                sid="LogAccess",
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "elasticfilesystem:ClientMount",
-                    "elasticfilesystem:ClientRootAccess",
-                    "elasticfilesystem:ClientWrite",
-                    "elasticfilesystem:DescribeMountTargets",
+                    "logs:Create*",
+                    "logs:Put*",
+                    "logs:Get*",
+                    "logs:Describe*",
+                    "logs:List*",
                 ],
-                # resources=[f"arn:aws:elasticfilesystem:{self.region}:{self.account}:file-system/{self.efs_file_system.file_system_id}"],
-                resources=[self.efs_file_system.file_system_arn],
+                resources=[f"arn:aws:logs:{self.region}:{self.account}:log-group:{construct_id}-*:*"],
             )
         )
+        ## Tell the EFS side that the task can access it:
+        # TODO: See if root is okay, or can do readWrite.
+        self.efs_file_system.grant_root_access(self.task_definition.task_role)
+
 
         ## Details for add_container:
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_container
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#addwbrcontainerid-props
         ## And what it returns:
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/ContainerDefinition.html#aws_cdk.aws_ecs.ContainerDefinition
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
             "game-container",
             image=ecs.ContainerImage.from_registry(self.docker_image),
@@ -190,6 +243,15 @@ class GameManagerStack(Stack):
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
+            ## Add environment variables into the container here:
+            # environment={},
+            ## Logging, straight from:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
+            logging=ecs.LogDrivers.aws_logs(
+                stream_prefix="ContainerLogs",
+                mode=ecs.AwsLogDriverMode.NON_BLOCKING,
+                log_retention=logs.RetentionDays.ONE_WEEK,
+            ),
         )
         self.container.add_mount_points(
             ecs.MountPoint(
@@ -199,25 +261,9 @@ class GameManagerStack(Stack):
             )
         )
 
-
-        ## NO need for this I think? allow all outbound is the default anyways
-        # ## Container Security Group, to allow EFS traffic
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
-        # self.container_sg = ec2.SecurityGroup(
-        #     self,
-        #     "container-sg",
-        #     vpc=self.vpc,
-        #     description="Security Group for the container, allows EFS traffic",
-        # )
-        # self.container_sg.connections.allow_to(
-        #     self.efs_file_system.connections,
-        #     port_range=ec2.Port.tcp(2049),
-        #     description="Allow EFS traffic",
-        # )
-
         ## This creates a service using the EC2 launch type on an ECS cluster
         # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/Ec2Service.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
         self.ec2_service = ecs.Ec2Service(
             self,
             "ec2-service",
@@ -228,37 +274,36 @@ class GameManagerStack(Stack):
                 # "enable": True, # Just having circuit breaker defined will enable it
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
-            ## security_groups is only valid with AWS_VPC network mode:
-            # security_groups=[self.sg_allow_game_traffic_in],
         )
-        self.efs_file_system.connections.allow_default_port_from(self.ec2_service.connections)
 
-        # Classic Lambda Function - for scaling up/down the container
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.scale_container_lambda = aws_lambda.Function(
-            self,
-            "scale-container-lambda",
-            description="Triggers the services and instance to scale up or down.",
-            code=aws_lambda.Code.from_asset("./lambda-scale-container/"),
-            handler="lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(300),
-            # Lambda Functions in a public subnet can NOT access the internet.
-            # This just acknowledges that.
-            allow_public_subnet=True,
-            environment={
-                "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
-                "ECS_CLUSTER_SERVICE": self.ec2_service.service_name,
-                "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
-            },
-            # Events to trigger this function. TODO:
-            events=[],
-            # Any permissions this function will need (PolicyStatement):
-            initial_policy=[],
-            # VPC Permissions, might need to scale up EC2:
-            vpc=self.vpc,
-            security_groups=[],
-        )
+        ### Just removing until I get back to working in this section. Don't want the lambda
+        ### to be updated on every deployment if the one in aws isn't doing anything.
+        # # Classic Lambda Function - for scaling up/down the container
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+        # self.scale_container_lambda = aws_lambda.Function(
+        #     self,
+        #     "scale-container-lambda",
+        #     description="Triggers the services and instance to scale up or down.",
+        #     code=aws_lambda.Code.from_asset("./lambda-scale-container/"),
+        #     handler="lambda_handler",
+        #     runtime=aws_lambda.Runtime.PYTHON_3_12,
+        #     timeout=Duration.seconds(300),
+        #     # Lambda Functions in a public subnet can NOT access the internet.
+        #     # This just acknowledges that.
+        #     allow_public_subnet=True,
+        #     environment={
+        #         "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
+        #         "ECS_CLUSTER_SERVICE": self.ec2_service.service_name,
+        #         "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
+        #     },
+        #     # Events to trigger this function. TODO:
+        #     events=[],
+        #     # Any permissions this function will need (PolicyStatement):
+        #     initial_policy=[],
+        #     # VPC Permissions, might need to scale up EC2:
+        #     vpc=self.vpc,
+        #     security_groups=[],
+        # )
 
         ## TODO: When getting to auto-scaling ec2 instance, this might help? Supposed to grab
         # the new IP address early:

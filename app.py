@@ -3,8 +3,8 @@ import os
 
 import aws_cdk as cdk
 
-from GameManager.vpc_base_stack import VpcBaseStack
-from GameManager.game_manager_stack import GameManagerStack
+from ContainerManager_VPC.vpc_base_stack import VpcBaseStack
+from ContainerManager.container_manager_stack import ContainerManagerStack
 
 
 
@@ -20,19 +20,19 @@ env = cdk.Environment(
 # Create the VPC for ALL stacks:
 vpc_stack = VpcBaseStack(
     app,
-    "GameManager-VPC",
-    description="The base VPC for all other stacks to use.",
+    "ContainerManager-VPC",
+    description="The base VPC for all other ContainerManage stacks to use.",
     env=env,
 )
 
 # Create the stack:
-GameManagerStack(
+ContainerManagerStack(
     app,
-    "GameManagerStack",
-    description="For automatically managing a single game server (for now).",
+    "ContainerManagerStack",
+    description="For automatically managing a single container.",
     env=env,
     vpc=vpc_stack.vpc,
-    sg_ecs_traffic=vpc_stack.sg_ecs_traffic,
+    sg_vpc_traffic=vpc_stack.sg_vpc_traffic,
 )
 
 app.synth()
