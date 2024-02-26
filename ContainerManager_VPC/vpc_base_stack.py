@@ -4,6 +4,7 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     CfnParameter,
+    Tags,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
@@ -41,6 +42,7 @@ class VpcBaseStack(Stack):
             vpc=self.vpc,
             allow_all_outbound=False
         )
+        Tags.of(self.sg_vpc_traffic).add("Name", f"{construct_id}/sg-vpc-traffic")
         self.sg_vpc_traffic.connections.allow_to(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(443),

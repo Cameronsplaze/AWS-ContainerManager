@@ -4,6 +4,7 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
+    Tags,
     aws_lambda,
     aws_ec2 as ec2,
     aws_ecs as ecs,
@@ -18,13 +19,21 @@ from .get_param import get_param
 
 ### Defaults, override with env vars
 # DOCKER_IMAGE = "amazon/amazon-ecs-sample"
-DOCKER_IMAGE = "nginx:latest"
-# DOCKER_IMAGE = "itzg/minecraft-server"
-GAME_PORT = 80
+# DOCKER_IMAGE = "nginx:latest"
+DOCKER_IMAGE = "itzg/minecraft-server"
+# GAME_PORT = 80
 GAME_PORT = 25565
 INSTANCE_TYPE = "m5.large"
 
 DATA_DIR = "/data"
+
+container_environment = {
+    "EULA": "TRUE",
+    # From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
+    "TUNE_VIRTUALIZED": "TRUE",
+    "DIFFICULTY": "hard",
+    "RCRON_PASSWORD": os.environ["RCRON_PASSWORD"],
+}
 
 
 class ContainerManagerStack(Stack):
@@ -46,7 +55,7 @@ class ContainerManagerStack(Stack):
 
         self.sg_vpc_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(self.game_port),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
+            ec2.Port.tcp(self.game_port),
             description="Game port to open traffic IN from",
         )
 
@@ -57,6 +66,7 @@ class ContainerManagerStack(Stack):
             vpc=self.vpc,
             description="Traffic that can go into the EFS",
         )
+        Tags.of(self.sg_efs_traffic).add("Name", f"{construct_id}/sg-efs-traffic")
 
         ## Security Group for container traffic:
         self.sg_container_traffic = ec2.SecurityGroup(
@@ -65,9 +75,11 @@ class ContainerManagerStack(Stack):
             vpc=self.vpc,
             description="Traffic that can go into the container",
         )
+        Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/sg-container-traffic")
         self.sg_container_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(self.game_port),  # <---- NOTE: TCP is hard-coded here too. Look into if we need to support UDP too.
+            ec2.Peer.any_ipv4(),           # <---- TODO: Once stack is working again, test if this can be from VPC group instead
+            # self.sg_vpc_traffic,           
+            ec2.Port.tcp(self.game_port),
             description="Game port to open traffic IN from",
         )
 
@@ -163,19 +175,34 @@ class ContainerManagerStack(Stack):
             # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
             removal_policy=RemovalPolicy.DESTROY,
             security_group=self.sg_efs_traffic,
-            allow_anonymous_access=False,
+            # TODO: Fix this
+            # allow_anonymous_access=False,
+            allow_anonymous_access=True,
         )
 
         ## Access the Persistent Storage:
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_efs/AccessPoint.html
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
+        ## What it returns:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
         self.access_point = self.efs_file_system.add_access_point(
             "efs-access-point",
-            posix_user=efs.PosixUser(
-                uid="1000",
-                gid="1000",
-            ),
-            create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
+            # The task data is the only thing inside EFS:
+            path="/",
+            ### One of these cause the chown/chmod in the minecraft container to fail. But I'm not sure I need
+            ### them? Only one container has access to one EFS, we don't need user permissions *inside* it I think...
+            ### TODO: Look into this a bit more later.
+            # # user/group: ec2-user
+            # posix_user=efs.PosixUser(
+            #     uid="1001",
+            #     gid="1001",
+            # ),
+            # create_acl=efs.Acl(owner_gid="1001", owner_uid="1001", permissions="750"),
+            # TMP root
+            # posix_user=efs.PosixUser(
+            #     uid="1000",
+            #     gid="1000",
+            # ),
+            # create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
         )
 
 
@@ -202,7 +229,9 @@ class ContainerManagerStack(Stack):
                 file_system_id=self.efs_file_system.file_system_id,
                 authorization_config=ecs.AuthorizationConfig(
                     access_point_id=self.access_point.access_point_id,
-                    iam="ENABLED",
+                    # TODO: Fix this:
+                    # iam="ENABLED",
+                    iam="DISABLED",
                 ),
                 transit_encryption="ENABLED",
             ),
@@ -225,7 +254,6 @@ class ContainerManagerStack(Stack):
             )
         )
         ## Tell the EFS side that the task can access it:
-        # TODO: See if root is okay, or can do readWrite.
         self.efs_file_system.grant_root_access(self.task_definition.task_role)
 
 
@@ -244,7 +272,7 @@ class ContainerManagerStack(Stack):
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
             ## Add environment variables into the container here:
-            # environment={},
+            environment=container_environment,
             ## Logging, straight from:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
             logging=ecs.LogDrivers.aws_logs(
@@ -271,7 +299,6 @@ class ContainerManagerStack(Stack):
             task_definition=self.task_definition,
             desired_count=0,
             circuit_breaker={
-                # "enable": True, # Just having circuit breaker defined will enable it
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
         )
