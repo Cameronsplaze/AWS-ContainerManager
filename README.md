@@ -1,8 +1,10 @@
 # GameManagement
 
-## Quick Start
-
 An AWS manager to run games in the CLOUD!!!
+
+Spins up the EC2 instance when someone connects to it, then spins it back down when they disconnect. RN just minecraft, but plan on expanding to other containers right after.
+
+## Quick Start
 
 First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
 
@@ -40,6 +42,44 @@ The base stack that the ContainerManager stack links to. This lets you share com
 
 The actual core logic for managing and running the container.
 
+### Old Design choices
+
+- Private Subnet with NAT Gateway:
+    The idea of this stack was to have ec2 run in a private subnet, and have traffic route through NAT. The problem is you need one NAT per subnet, and they cost ~$32/month EACH. For this project to be usable, it has to cost less than ~$120/year.
+
+    Instead of a NAT, you can also have it in the public subnet, take the pubic IP away, and point a Network Load Balancer to it. Problem is they cost ~$194/year.
+
+    Instead I'm trying out opening the container to the internet directly, but as minimally I can. Also assume it *will* get hacked, but has such little permissions that it can't do anything
+
+- EFS vs EBS
+    I went with EFS just because I don't want to manage growing / shrinking, plus it integrates with ECS nicely. I want to look at how to make this cheaper when I get MVP working, which might be only having one availability zone by default? Need to look into the cost of it more...
+
+- ECS: EC2 vs Fargate:
+
+  - **EC2**:
+    - Pros:
+      - Networking `Bridge` mode spins up a couple seconds faster than `awsvpc`, due to the ENI card being attached.
+      - Have access to the instance (container host)
+
+  - **Fargate**:
+    - Pros:
+      - `awsvpc` is considered more secure, since you can use security groups to stop applications from talking. (It says "greater flexibility to control communications between tasks and services at a more granular level". With how this project is organized, each task will have it's own instance anyways. Maybe we can still lock down at the instance level?).
+      - `awsvpc` supports both Windows AND Linux containers.
+
+    - Cons:
+      - Fargate does not cache images, would have to mirror ANY possible image in ECR. (<https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html>).
+      - No access to underlying AMI nor the configuration files (`/etc/ecs/ecs.config`)
+      - (I don't think?) You can access the instance, which means no SSM to run commands on the host instance. We need this to see if anyone's connected. (The other option is to setup a second container, and monitor the traffic through that, but that eats up task resources for such a simple check. This way it's just a lambda that runs once in a while).
+
+### Slides
+
+My work has "Day of Innovation" every once in a while, where we can work on whatever we want. Lately I've been choosing this project, and here's the slides from each DoI!
+
+- [2022-08-05 Slides](https://docs.google.com/presentation/d/1WiPHAqWpCft2M5jKnNh05txxDQSTm5wNUTH-mmoHbgw/edit#slide=id.g35f391192_00)
+- [2022-12-00 Slides](https://docs.google.com/presentation/d/1PcrMb1X317hyeCmxeNP-6l_UpfHqxDINtxtx3uJujPQ/edit#slide=id.g35f391192_00)
+- [2023-10-31 Slides](https://docs.google.com/presentation/d/17rSn7BLDSqF9PRpLHx2mn6WqB7h9m-5fe1JQlgahM58/edit#slide=id.g35ed75ccf_015)
+- [2024-02-27 Slides](https://docs.google.com/presentation/d/1XzeM2Bv9nNqtd9tSKaQG3HhUcs1HVuLG5fIK6v1Jodo/edit?usp=sharing)
+
 ## TODO (In order)
 
 ### Phase 1, MVP
@@ -76,46 +116,11 @@ The actual core logic for managing and running the container.
 - Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.
 - Go through Cloudwatch Groups, make sure everything has a rentention policy by default
 - Add a way to connect with FileZilla to upload files. (Don't go through s3 bucket, you'll pay for extra data storage that way.). Make FTP server optional in config, so you can turn it on when first setting up, then deploy again to disable it.
+  - Can data at rest be encrypted if you want filezilla to work? Get it working without encryption first, then test.
 
 ### Phase 4, Add tests
 
 - Good chance to figure out how CDK wants you to design tests. There's a pre-defined folder from `cdk init` in the repo too.
-
-### Slides
-
-All DoI Slides (Private):
-
-- <https://docs.google.com/presentation/d/1WiPHAqWpCft2M5jKnNh05txxDQSTm5wNUTH-mmoHbgw/edit#slide=id.g35f391192_00>
-- <https://docs.google.com/presentation/d/1PcrMb1X317hyeCmxeNP-6l_UpfHqxDINtxtx3uJujPQ/edit#slide=id.g35f391192_00>
-
-### Old Design choices
-
-- Private Subnet with NAT Gateway:
-    The idea of this stack was to have ec2 run in a private subnet, and have traffic route through NAT. The problem is you need one NAT per subnet, and they cost ~$32/month EACH. For this project to be usable, it has to cost less than ~$120/year.
-
-    Instead of a NAT, you can also have it in the public subnet, take the pubic IP away, and point a Network Load Balancer to it. Problem is they cost ~$194/year.
-
-    Instead I'm trying out opening the container to the internet directly, but as minimally I can. Also assume it *will* get hacked, but has such little permissions that it can't do anything
-
-- EFS vs EBS
-    I went with EFS just because I don't want to manage growing / shrinking, plus it integrates with ECS nicely. I want to look at how to make this cheaper when I get MVP working, which might be only having one availability zone by default? Need to look into the cost of it more...
-
-- ECS: EC2 vs Fargate:
-
-  - **EC2**:
-    - Pros:
-      - Networking `Bridge` mode spins up a couple seconds faster than `awsvpc`, due to the ENI card being attached.
-      - Have access to the instance (container host)
-
-  - **Fargate**:
-    - Pros:
-      - `awsvpc` is considered more secure, since you can use security groups to stop applications from talking. (It says "greater flexibility to control communications between tasks and services at a more granular level". With how this project is organized, each task will have it's own instance anyways. Maybe we can still lock down at the instance level?).
-      - `awsvpc` supports both Windows AND Linux containers.
-
-    - Cons:
-      - Fargate does not cache images, would have to mirror ANY possible image in ECR. (<https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html>).
-      - No access to underlying AMI nor the configuration files (`/etc/ecs/ecs.config`)
-      - (I don't think?) You can access the instance, which means no SSM to run commands on the host instance. We need this to see if anyone's connected. (The other option is to setup a second container, and monitor the traffic through that, but that eats up task resources for such a simple check. This way it's just a lambda that runs once in a while).
 
 ### Long term TODO
 

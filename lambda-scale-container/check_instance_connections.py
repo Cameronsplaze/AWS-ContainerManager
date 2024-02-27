@@ -27,7 +27,7 @@ def run_command_on_instance(instance_id: str):
     ## Run the Command:
     response = ssm_client.send_command(
         InstanceIds=[instance_id],
-        Comment="See if anyone is connected to the server.",
+        Comment="Seeing if anyone is connected to the server.",
         DocumentName="AWS-RunShellScript",
         Parameters={
             'commands': [

@@ -129,7 +129,6 @@ class ContainerManagerStack(Stack):
             f"{construct_id}-ASG-LaunchTemplate",
             instance_type=ec2.InstanceType(self.instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
-            # (There's also a windows version, long term TODO).
             machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
             # Lets Specific traffic to/from the instance:
             security_group=self.sg_container_traffic,
