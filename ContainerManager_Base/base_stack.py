@@ -32,7 +32,7 @@ class ContainerManagerBaseStack(Stack):
             ]
         )
 
-        ## ECS / EC2 Security Group (Same since using bridge I think?):
+        ## VPC Security Group - Traffic in/out the VPC itself:
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SecurityGroup.html
         self.sg_vpc_traffic = ec2.SecurityGroup(
             self,
@@ -45,5 +45,8 @@ class ContainerManagerBaseStack(Stack):
         self.sg_vpc_traffic.connections.allow_to(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(443),
-            description="Allow HTTPS traffic OUT. Let ECS talk with EC2 to register instances",
+            # - Let ECS talk with EC2 to register instances (Maybe only required for private ecs)
+            # - Let any games curl out to the internet to download stuff
+            # - Let containers update if you run `yum update` or `apt-get update`
+            description="Allow HTTPS traffic OUT",
         )

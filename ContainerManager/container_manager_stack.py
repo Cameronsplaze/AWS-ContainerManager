@@ -50,19 +50,22 @@ class ContainerManagerStack(Stack):
         self.sg_vpc_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
             ec2.Port.tcp(self.docker_port),
-            description="Game port to open traffic IN from",
+            description="Game port to allow traffic IN from",
         )
 
-        ## Security Group for EFS traffic:
+        ## Security Group for EFS instance's traffic:
         self.sg_efs_traffic = ec2.SecurityGroup(
             self,
             f"{construct_id}-sg-efs-traffic",
             vpc=self.vpc,
-            description="Traffic that can go into the EFS",
+            description="Traffic that can go into the EFS instance",
         )
         Tags.of(self.sg_efs_traffic).add("Name", f"{construct_id}/sg-efs-traffic")
 
         ## Security Group for container traffic:
+        # TODO: Since someone could theoretically break into the container,
+        #        lock down traffic leaving it too.
+        #        (Should be the same as VPC sg BEFORE any stacks are added. Maybe have a base SG that both use?)
         self.sg_container_traffic = ec2.SecurityGroup(
             self,
             f"{construct_id}-sg-container-traffic",
@@ -71,8 +74,8 @@ class ContainerManagerStack(Stack):
         )
         Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/sg-container-traffic")
         self.sg_container_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from vpc"? The sg_vpc_traffic doesn't do it.
-            # self.sg_vpc_traffic,           
+            ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
+            # self.sg_vpc_traffic,
             ec2.Port.tcp(self.docker_port),
             description="Game port to open traffic IN from",
         )
@@ -111,6 +114,8 @@ class ContainerManagerStack(Stack):
         )
 
         ## Let the instance register itself to a ecs cluster:
+        # TODO: Why are these attached to the launch_template role, instead of task_definition execution role?
+        #           What are the differences and pros/cons of the two?
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
         self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
         ## Let the instance allow SSM Session Manager to connect to it:
