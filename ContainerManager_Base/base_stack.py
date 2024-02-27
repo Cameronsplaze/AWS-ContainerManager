@@ -13,21 +13,20 @@ from aws_cdk import (
 )
 
 
-class VpcBaseStack(Stack):
+class ContainerManagerBaseStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-        print(f"Stack: {Stack.of(self).account}")
 
         # Create a Public VPC to run instances in:
         self.vpc = ec2.Vpc(
             self,
-            "Vpc",
+            f"{construct_id}-VPC",
             nat_gateways=0,
             max_azs=2,
             subnet_configuration=[
                 ec2.SubnetConfiguration(
-                    name=f"public-{construct_id}",
+                    name=f"public-{construct_id}-sn",
                     subnet_type=ec2.SubnetType.PUBLIC,
                 )
             ]
@@ -37,7 +36,7 @@ class VpcBaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SecurityGroup.html
         self.sg_vpc_traffic = ec2.SecurityGroup(
             self,
-            "sg-vpc-traffic",
+            f"{construct_id}-sg-vpc-traffic",
             description="Traffic for the VPC itself",
             vpc=self.vpc,
             allow_all_outbound=False
@@ -48,8 +47,3 @@ class VpcBaseStack(Stack):
             ec2.Port.tcp(443),
             description="Allow HTTPS traffic OUT. Let ECS talk with EC2 to register instances",
         )
-        # self.sg_vpc_traffic.connections.allow_to(
-        #     ec2.Peer.any_ipv4(),
-        #     ec2.Port.tcp(2049),
-        #     description="Allow EFS traffic OUT. Let ECS talk with EFS for persistent storage",
-        # )

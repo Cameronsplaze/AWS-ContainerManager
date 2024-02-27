@@ -56,7 +56,7 @@ class ContainerManagerStack(Stack):
         ## Security Group for EFS traffic:
         self.sg_efs_traffic = ec2.SecurityGroup(
             self,
-            "sg-efs-traffic",
+            f"{construct_id}-sg-efs-traffic",
             vpc=self.vpc,
             description="Traffic that can go into the EFS",
         )
@@ -65,7 +65,7 @@ class ContainerManagerStack(Stack):
         ## Security Group for container traffic:
         self.sg_container_traffic = ec2.SecurityGroup(
             self,
-            "sg-container-traffic",
+            f"{construct_id}-sg-container-traffic",
             vpc=self.vpc,
             description="Traffic that can go into the container",
         )
@@ -97,7 +97,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/Cluster.html
         self.ecs_cluster = ecs.Cluster(
             self,
-            "ecs-cluster",
+            f"{construct_id}-ecs-cluster",
             cluster_name=f"{construct_id}-ecs-cluster",
             vpc=self.vpc,
         )
@@ -105,7 +105,7 @@ class ContainerManagerStack(Stack):
         ## Permissions for inside the instance:
         self.ec2_role = iam.Role(
             self,
-            "ec2-execution-role",
+            f"{construct_id}-ec2-execution-role",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             description="This instance's permissions, the host of the container",
         )
@@ -125,7 +125,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
         self.launch_template = ec2.LaunchTemplate(
             self,
-            "ASG-LaunchTemplate",
+            f"{construct_id}-ASG-LaunchTemplate",
             instance_type=ec2.InstanceType(self.instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # (There's also a windows version, long term TODO).
@@ -140,7 +140,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
         self.auto_scaling_group = autoscaling.AutoScalingGroup(
             self,
-            "ASG",
+            f"{construct_id}-ASG",
             vpc=self.vpc,
             launch_template=self.launch_template,
             desired_capacity=0,
@@ -154,7 +154,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AsgCapacityProvider.html
         self.capacity_provider = ecs.AsgCapacityProvider(
             self,
-            "AsgCapacityProvider",
+            f"{construct_id}-AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
             # To let me delete the stack!!:
             enable_managed_termination_protection=False,
@@ -165,7 +165,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
         self.efs_file_system = efs.FileSystem(
             self,
-            "efs-file-system",
+            f"{construct_id}-efs-file-system",
             vpc=self.vpc,
             # TODO: Just for developing. Keep users minecraft worlds SAFE!!
             # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
@@ -179,7 +179,7 @@ class ContainerManagerStack(Stack):
         ## What it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
         self.access_point = self.efs_file_system.add_access_point(
-            "efs-access-point",
+            f"{construct_id}-efs-access-point",
             # The task data is the only thing inside EFS:
             path="/",
             ### One of these cause the chown/chmod in the minecraft container to fail. But I'm not sure I need
@@ -205,7 +205,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html
         self.task_definition = ecs.Ec2TaskDefinition(
             self,
-            "task-definition",
+            f"{construct_id}-task-definition",
 
             ## TODO: Says this can be locked down the most, and works with both windows/linux containers:
             ## BUT no way to assign it a public IP I can find. Compare with other MC Stack, see if they create
@@ -215,7 +215,7 @@ class ContainerManagerStack(Stack):
             # execution_role= ecs agent permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
         )
-        self.volume_name = "efs-volume"
+        self.volume_name = f"{construct_id}-efs-volume"
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
         self.task_definition.add_volume(
             name=self.volume_name,
@@ -256,7 +256,7 @@ class ContainerManagerStack(Stack):
         ## And what it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
-            "main-container",
+            f"{construct_id}-main-container",
             image=ecs.ContainerImage.from_registry(self.docker_image),
             port_mappings=[
                 ecs.PortMapping(host_port=self.docker_port, container_port=self.docker_port, protocol=ecs.Protocol.TCP),
@@ -288,7 +288,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
         self.ec2_service = ecs.Ec2Service(
             self,
-            "ec2-service",
+            f"{construct_id}-ec2-service",
             cluster=self.ecs_cluster,
             task_definition=self.task_definition,
             desired_count=0,

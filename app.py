@@ -3,7 +3,7 @@ import os
 
 import aws_cdk as cdk
 
-from ContainerManager_VPC.vpc_base_stack import VpcBaseStack
+from ContainerManager_Base.base_stack import ContainerManagerBaseStack
 from ContainerManager.container_manager_stack import ContainerManagerStack
 
 
@@ -18,9 +18,9 @@ env = cdk.Environment(
 )
 
 # Create the VPC for ALL stacks:
-vpc_stack = VpcBaseStack(
+base_stack = ContainerManagerBaseStack(
     app,
-    "ContainerManager-VPC",
+    "ContainerManager-BaseStack",
     description="The base VPC for all other ContainerManage stacks to use.",
     env=env,
 )
@@ -28,11 +28,12 @@ vpc_stack = VpcBaseStack(
 # Create the stack:
 ContainerManagerStack(
     app,
-    "ContainerManagerStack",
+    # TODO: Have good value here. Maybe same as DNS CNAME?
+    f"ContainerManager-{os.environ.get('GAME_NAME') or 'Unknown'}-Stack",
     description="For automatically managing a single container.",
     env=env,
-    vpc=vpc_stack.vpc,
-    sg_vpc_traffic=vpc_stack.sg_vpc_traffic,
+    vpc=base_stack.vpc,
+    sg_vpc_traffic=base_stack.sg_vpc_traffic,
 )
 
 app.synth()
