@@ -17,12 +17,6 @@ from constructs import Construct
 
 from .get_param import get_param
 
-### Defaults, override with env vars
-# DOCKER_IMAGE = "nginx:latest"
-# GAME_PORT = 80
-DOCKER_IMAGE = "itzg/minecraft-server"
-GAME_PORT = 25565
-
 
 INSTANCE_TYPE = "m5.large"
 DATA_DIR = "/data"
@@ -41,8 +35,8 @@ class ContainerManagerStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, vpc, sg_vpc_traffic, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        self.docker_image = get_param(self, "DOCKER_IMAGE", default=DOCKER_IMAGE)
-        self.game_port = get_param(self, "GAME_PORT", default=GAME_PORT)
+        self.docker_image = get_param(self, "DOCKER_IMAGE")
+        self.docker_port = get_param(self, "DOCKER_PORT")
         self.instance_type = get_param(self, "INSTANCE_TYPE", default=INSTANCE_TYPE)
 
         self.vpc = vpc
@@ -55,7 +49,7 @@ class ContainerManagerStack(Stack):
 
         self.sg_vpc_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(self.game_port),
+            ec2.Port.tcp(self.docker_port),
             description="Game port to open traffic IN from",
         )
 
@@ -79,7 +73,7 @@ class ContainerManagerStack(Stack):
         self.sg_container_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from vpc"? The sg_vpc_traffic doesn't do it.
             # self.sg_vpc_traffic,           
-            ec2.Port.tcp(self.game_port),
+            ec2.Port.tcp(self.docker_port),
             description="Game port to open traffic IN from",
         )
 
@@ -108,17 +102,20 @@ class ContainerManagerStack(Stack):
             vpc=self.vpc,
         )
 
-        ## Permissions for inside the container:
+        ## Permissions for inside the instance:
         self.ec2_role = iam.Role(
             self,
             "ec2-execution-role",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
-            description="This instance's permissions, inside the container",
+            description="This instance's permissions, the host of the container",
         )
 
-        ## Let it register to a ecs cluster:
+        ## Let the instance register itself to a ecs cluster:
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
         self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
+        ## Let the instance allow SSM Session Manager to connect to it:
+        # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-instance-profile.html
+        self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedEC2InstanceDefaultPolicy"))
 
         ## For Running Commands (on container creation I think? Keeping just in case we need it later)
         self.ec2_user_data = ec2.UserData.for_linux()
@@ -259,10 +256,10 @@ class ContainerManagerStack(Stack):
         ## And what it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
-            "game-container",
+            "main-container",
             image=ecs.ContainerImage.from_registry(self.docker_image),
             port_mappings=[
-                ecs.PortMapping(host_port=self.game_port, container_port=self.game_port, protocol=ecs.Protocol.TCP),
+                ecs.PortMapping(host_port=self.docker_port, container_port=self.docker_port, protocol=ecs.Protocol.TCP),
             ],
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,

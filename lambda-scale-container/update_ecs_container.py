@@ -5,15 +5,10 @@ from time import sleep
 import boto3
 
 
-# Hard coded for now, will pass in as an env var eventually:
-ECS_CLUSTER_NAME = "ContainerManagerStack-ecs-cluster"
-ECS_CLUSTER_SERVICE = "ContainerManagerStack-ec2serviceServiceCAD2C483-uezdKhZbN4wo"
-ASG_NAME = "ContainerManagerStack-ASG46ED3070-2fPjLX7UtqWJ"
-
-required_vars = ["AWS_REGION"]
+required_vars = ["AWS_REGION", "ECS_CLUSTER_NAME", "ECS_CLUSTER_SERVICE", "ASG_NAME"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
-    raise RuntimeError(f"Missing environment vars: {' '.join(missing_vars)}")
+    raise RuntimeError(f"Missing environment vars: {', '.join(missing_vars)}")
 
 # Boto3 Clients:
 asg_client = boto3.client('autoscaling')
@@ -36,7 +31,7 @@ def update_ecs_container(spin_up_container: bool) -> None:
 def update_asg(desired_count: int) -> dict:
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html#AutoScaling.Client.update_auto_scaling_group
     response = asg_client.update_auto_scaling_group(
-        AutoScalingGroupName=ASG_NAME,
+        AutoScalingGroupName=os.environ["ASG_NAME"],
         DesiredCapacity=desired_count,
     )
     # No idea how to wait for this to finish. The ecs service has
@@ -47,8 +42,8 @@ def update_asg(desired_count: int) -> dict:
 
 def update_ecs_service(desired_count: int) -> dict:
     response = ecs_client.update_service(
-        cluster=ECS_CLUSTER_NAME,
-        service=ECS_CLUSTER_SERVICE,
+        cluster=os.environ["ECS_CLUSTER_NAME"],
+        service=os.environ["ECS_CLUSTER_SERVICE"],
         desiredCount=desired_count,
     )
     # Now wait for it to be done updating:
@@ -56,8 +51,8 @@ def update_ecs_service(desired_count: int) -> dict:
     waiter = ecs_client.get_waiter('services_stable')
     print("Start Waiting")
     waiter.wait(
-        cluster=ECS_CLUSTER_NAME,
-        services=[ECS_CLUSTER_SERVICE],
+        cluster=os.environ["ECS_CLUSTER_NAME"],
+        services=[os.environ["ECS_CLUSTER_SERVICE"]],
         WaiterConfig={
             "Delay": 1,
             "MaxAttempts": 120,
@@ -66,5 +61,5 @@ def update_ecs_service(desired_count: int) -> dict:
     print("End Waiting")
     return response
 
-
-update_ecs_container(spin_up_container=False)
+if __name__ == "__main__":
+    update_ecs_container(spin_up_container=True)
