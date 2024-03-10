@@ -316,8 +316,14 @@ class ContainerManagerStack(Stack):
             },
         )
 
-        # ## Just removing until I get back to working in this section. Don't want the lambda
-        # ## to be updated on every deployment if the one in aws isn't doing anything.
+        ### Look into DNS automation
+        # Lambda that triggers off ec2 state changes (stopped <-> Running), and updates DNS:
+        # https://reintech.io/blog/automate-dns-management-aws-route53-lambda
+        # Lambda triggered off Route53 Cloudwatch logs, and spins up an instance:
+        # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
+
+        ### Just removing until I get back to working in this section. Don't want the lambda
+        ### to be updated on every deployment if the one in aws isn't doing anything.
         # # Classic Lambda Function - for scaling up/down the container
         # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         # self.scale_container_lambda = aws_lambda.Function(
