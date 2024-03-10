@@ -14,7 +14,10 @@ ssm_client = boto3.client('ssm')
 
 def lambda_handler(event, context):
     instance_id = get_acg_instance_id()
+    num_connections = get_instance_connections(instance_id)
+    # TODO: Push num_connections to CloudWatch Custom Metric here
 
+def get_instance_connections(instance_id: str) -> int:
     ## Run the Command:
     response = ssm_client.send_command(
         InstanceIds=[instance_id],
@@ -60,12 +63,12 @@ def lambda_handler(event, context):
 
     num_connections = output['StandardOutputContent']
     print(f"Number of Connections: {num_connections}")
-    # return int(output)
+    return int(output)
 
 def get_acg_instance_id() -> str:
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]
     running_instances = [x for x in asg_info['Instances'] if x['LifecycleState'] == "InService"]
-    # There should only be one running instance, if there's more, something is wrong:
+    # There should only be one running instance, if there's more/less, something is wrong:
     # if lambda errors too many times, the cloudwatch alarm should spin things down anyways.
     assert len(running_instances) == 1, f"Expected 1 running instance, got '{len(running_instances)}'."
     return running_instances[0]['InstanceId']

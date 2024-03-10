@@ -44,18 +44,24 @@ The actual core logic for managing and running the container.
 
 ### Old Design choices
 
-- Private Subnet with NAT Gateway:
+- **Private Subnet with NAT Gateway** vs **Public Subnet**:
+
+    (Went with Public Subnet)
+
     The idea of this stack was to have ec2 run in a private subnet, and have traffic route through NAT. The problem is you need one NAT per subnet, and they cost ~$32/month EACH. For this project to be usable, it has to cost less than ~$120/year.
 
     Instead of a NAT, you can also have it in the public subnet, take the pubic IP away, and point a Network Load Balancer to it. Problem is they cost ~$194/year.
 
     Instead I'm trying out opening the container to the internet directly, but as minimally I can. Also assume it *will* get hacked, but has such little permissions that it can't do anything
 
-- EFS vs EBS
+- **EFS** vs **EBS**
+
+    (Went with EFS)
+
     I went with EFS just because I don't want to manage growing / shrinking, plus it integrates with ECS nicely. I want to look at how to make this cheaper when I get MVP working, which might be only having one availability zone by default? Need to look into the cost of it more...
 
-- ECS: EC2 vs Fargate:
-
+- ECS: **EC2** vs **Fargate**:
+  - (Went with EC2. Lambda + Host access makes managing containers cheap and easy.)
   - **EC2**:
     - Pros:
       - Networking `Bridge` mode spins up a couple seconds faster than `awsvpc`, due to the ENI card being attached.
@@ -71,6 +77,14 @@ The actual core logic for managing and running the container.
       - No access to underlying AMI nor the configuration files (`/etc/ecs/ecs.config`)
       - (I don't think?) You can access the instance, which means no SSM to run commands on the host instance. We need this to see if anyone's connected. (The other option is to setup a second container, and monitor the traffic through that, but that eats up task resources for such a simple check. This way it's just a lambda that runs once in a while).
 
+- [**ECS Task StateChange Hook**](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_task_events.html) vs [**ASG Instance StateChange Hook**](https://docs.aws.amazon.com/autoscaling/ec2/userguide/prepare-for-lifecycle-notifications.html):
+  - (Went with ASG Hook)
+  - **Pros for ASG**:
+    - With ECS Task, there's the possibility of the task failing to start and the hook not running. This means you'll be left with an instance that's up, and no management around it to turn it back down. Starting the management with ASG means this won't happen
+    - Will be slightly faster. As the task is trying to get placed, the hook to start up the management is happening in parallel. If you used the task hook, they'd be in series.
+  - **Cons for ASG**:
+    - Part of the management, the lambda cron that checks for connections, will fail if there's no task running. This can happen if it triggers too fast. To get around it, I'll have a Metric + Alarm hooked up to the lambda, and only care about the failure if you get X many in a row. (The management framework being ready TOO fast is a good problem to have anyways).
+
 ### Slides
 
 My work has "Day of Innovation" every once in a while, where we can work on whatever we want. Lately I've been choosing this project, and here's the slides from each DoI!
@@ -84,39 +98,65 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 1, MVP
 
-- Get a basic script to spin up/down the ec2 instance + task. This is NOT automating it with DNS yet. Mainly to be a good segway to that, and have a tool to start measuring/optimizing startup time.
-  - Basic script is there now, but need to optimize speed up of task with it still.
+- Finish the prototype for leaf/game stack.
+  - Add two alarms on the "cron lambda" (Different, so they have different thresholds/counts before alarming)
+    - One that gets pushed "num_connections" from lambda, and alarms if it's 0 for too long. (If you just called lambda directly on first 0, it could be while the user is re-logging. The alarm forces multiple points to be 0, so you know they're gone)
+    - Built in metric that alarms if the lambda errors too many times.
+  - If EITHER trigger, point to same lambda that spins down the EC2 instance.
+    - Move the "events:DisableRule" call here. If cron lambda ever gets left on without an instance, this lets the system reset itself.
+  - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
+    - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
+  - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect. [One example here](https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk).
 
-- Get container to Cache `ECS_IMAGE_PULL_BEHAVIOR: prefer-cached` (if EC2/ECS route): [details here](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html#ec2-pull-behavior).
+- Finish the prototype for the Base Stack:
+  - Figure out passing in host ID, if the domain already exists.
+    - I think switch to **public** hosted zone too? That's what it will be if they create one in the console. Plus the docs say "route traffic on internet". Even though the ec2 is in a VPC, we're using it's public IP.
+  - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
 
-- Container stack is getting complicated. Look into if [NestedStacks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html) are worth it? To separate each "chunk" into it's own file. (`./ContainerManager/EFS.py`, etc).
 
-### Phase 2, Automation
+### Phase 2, Optimize and Cleanup
 
-- See if you can jump into the ECS Host, and see the docker connection traffic to the containers. (If not, maybe the load balancer can?). Then Create a lambda that can grab that info.
+- Container stack is getting complicated. Look into if [NestedStacks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html) are worth it? To separate each "chunk" into it's own file. (`./ContainerManager/EFS.py`, etc). As you move each chunk, look into optimizing it:
+  - Look closely at the security groups. Especially the container one. Lock them all down to specifically declare both in AND out traffic.
 
-- Have lambda control the ECS container, to spin it up and down.
+  - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
 
-- Hook up Cloudwatch Cron to lambda. Make sure you need more than one "alarm point" to trigger the lambda. That way if you re-log right when the alarm triggers, it won't trigger the lambda. (Probably just have it check every minute, and you need X in alarm where X is the amount of downtime declared in the config).
+  - Go through Cloudwatch Groups, make sure everything has a rentention policy by default
 
-- Figure out routing, Route53 stuff. Basically finish off the automation.
+- Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
-- Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
+- Look into container to Caching `ECS_IMAGE_PULL_BEHAVIOR: prefer-cached` [details here](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html#ec2-pull-behavior).
 
 ### Phase 3, Split apart to run multiple games
 
 - Make sure they're locked down from each other too.
-- Go through Console and see if everything looks like you want. Check for warnings.
-  - For example, EC2 instances say to force IMDSv2 is recommended
-  - Make names look nice. I.e Lambda are long and repetitive, not descriptive.
-- Go though cost optimization for everything. There's probably some low-hanging fruit in at *least* EFS
-- See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, with different IP's.
+
+- See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, because different instance IP's.
+
 - Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.
-- Go through Cloudwatch Groups, make sure everything has a rentention policy by default
+  - Maybe the stack prefix is the name of the file? Then the file can set the domain prefix. (`minecraft-java.conf` -> `minecraft.example.com`, you can choose not to have the `*-java`. Stack name would be `minecraft-java-ContainerManager-Stack`). Have the leaf stack be in an `if`, that only runs if you supply a file. If they just want to update the base stack then, it just won't see the leaf.
+
+  ```python
+  # Pseudo-code, maybe something like this will work?
+  base_stack = BaseStack(app, "BaseStack", env=env)
+  if cdk.args.config_file:
+    config_name = config_file.split(".")[0]
+    leaf_stack = LeafStack(app, f"{config_name}-LeafStack", env=env config_file=config_file, base_stack=base_stack)
+  ```
+
+## Phase 4, Get ready for Production!
+
 - Add a way to connect with FileZilla to upload files. (Don't go through s3 bucket, you'll pay for extra data storage that way.). Make FTP server optional in config, so you can turn it on when first setting up, then deploy again to disable it.
   - Can data at rest be encrypted if you want filezilla to work? Get it working without encryption first, then test.
 
-### Phase 4, Add tests
+- Go through Console and see if everything looks like you want. Check for warnings.
+  - For example, EC2 instances say to force IMDSv2 is recommended
+  - Make names look nice. I.e Lambda are long and repetitive, not descriptive.
+
+- Go though cost optimization for everything. There's probably some low-hanging fruit
+  - For EFS. See if the stack works in a single AZ, and if EFS detects that sets [one_zone](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#onezone) automatically.
+
+### Phase 5, Add tests
 
 - Good chance to figure out how CDK wants you to design tests. There's a pre-defined folder from `cdk init` in the repo too.
 

@@ -15,6 +15,7 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_events as events,
     aws_events_targets as targets,
+    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
@@ -226,11 +227,6 @@ class ContainerManagerStack(Stack):
             self,
             f"{construct_id}-task-definition",
 
-            ## TODO: Says this can be locked down the most, and works with both windows/linux containers:
-            ## BUT no way to assign it a public IP I can find. Compare with other MC Stack, see if they create
-            ## A NAT or not. If they do, they're hella expensive though. (https://github.com/aws/aws-cdk/issues/13348)
-            # network_mode=ecs.NetworkMode.AWS_VPC,
-
             # execution_role= ecs agent permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
         )
@@ -316,40 +312,6 @@ class ContainerManagerStack(Stack):
             },
         )
 
-        ### Look into DNS automation
-        # Lambda that triggers off ec2 state changes (stopped <-> Running), and updates DNS:
-        # https://reintech.io/blog/automate-dns-management-aws-route53-lambda
-        # Lambda triggered off Route53 Cloudwatch logs, and spins up an instance:
-        # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
-
-        ### Just removing until I get back to working in this section. Don't want the lambda
-        ### to be updated on every deployment if the one in aws isn't doing anything.
-        # # Classic Lambda Function - for scaling up/down the container
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        # self.scale_container_lambda = aws_lambda.Function(
-        #     self,
-        #     "scale-container-lambda",
-        #     description="Triggers the services and instance to scale up or down.",
-        #     code=aws_lambda.Code.from_asset("./lambda-scale-container/"),
-        #     handler="lambda_handler",
-        #     runtime=aws_lambda.Runtime.PYTHON_3_12,
-        #     timeout=Duration.seconds(300),
-        #     # Lambda Functions in a public subnet can NOT access the internet.
-        #     # This just acknowledges that.
-        #     allow_public_subnet=True,
-        #     environment={
-        #         "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
-        #         "ECS_CLUSTER_SERVICE": self.ec2_service.service_name,
-        #         "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
-        #     },
-        #     # Events to trigger this function. TODO:
-        #     events=[],
-        #     # Any permissions this function will need (PolicyStatement):
-        #     initial_policy=[],
-        #     # VPC Permissions, might need to scale up EC2:
-        #     vpc=self.vpc,
-        #     security_groups=[],
-        # )
 
         ## TODO: When getting to auto-scaling ec2 instance, this might help? Supposed to grab
         # the new IP address early:
@@ -525,4 +487,36 @@ class ContainerManagerStack(Stack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 targets.LambdaFunction(self.lambda_instance_StateChange_hook),
             ],
+        )
+
+
+
+
+
+        ## Custom Metric for the number of connections
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html
+        self.lambda_cron_NumConnections_metric = cloudwatch.Metric(
+            namespace=construct_id,
+            metric_name="Number of Connections",
+            dimensions_map={
+                "ContainerNameId": self.container_name_id,
+            },
+        )
+        self.lambda_cron_NumConnections_alarm = self.lambda_cron_NumConnections_metric.create_alarm(
+            # TODO
+        )
+
+
+        ## Grab existing metric for Lambda fail alarm
+        # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
+        ## Something like this:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
+        self.lambda_cron_errors_metric = self.lambda_count_connections.metric_errors(
+            # Default is average, I want ALL of them
+            # (Default period is 5 min, I think it costs $$$ to bump it past that)
+            statistic="Sum",
+        )
+        self.lambda_cron_errors_alarm = self.lambda_cron_errors_metric.create_alarm(
+            # TODO
         )
