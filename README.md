@@ -108,6 +108,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 - Make sure they're locked down from each other too.
 - Go through Console and see if everything looks like you want. Check for warnings.
   - For example, EC2 instances say to force IMDSv2 is recommended
+  - Make names look nice. I.e Lambda are long and repetitive, not descriptive.
 - Go though cost optimization for everything. There's probably some low-hanging fruit in at *least* EFS
 - See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, with different IP's.
 - Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.

@@ -2,38 +2,31 @@
 import os
 import boto3
 
-required_vars = ["AWS_REGION", "ASG_NAME", "DOCKER_IMAGE", "DOCKER_PORT", "TASK_DEFINITION"]
+required_vars = ["ASG_NAME", "TASK_DEFINITION"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
     raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
 
 # Boto3 Clients:
+#    Can get cached if function is reused, keep clients that are *always* hit here:
 asg_client = boto3.client('autoscaling')
 ssm_client = boto3.client('ssm')
 
 def lambda_handler(event, context):
-    pass
+    instance_id = get_acg_instance_id()
 
-
-def get_acg_instance(asg_name: str) -> dict:
-    # TODO: Make this not fail with [0]. Not sure yet what's best todo, return or throw?
-    asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])['AutoScalingGroups'][0]
-    # TODO: Same here as above. Just for development for now though.
-    # (Also this *could* have more than one, if one is scaling down as another scales up...)
-    instance = asg_info['Instances'][0]
-    return instance
-
-def run_command_on_instance(instance_id: str):
     ## Run the Command:
     response = ssm_client.send_command(
         InstanceIds=[instance_id],
-        Comment="Seeing if anyone is connected to the server.",
+        Comment=f"Check Connections on {instance_id}",
         DocumentName="AWS-RunShellScript",
         Parameters={
             'commands': [
                 ## The best way I could find to get the container ID:
                 # https://stackoverflow.com/questions/44550138/naming-docker-containers-on-start-ecs#44551679
                 f'container_id=$(docker container ls --quiet --filter label=com.amazonaws.ecs.task-definition-family={os.environ["TASK_DEFINITION"]})',
+                ## If the task hasn't started yet, the container won't exist, and container_id will be blank:
+                'if test -z "$container_id"; then echo "Task has not started yet. Exiting."; exit -1; fi',
                 ## Run netstat from outside the container, so it doesn't have to be installed inside:
                 # https://stackoverflow.com/questions/40350456/docker-any-way-to-list-open-sockets-inside-a-running-docker-container
                 'docker_pid=$(docker inspect -f "{{.State.Pid}}" $container_id)',
@@ -41,11 +34,14 @@ def run_command_on_instance(instance_id: str):
             ]
         }
     )
-    # print(response)
-    command_id = response['Command']['CommandId']
 
     ## Wait for it:
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/waiter/CommandExecuted.html
+    command_id = response['Command']['CommandId']
+    # You get no feedback if the command fails. You can use this to look up the error
+    #    in the console, but I couldn't find a way to get output there either:
+    # NOTE: The main failure I see is if the task hasn't started yet
+    print(f"SSM Command ID: {command_id}")
     waiter = ssm_client.get_waiter('command_executed')
     waiter.wait(
         CommandId=command_id,
@@ -61,9 +57,15 @@ def run_command_on_instance(instance_id: str):
         CommandId=command_id,
         InstanceId=instance_id,
     )
-    print(output["StandardOutputContent"])
-    return output
 
-if __name__ == "__main__":
-    instance_info = get_acg_instance(os.environ["ASG_NAME"])
-    results = run_command_on_instance(instance_info['InstanceId'])
+    num_connections = output['StandardOutputContent']
+    print(f"Number of Connections: {num_connections}")
+    # return int(output)
+
+def get_acg_instance_id() -> str:
+    asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]
+    running_instances = [x for x in asg_info['Instances'] if x['LifecycleState'] == "InService"]
+    # There should only be one running instance, if there's more, something is wrong:
+    # if lambda errors too many times, the cloudwatch alarm should spin things down anyways.
+    assert len(running_instances) == 1, f"Expected 1 running instance, got '{len(running_instances)}'."
+    return running_instances[0]['InstanceId']

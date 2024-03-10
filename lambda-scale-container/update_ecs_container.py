@@ -22,9 +22,9 @@ def update_ecs_container(spin_up_container: bool) -> None:
     # If spinning down, first spin down the service, then the container
     if spin_up_container:
         update_asg(desired_count=1)
-        # update_ecs_service(desired_count=1)
+        update_ecs_service(desired_count=1)
     else:
-        # update_ecs_service(desired_count=0)
+        update_ecs_service(desired_count=0)
         update_asg(desired_count=0)
 
 
@@ -62,4 +62,4 @@ def update_ecs_service(desired_count: int) -> dict:
     return response
 
 if __name__ == "__main__":
-    update_ecs_container(spin_up_container=True)
+    update_ecs_container(spin_up_container=False)

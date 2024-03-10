@@ -379,48 +379,139 @@ class ContainerManagerStack(Stack):
             ttl=Duration.seconds(self.unavailable_ttl),
         )
 
-        ## Lambda function to update the DNS record:
-        # TODO: Also make this start the lambda for spinning down the container?
-        #         seems like the most stable place to do it, to make sure the containers
-        #         never up without the cron being active...
+
+        ## Lambda, count the number of connections and pass to CloudWatch Alarm
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_update_dns = aws_lambda.Function(
+        # TODO: Have one CloudWatch Alarm watch the function fails, and turn off the system
+        # TODO: Hook up to a custom Cloudwatch Alarm metric, and turn off system if no connections
+        #         (I keep thinking about combining the two by having it error if 0 connections, but
+        #          it just feels so hacky. Plus it's good practice to get num_connections to the metric.
+        #          AND you could have errors trigger at 3, and num_connections be configurable then.)
+        self.lambda_count_connections = aws_lambda.Function(    # pylint: disable=invalid-name
             self,
-            f"{construct_id}-update-dns-lambda",
-            description="Updates the DNS record when the instance state is changed.",
-            code=aws_lambda.Code.from_asset("./lambda-update-route53/"),
+            f"{construct_id}-lambda-count-connections",
+            description="Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
+            code=aws_lambda.Code.from_asset("./lambda-scale-container/"),
+            handler="check_instance_connections.lambda_handler",
+            runtime=aws_lambda.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(30),
+            environment={
+                "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
+                "TASK_DEFINITION": self.task_definition.family,
+            },
+        )
+        # Just like the other lambda, check and find the running instance:
+        self.lambda_count_connections.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["autoscaling:DescribeAutoScalingGroups"],
+                resources=["*"],
+            )
+        )
+        # Give it permissions to send commands to the instance host:
+        self.lambda_count_connections.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["ssm:SendCommand"],
+                # No clue what the instance ID will be, so lock it to the ASG:
+                resources=["*"],
+                conditions={
+                    "StringEquals": {
+                        "aws:ResourceTag/aws:autoscaling:groupName": self.auto_scaling_group.auto_scaling_group_name,
+                    }
+                },
+            )
+        )
+        self.lambda_count_connections.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["ssm:SendCommand"],
+                resources=[f"arn:aws:ssm:{self.region}::document/AWS-RunShellScript"],
+            )
+        )
+        self.lambda_count_connections.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["ssm:GetCommandInvocation"],
+                resources=[f"arn:aws:ssm:{self.region}:{self.account}:*"],
+            )
+        )
+
+
+
+        ## EventBridge Rule to trigger lambda every minute, to see how many are using the container
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        self.rule_cron_count_connections = events.Rule(
+            self,
+            f"{construct_id}-rule-cron-count-connections",
+            rule_name=f"{construct_id}-rule-cron-count-connections",
+            description="Trigger Lambda every minute, to see how many are using the container",
+            schedule=events.Schedule.rate(Duration.minutes(1)),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
+                targets.LambdaFunction(self.lambda_count_connections),
+            ],
+            # Start disabled, self.lambda_count_connections will enable it when instance starts up 
+            enabled=False,
+        )
+
+        ## Lambda function to update the DNS record:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+        self.lambda_instance_StateChange_hook = aws_lambda.Function(    # pylint: disable=invalid-name
+            self,
+            f"{construct_id}-lambda-instance-StateChange-hook",
+            description="Triggered by ec2 changes. Starts/Stops the management logic",
+            code=aws_lambda.Code.from_asset("./lambda-instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
-
             environment={
                 "HOSTED_ZONE_ID": self.hosted_zone.hosted_zone_id,
                 "DOMAIN_NAME": self.domain_name,
                 "UNAVAILABLE_IP": self.unavailable_ip,
                 "UNAVAILABLE_TTL": str(self.unavailable_ttl),
+                "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
+                "WATCH_INSTANCE_RULE": self.rule_cron_count_connections.rule_name,
             },
-            # # Events to trigger this function. TODO:
-            # events=[],
-            # VPC Permissions, might need to scale up EC2:
-            # Lambda Functions in a public subnet can NOT access the internet.
-            # This just acknowledges that.
-            # allow_public_subnet=True,            # vpc=self.vpc,
-            # security_groups=[],
         )
-        # ## Let it talk to stuff inside the VPC it's in:
-        # # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSLambdaVPCAccessExecutionRole.html
-        # self.lambda_update_dns.role.add_managed_policy(
-        #     iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaVPCAccessExecutionRole")
-        # )
+        self.lambda_instance_StateChange_hook.add_to_role_policy(
+            iam.PolicyStatement(
+                # NOTE: these are on the list of actions that CANNOT be locked down
+                #   in ANY way. You *must* use a wild card, and conditions *don't* work 🙄
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    # To get the IP of a new instance:
+                    "ec2:DescribeInstances",
+                    # To make sure no other instances are starting up:
+                    "autoscaling:DescribeAutoScalingGroups",
+                ],
+                resources=["*"],
+            )
+        )
+        ## Let it update the DNS record of this stack:
+        self.lambda_instance_StateChange_hook.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["route53:ChangeResourceRecordSets"],
+                resources=[self.hosted_zone.hosted_zone_arn],
+            )
+        )
+        ## Let it enable/disable the cron rule for counting connections:
+        self.lambda_instance_StateChange_hook.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["events:EnableRule", "events:DisableRule"],
+                resources=[self.rule_cron_count_connections.rule_arn],
+            )
+        )
 
-
-        ## Add EventBridge Rule to trigger lambda to update the DNS record
-        #    along side the ASG/Instance. Keep the two IP's in sync.
+        ## EventBridge Rule: This is actually what hooks the Lambda to the ASG/Instance.
+        #    Needed to keep the management in sync with if a container is running.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        self.asg_update_dns_rule = events.Rule(
+        self.rule_instance_StateChange_hook = events.Rule(    # pylint: disable=invalid-name
             self,
-            f"{construct_id}-ASG-update-DNS-rule",
-            rule_name=f"{construct_id}-ASG-update-DNS-rule",
+            f"{construct_id}-rule-instance-StateChange-hook",
+            rule_name=f"{construct_id}-rule-instance-StateChange-hook",
             description="Trigger Lambda whenever the instance state changes, to keep DNS in sync",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
@@ -432,30 +523,6 @@ class ContainerManagerStack(Stack):
             ),
             targets=[
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
-                targets.LambdaFunction(self.lambda_update_dns),
+                targets.LambdaFunction(self.lambda_instance_StateChange_hook),
             ],
         )
-
-        # ## Let the event rule trigger the lambda:
-        # TODO: Looks like this is duplicated in the console, seeing if it's automatic
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#addwbrpermissionid-permission
-        # self.lambda_update_dns.add_permission(
-        #     f"{construct_id}-update-dns-permission",
-        #     principal=iam.ServicePrincipal("events.amazonaws.com"),
-        #     action="lambda:InvokeFunction",
-        #     source_arn=self.asg_update_dns_rule.rule_arn,
-        # )
-
-        # self.lambda_update_dns.add_to_role_policy(
-        #     statement=iam.PolicyStatement(
-        #         principals=[iam.ServicePrincipal("events.amazonaws.com")],
-        #         effect=iam.Effect.ALLOW,
-        #         actions=["lambda:InvokeFunction"],
-        #         resources=[self.lambda_update_dns.function_arn],
-        #         conditions={
-        #             "ArnLike": {
-        #                 "AWS:SourceArn": self.asg_update_dns_rule.rule_arn,
-        #             }
-        #         },
-        #     )
-        # )
