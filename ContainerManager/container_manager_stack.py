@@ -478,7 +478,10 @@ class ContainerManagerStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
                 source=["aws.autoscaling"],
-                detail_type=["EC2 Instance Launch Successful", "EC2 Instance Terminate Successful"],
+                # "EC2 Instance Launch Successful" -> FINISHES spinning up (has an ip now)
+                # "EC2 Instance-terminate Lifecycle Action" -> STARTS to spin down (shorter
+                #                          wait time than "EC2 Instance Terminate Successful").
+                detail_type=["EC2 Instance Launch Successful", "EC2 Instance-terminate Lifecycle Action"],
                 detail={
                     "AutoScalingGroupName": [self.auto_scaling_group.auto_scaling_group_name],
                 },
@@ -491,32 +494,30 @@ class ContainerManagerStack(Stack):
 
 
 
+        # ## Custom Metric for the number of connections
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        # # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html
+        # self.lambda_cron_NumConnections_metric = cloudwatch.Metric(
+        #     namespace=construct_id,
+        #     metric_name="Number of Connections",
+        #     dimensions_map={
+        #         "ContainerNameId": self.container_name_id,
+        #     },
+        # )
+        # self.lambda_cron_NumConnections_alarm = self.lambda_cron_NumConnections_metric.create_alarm(
+        #     # TODO
+        # )
 
 
-        ## Custom Metric for the number of connections
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html
-        self.lambda_cron_NumConnections_metric = cloudwatch.Metric(
-            namespace=construct_id,
-            metric_name="Number of Connections",
-            dimensions_map={
-                "ContainerNameId": self.container_name_id,
-            },
-        )
-        self.lambda_cron_NumConnections_alarm = self.lambda_cron_NumConnections_metric.create_alarm(
-            # TODO
-        )
-
-
-        ## Grab existing metric for Lambda fail alarm
-        # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
-        ## Something like this:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
-        self.lambda_cron_errors_metric = self.lambda_count_connections.metric_errors(
-            # Default is average, I want ALL of them
-            # (Default period is 5 min, I think it costs $$$ to bump it past that)
-            statistic="Sum",
-        )
-        self.lambda_cron_errors_alarm = self.lambda_cron_errors_metric.create_alarm(
-            # TODO
-        )
+        # ## Grab existing metric for Lambda fail alarm
+        # # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
+        # ## Something like this:
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
+        # self.lambda_cron_errors_metric = self.lambda_count_connections.metric_errors(
+        #     # Default is average, I want ALL of them
+        #     # (Default period is 5 min, I think it costs $$$ to bump it past that)
+        #     statistic="Sum",
+        # )
+        # self.lambda_cron_errors_alarm = self.lambda_cron_errors_metric.create_alarm(
+        #     # TODO
+        # )

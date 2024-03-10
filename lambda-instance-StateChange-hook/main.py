@@ -23,29 +23,31 @@ def lambda_handler(event, context) -> None:
         #    (And they take a long time to load):
         ec2_client = boto3.client('ec2')
         instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
-        # Now time to turn everything on!
+        # Now you have the new Route53 info:
         new_ip = instance_details["PublicIpAddress"]
         new_ttl = 60
+        # Now time to turn everything on! (lambda cron alarms will turn everything off when time.
+        #    Doing it there is more stable, and will reset the system if something goes wrong.)
         events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
 
     # If the ec2 instance just went down:
-    elif event["detail-type"] == "EC2 Instance Terminate Successful":
-        # This event only happens when the instance is FINALLY terminated, but it stays in pending
-        # forever. If you connect while it's in pending, The spin up event will happen, then this
-        # will finally happen after it. You'd be left with a instance with no management around it.
-        # This stops that from happening
+    elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
+        # There's a window where if a instance is coming up as this is hit, this could wipe the
+        # ip of the new instance from route53. Normally boto3.client is expensive, but we only
+        # care about spin-up time. This is when the system is resetting anyways.
         asg_client = boto3.client('autoscaling')
         asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]
         for instance in asg_info['Instances']:
             # If there's a instance in ANY of the Pending states, or just finished starting, let IT update the DNS stuff
             if instance['LifecycleState'].startswith("Pending") or  instance['LifecycleState'] == "InService":
-                print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event.")
+                print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event (triggered by '{event['EC2InstanceId']}')")
                 return
-        # Now you should be good to turn everything off!
+        # Route53 info meaning the system is now off-line:
         new_ip = os.environ["UNAVAILABLE_IP"]
         new_ttl = int(os.environ["UNAVAILABLE_TTL"])
+        # TODO: Move this to the shutdown lambda when it's finished. The whole system
+        #      will be a lot more stable, and also reset itself if something goes wrong.
         events_client.disable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
-
 
     # If the EventBridge filter somehow changed (This should never happen):
     else:
