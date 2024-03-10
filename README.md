@@ -136,13 +136,13 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 - Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.
   - Maybe the stack prefix is the name of the file? Then the file can set the domain prefix. (`minecraft-java.conf` -> `minecraft.example.com`, you can choose not to have the `*-java`. Stack name would be `minecraft-java-ContainerManager-Stack`). Have the leaf stack be in an `if`, that only runs if you supply a file. If they just want to update the base stack then, it just won't see the leaf.
 
-  ```python
-  # Pseudo-code, maybe something like this will work?
-  base_stack = BaseStack(app, "BaseStack", env=env)
-  if cdk.args.config_file:
-    config_name = config_file.split(".")[0]
-    leaf_stack = LeafStack(app, f"{config_name}-LeafStack", env=env config_file=config_file, base_stack=base_stack)
-  ```
+    ```python
+    # Pseudo-code, maybe something like this will work?
+    base_stack = BaseStack(app, "BaseStack", env=env)
+    if cdk.args.config_file:
+      config_name = config_file.split(".")[0]
+      leaf_stack = LeafStack(app, f"{config_name}-LeafStack", env=env config_file=config_file, base_stack=base_stack)
+    ```
 
 ## Phase 4, Get ready for Production!
 
