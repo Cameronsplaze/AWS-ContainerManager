@@ -3,8 +3,6 @@ SHELL:=/bin/bash
 .ONESHELL:
 # Default action:
 .DEFAULT_GOAL := cdk-deploy
-# Force these to be commands, NOT files:
-.PHONY := cdk-deploy cdk-synth cdk-bootstrap
 
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
@@ -17,6 +15,7 @@ guard-%:
 #####################
 ## Generic Helpers ##
 #####################
+.PHONY := cdk-deploy
 cdk-deploy:
 	echo "Deploying Stack..." && \
 	cdk deploy \
@@ -24,10 +23,12 @@ cdk-deploy:
 		--no-previous-parameters \
 		--all
 
+.PHONY := cdk-synth
 cdk-synth:
 	echo "Synthesizing Stack..." && \
 	cdk synth
 
+.PHONY := cdk-destroy
 cdk-destroy:
 	echo "Destroying Stack..." && \
 	cdk destroy \
@@ -37,9 +38,9 @@ cdk-destroy:
 #######################
 ## One Time Commands ##
 #######################
-cdk-bootstrap: guard-AWS_REGION
-	# This needs to be run once per account/region
-	if [ -z "${AWS_DEFAULT_PROFILE}" ]; then echo "WARNING: AWS_DEFAULT_PROFILE is not set"; fi && \
+.PHONY := cdk-bootstrap
+cdk-bootstrap: guard-AWS_REGION guard-AWS_PROFILE
+	# This needs to be run once per account/region combo
 	export AWS_DEFAULT_ACCOUNT=$$(aws --region=${AWS_REGION} sts get-caller-identity --query Account --output text) && \
 	echo "Running: \`cdk bootstrap aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}\`..." && \
 	cdk bootstrap aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}

@@ -8,7 +8,7 @@ import boto3
 required_vars = ["AWS_REGION", "ECS_CLUSTER_NAME", "ECS_CLUSTER_SERVICE", "ASG_NAME"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
-    raise RuntimeError(f"Missing environment vars: {', '.join(missing_vars)}")
+    raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
 
 # Boto3 Clients:
 asg_client = boto3.client('autoscaling')
@@ -22,9 +22,9 @@ def update_ecs_container(spin_up_container: bool) -> None:
     # If spinning down, first spin down the service, then the container
     if spin_up_container:
         update_asg(desired_count=1)
-        update_ecs_service(desired_count=1)
+        # update_ecs_service(desired_count=1)
     else:
-        update_ecs_service(desired_count=0)
+        # update_ecs_service(desired_count=0)
         update_asg(desired_count=0)
 
 

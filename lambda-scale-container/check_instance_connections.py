@@ -5,7 +5,7 @@ import boto3
 required_vars = ["AWS_REGION", "ASG_NAME", "DOCKER_IMAGE", "DOCKER_PORT", "TASK_DEFINITION"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
-    raise RuntimeError(f"Missing environment vars: {', '.join(missing_vars)}")
+    raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
 
 # Boto3 Clients:
 asg_client = boto3.client('autoscaling')

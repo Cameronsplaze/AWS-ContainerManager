@@ -10,14 +10,21 @@ from aws_cdk import (
     aws_ecs_patterns as ecs_patterns,
     aws_iam as iam,
     aws_autoscaling as autoscaling,
+    aws_route53 as route53,
 )
 
+from .get_param import get_param
 
 class ContainerManagerBaseStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        self.domain_name = get_param(self, "DOMAIN_NAME")
+
+        #################
+        ### VPC STUFF ###
+        #################
         # Create a Public VPC to run instances in:
         self.vpc = ec2.Vpc(
             self,
@@ -33,7 +40,7 @@ class ContainerManagerBaseStack(Stack):
         )
 
         ## VPC Security Group - Traffic in/out the VPC itself:
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SecurityGroup.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_vpc_traffic = ec2.SecurityGroup(
             self,
             f"{construct_id}-sg-vpc-traffic",
@@ -50,3 +57,26 @@ class ContainerManagerBaseStack(Stack):
             # - Let containers update if you run `yum update` or `apt-get update`
             description="Allow HTTPS traffic OUT",
         )
+
+        #####################
+        ### Route53 STUFF ###
+        #####################
+
+        # Create a Route53 Hosted Zone:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PrivateHostedZone.html
+        # NOTE: This maybe dynamic based on variables you set. If you register a domain in
+        # AWS, it creates a hosted zone automatically.
+        # NOTE 2: Testing out private first, it's the only one that you can add to a vpc.
+        self.hosted_zone = route53.PrivateHostedZone(
+            self,
+            f"{construct_id}-hosted-zone",
+            zone_name=self.domain_name,
+            vpc=self.vpc,
+            comment=f"Hosted zone for {construct_id}: {self.domain_name}",
+        )
+        for port in [ec2.Port.udp(53), ec2.Port.tcp(53)]:
+            self.sg_vpc_traffic.connections.allow_from(
+                ec2.Peer.any_ipv4(),
+                port_range=port,
+                description="Allow DNS traffic from outside"
+            )

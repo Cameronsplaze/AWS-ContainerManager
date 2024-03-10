@@ -9,7 +9,12 @@ from aws_cdk import (
 )
 
 
-def get_param(stack: Stack, key: str, default: Union[str, int, float]=None, description: str="") -> str:
+def get_param(
+        stack: Stack,
+        key: str,
+        default: Union[str, int, float, bool]=None,
+        description: str="",
+    ) -> Union[str, int, float, bool]:
     """
     Get a parameter from the environment, or use the default if it's not set.
 
@@ -44,8 +49,11 @@ def get_param(stack: Stack, key: str, default: Union[str, int, float]=None, desc
         description=f"{description}{' ' if description else ''}(Don't Edit in CloudFormation Console)"
     )
 
-    # If you're expecting a number, change it away from a string:
+    ## If you're expecting a number, change it away from a string:
     #   (CfnParameter *wants* the input as a string, but nothing else does)
     if param_type == "Number":
         val = float(val) if "." in val else int(val)
+    ## If it's a bool, change it to one:
+    elif val.lower() in ["true", "false"]:
+        val = val.lower() == "true"
     return val

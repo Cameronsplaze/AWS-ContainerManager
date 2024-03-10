@@ -84,11 +84,6 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 1, MVP
 
-- Move as much as you can (at least the ecs cluster) to the base stack.
-  - Obviously the ASG and EC2_Service need to stay in the container stack. There might not be anything else to move over...
-
-- Create a minecraft image based on "itzg/minecraft-server", but with netstat removed. Test if connection testing in lambda still works. It *should* be using netstat installed on the host if I set it up right.
-
 - Get a basic script to spin up/down the ec2 instance + task. This is NOT automating it with DNS yet. Mainly to be a good segway to that, and have a tool to start measuring/optimizing startup time.
   - Basic script is there now, but need to optimize speed up of task with it still.
 
@@ -106,11 +101,13 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - Figure out routing, Route53 stuff. Basically finish off the automation.
 
+- Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
+
 ### Phase 3, Split apart to run multiple games
 
 - Make sure they're locked down from each other too.
 - Go through Console and see if everything looks like you want. Check for warnings.
-  - For example, EC2 instances say to force V2 of something...
+  - For example, EC2 instances say to force IMDSv2 is recommended
 - Go though cost optimization for everything. There's probably some low-hanging fruit in at *least* EFS
 - See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, with different IP's.
 - Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.

@@ -12,9 +12,13 @@ from aws_cdk import (
     aws_efs as efs,
     aws_logs as logs,
     aws_autoscaling as autoscaling,
+    aws_route53 as route53,
+    aws_events as events,
+    aws_events_targets as targets,
 )
 from constructs import Construct
 
+from .base_stack import ContainerManagerBaseStack
 from .get_param import get_param
 
 
@@ -32,15 +36,17 @@ container_environment = {
 
 class ContainerManagerStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, vpc, sg_vpc_traffic, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, container_name_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        self.container_name_id = container_name_id
         self.docker_image = get_param(self, "DOCKER_IMAGE")
         self.docker_port = get_param(self, "DOCKER_PORT")
         self.instance_type = get_param(self, "INSTANCE_TYPE", default=INSTANCE_TYPE)
 
-        self.vpc = vpc
-        self.sg_vpc_traffic = sg_vpc_traffic
+        self.vpc = base_stack.vpc
+        self.sg_vpc_traffic = base_stack.sg_vpc_traffic
+        self.hosted_zone = base_stack.hosted_zone
 
         ###########
         ## Setup Security Groups
@@ -97,7 +103,10 @@ class ContainerManagerStack(Stack):
         ## Setup ECS
         ###########
 
-        # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/Cluster.html
+        ## Cluster for all the games
+        # This has to stay in this stack. A cluster represents a single "instance type"
+        # sort of. This is the only way to tie the ASG to the ECS Service, one-to-one.
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html
         self.ecs_cluster = ecs.Cluster(
             self,
             f"{construct_id}-ecs-cluster",
@@ -165,6 +174,11 @@ class ContainerManagerStack(Stack):
             enable_managed_termination_protection=False,
         )
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
+        ## Just to populate information in the console, doesn't change the logic:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html#addwbrdefaultwbrcapacitywbrproviderwbrstrategydefaultcapacityproviderstrategy
+        self.ecs_cluster.add_default_capacity_provider_strategy([
+            ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name)
+        ])
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
@@ -302,8 +316,8 @@ class ContainerManagerStack(Stack):
             },
         )
 
-        ### Just removing until I get back to working in this section. Don't want the lambda
-        ### to be updated on every deployment if the one in aws isn't doing anything.
+        # ## Just removing until I get back to working in this section. Don't want the lambda
+        # ## to be updated on every deployment if the one in aws isn't doing anything.
         # # Classic Lambda Function - for scaling up/down the container
         # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         # self.scale_container_lambda = aws_lambda.Function(
@@ -337,3 +351,105 @@ class ContainerManagerStack(Stack):
         #   - https://stackoverflow.com/questions/68941663/is-there-anyway-to-determine-the-public-ip-of-a-fargate-container-before-it-beco
     
 
+        ###########
+        ## Setup Route53
+        ###########
+        ## The instance isn't up, use the "unknown" ip address:
+        # https://www.lifewire.com/four-zero-ip-address-818384
+        self.unavailable_ip = "0.0.0.0"
+        # Never set TTL to 0, it's not defined in the standard
+        self.unavailable_ttl = 1
+
+        ## Add a record set that uses the base hosted zone
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
+        self.domain_name = f"{self.container_name_id}.{self.hosted_zone.zone_name}"
+        self.dns_record = route53.RecordSet(
+            self,
+            f"{construct_id}-DnsRecord",
+            zone=self.hosted_zone,
+            record_name=self.domain_name,
+            record_type=route53.RecordType.A,
+            target=route53.RecordTarget.from_values(self.unavailable_ip),
+            ttl=Duration.seconds(self.unavailable_ttl),
+        )
+
+        ## Lambda function to update the DNS record:
+        # TODO: Also make this start the lambda for spinning down the container?
+        #         seems like the most stable place to do it, to make sure the containers
+        #         never up without the cron being active...
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+        self.lambda_update_dns = aws_lambda.Function(
+            self,
+            f"{construct_id}-update-dns-lambda",
+            description="Updates the DNS record when the instance state is changed.",
+            code=aws_lambda.Code.from_asset("./lambda-update-route53/"),
+            handler="main.lambda_handler",
+            runtime=aws_lambda.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(30),
+
+            environment={
+                "HOSTED_ZONE_ID": self.hosted_zone.hosted_zone_id,
+                "DOMAIN_NAME": self.domain_name,
+                "UNAVAILABLE_IP": self.unavailable_ip,
+                "UNAVAILABLE_TTL": str(self.unavailable_ttl),
+            },
+            # # Events to trigger this function. TODO:
+            # events=[],
+            # VPC Permissions, might need to scale up EC2:
+            # Lambda Functions in a public subnet can NOT access the internet.
+            # This just acknowledges that.
+            # allow_public_subnet=True,            # vpc=self.vpc,
+            # security_groups=[],
+        )
+        # ## Let it talk to stuff inside the VPC it's in:
+        # # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSLambdaVPCAccessExecutionRole.html
+        # self.lambda_update_dns.role.add_managed_policy(
+        #     iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaVPCAccessExecutionRole")
+        # )
+
+
+        ## Add EventBridge Rule to trigger lambda to update the DNS record
+        #    along side the ASG/Instance. Keep the two IP's in sync.
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        self.asg_update_dns_rule = events.Rule(
+            self,
+            f"{construct_id}-ASG-update-DNS-rule",
+            rule_name=f"{construct_id}-ASG-update-DNS-rule",
+            description="Trigger Lambda whenever the instance state changes, to keep DNS in sync",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.autoscaling"],
+                detail_type=["EC2 Instance Launch Successful", "EC2 Instance Terminate Successful"],
+                detail={
+                    "AutoScalingGroupName": [self.auto_scaling_group.auto_scaling_group_name],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
+                targets.LambdaFunction(self.lambda_update_dns),
+            ],
+        )
+
+        # ## Let the event rule trigger the lambda:
+        # TODO: Looks like this is duplicated in the console, seeing if it's automatic
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#addwbrpermissionid-permission
+        # self.lambda_update_dns.add_permission(
+        #     f"{construct_id}-update-dns-permission",
+        #     principal=iam.ServicePrincipal("events.amazonaws.com"),
+        #     action="lambda:InvokeFunction",
+        #     source_arn=self.asg_update_dns_rule.rule_arn,
+        # )
+
+        # self.lambda_update_dns.add_to_role_policy(
+        #     statement=iam.PolicyStatement(
+        #         principals=[iam.ServicePrincipal("events.amazonaws.com")],
+        #         effect=iam.Effect.ALLOW,
+        #         actions=["lambda:InvokeFunction"],
+        #         resources=[self.lambda_update_dns.function_arn],
+        #         conditions={
+        #             "ArnLike": {
+        #                 "AWS:SourceArn": self.asg_update_dns_rule.rule_arn,
+        #             }
+        #         },
+        #     )
+        # )

@@ -3,7 +3,7 @@ import os
 
 import aws_cdk as cdk
 
-from ContainerManager_Base.base_stack import ContainerManagerBaseStack
+from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.container_manager_stack import ContainerManagerStack
 
 
@@ -26,14 +26,15 @@ base_stack = ContainerManagerBaseStack(
 )
 
 # Create the stack:
+container_name_id = os.environ.get('CONTAINER_NAME_ID') or 'UKN'
 ContainerManagerStack(
     app,
     # TODO: Have good value here. Maybe same as DNS CNAME?
-    f"ContainerManager-{os.environ.get('GAME_NAME') or 'Unknown'}-Stack",
+    f"ContainerManager-{container_name_id}-Stack",
     description="For automatically managing a single container.",
     env=env,
-    vpc=base_stack.vpc,
-    sg_vpc_traffic=base_stack.sg_vpc_traffic,
+    base_stack=base_stack,
+    container_name_id=container_name_id,
 )
 
 app.synth()
