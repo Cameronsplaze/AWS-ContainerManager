@@ -134,15 +134,20 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 - See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, because different instance IP's.
 
 - Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.
-  - Maybe the stack prefix is the name of the file? Then the file can set the domain prefix. (`minecraft-java.conf` -> `minecraft.example.com`, you can choose not to have the `*-java`. Stack name would be `minecraft-java-ContainerManager-Stack`). Have the leaf stack be in an `if`, that only runs if you supply a file. If they just want to update the base stack then, it just won't see the leaf.
+  - Maybe the stack prefix the same as domain prefix? (`minecraft-java.conf` -> config: `id:minecraft` -> `minecraft.example.com`, you can choose not to have the `*-java`. Stack name would be `minecraft-ContainerManager-Stack`). Have the leaf stack be in an `if`, that only runs if you supply a file. If they just want to update the base stack then, it just won't see the leaf. This still doesn't let you use the same config on multiple stacks though.
+    - Maybe pass domain as another arg? `--config <path> --id minecraft`? Then use `id` for both the domain and stack name? You can also store a default in the config file.
 
     ```python
     # Pseudo-code, maybe something like this will work?
     base_stack = BaseStack(app, "BaseStack", env=env)
     if cdk.args.config_file:
+      config = yaml.safe_loads(dk.args.config_file)
+      id_name = cdk.args.id or config.get("id") or raise ValueError("Need to pass id in config or as arg") # not sure if this syntax actually works
       config_name = config_file.split(".")[0]
-      leaf_stack = LeafStack(app, f"{config_name}-LeafStack", env=env config_file=config_file, base_stack=base_stack)
+      leaf_stack = LeafStack(app, f"{id_name}-LeafStack", env=env config=config, base_stack=base_stack)
     ```
+
+    - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
 
 ## Phase 4, Get ready for Production!
 
