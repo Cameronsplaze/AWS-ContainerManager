@@ -141,9 +141,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     # Pseudo-code, maybe something like this will work?
     base_stack = BaseStack(app, "BaseStack", env=env)
     if cdk.args.config_file:
-      config = yaml.safe_loads(dk.args.config_file)
-      id_name = cdk.args.id or config.get("id") or raise ValueError("Need to pass id in config or as arg") # not sure if this syntax actually works
-      config_name = config_file.split(".")[0]
+      config = yaml.safe_loads(dk.args.config_file) # Custom loader here instead?
+      id_name = cdk.args.id or config.get("id") or raise ValueError("Need to pass id in config or as arg")
       leaf_stack = LeafStack(app, f"{id_name}-LeafStack", env=env config=config, base_stack=base_stack)
     ```
 
