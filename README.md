@@ -143,7 +143,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     if cdk.args.config_file:
       config = yaml.safe_loads(dk.args.config_file) # Custom loader here instead?
       id_name = cdk.args.id or config.get("id") or raise ValueError("Need to pass id in config or as arg")
-      leaf_stack = LeafStack(app, f"{id_name}-LeafStack", env=env config=config, base_stack=base_stack)
+      leaf_stack = LeafStack(app, f"{id_name}-LeafStack", env=env config=config, id_name=id_name, base_stack=base_stack)
     ```
 
     - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
