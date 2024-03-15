@@ -392,6 +392,8 @@ class ContainerManagerStack(Stack):
             evaluation_periods=MINUTES_WITHOUT_PLAYERS,
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+            # TODO: Either disable alarm, or change this to OK? Otherwise the system is in constant alarm
+            #       when it's off. 
             treat_missing_data=cloudwatch.TreatMissingData.IGNORE,
         )
 
