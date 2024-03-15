@@ -5,6 +5,7 @@ from aws_cdk import (
     Stack,
     CfnParameter,
     Tags,
+    RemovalPolicy,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
@@ -74,6 +75,17 @@ class ContainerManagerBaseStack(Stack):
             vpc=self.vpc,
             comment=f"Hosted zone for {construct_id}: {self.domain_name}",
         )
+        # self.hosted_zone = route53.PublicHostedZone(
+        #     self,
+        #     f"{construct_id}-hosted-zone",
+        #     zone_name=self.domain_name,
+        #     comment=f"Hosted zone for {construct_id}: {self.domain_name}",
+        # )
+        # NOTE: ONLY apply this if you just created the hosted zone!!!
+        self.hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
+
+        ## Update DNS for the VPC
+        # (TODO: Test if you need this if it's a public hosted zone)
         for port in [ec2.Port.udp(53), ec2.Port.tcp(53)]:
             self.sg_vpc_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),

@@ -45,12 +45,10 @@ def lambda_handler(event, context) -> None:
         # Route53 info meaning the system is now off-line:
         new_ip = os.environ["UNAVAILABLE_IP"]
         new_ttl = int(os.environ["UNAVAILABLE_TTL"])
-        # TODO: Move this to the shutdown lambda when it's finished. The whole system
-        #      will be a lot more stable, and also reset itself if something goes wrong.
-        events_client.disable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
 
     # If the EventBridge filter somehow changed (This should never happen):
     else:
+        print({"Event": event, "Context": context})
         raise RuntimeError(f"Unknown event type: '{event['detail-type']}'. Did you mess with the EventBridge Rule??")
 
     print(f"Changing to new IP: {new_ip}")

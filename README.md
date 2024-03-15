@@ -85,6 +85,16 @@ The actual core logic for managing and running the container.
   - **Cons for ASG**:
     - Part of the management, the lambda cron that checks for connections, will fail if there's no task running. This can happen if it triggers too fast. To get around it, I'll have a Metric + Alarm hooked up to the lambda, and only care about the failure if you get X many in a row. (The management framework being ready TOO fast is a good problem to have anyways).
 
+- Turning off System: Inside lambda-instance-StateChange-hook vs lambda-scale-container:
+  - (Went with lambda-scale-container)
+  - **Pros for lambda-scale-container**:
+    - This is the lambda that turns the system on when route53 sees someone is trying to connect.
+    - If you're ever left in a case where the lambda watchdog is on, but instance is off, watchdog will error for not being able to find the instance. I'll have an alarm hooked up regardless here. That alarm can trigger ASG directly to turn off the system, and theoretically if you go this route, the system will look straight forward. (Use the ASG Hook to both turn ON the system, and turn it OFF.). The problem with this is if the system ever hits a state where a instance is off, but the watchdog lambda is left on. The alarm will set the desired_count to 0, but because it's already 0, the ASG OFF hook will never trigger. By having all of the "turn off system" logic in a lambda, I can BOTH set the desired_count to 0, AND turn off the EventBridge triggering the watchdog lambda. It'll trigger and shut everything off, even if there's no instance. (Bonus, it has similar permissions anyway since it needs to set desired_count to 1 when route53 triggers it too).
+  - **Pros for lambda-instance-StateChange-hook**:
+    - The main thing is it makes how each part integrates so simple, I keep second guessing not using this route. The built in fail-safe of the other option is soo desirable though.
+    - The other pro is I'd move the task desired_count to this lambda as well. That'd probably fix the "no task placement" error from starting the task too soon too. I then would make both the alarms from the watchdog lambda (num_connections=0, and LambdaErrors), trigger a ASG scale down. If you can get Route53 to trigger a ASG Spin up directly (maybe event bridge?), then there'd be no need for the lambda-switch-system AT ALL. (Though I guess you can maybe get an alert to your email if it triggers too many times? Though a self-correcting system seems more desirable tbh. Plus the lambda-switch-system is nice for both debugging, and optimization testing anyways. We might need it later too for expanding the system).
+    - Plus according to [SubscriptionFilter Docs](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html), you have to target lambda from route53 anyways, I don't see a way to target ASG like with alarms.
+
 ### Slides
 
 My work has "Day of Innovation" every once in a while, where we can work on whatever we want. Lately I've been choosing this project, and here's the slides from each DoI!
@@ -107,6 +117,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
   - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect. [One example here](https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk).
+    - When this triggers lambda to start the ASG, is it possible to also reset the metric for player count? At least push metric of 1. This lets you keep the container alive while it updates to the latest version, without anyone having to down-date to that version and connect. Once it updates, it restarts and you can connect with the latest version.
 
 - Finish the prototype for the Base Stack:
   - Figure out passing in host ID, if the domain already exists.

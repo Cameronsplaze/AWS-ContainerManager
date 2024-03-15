@@ -1,21 +1,48 @@
 
 import os
+import json
 import boto3
 
-required_vars = ["ASG_NAME", "TASK_DEFINITION"]
+required_vars = [
+    "ASG_NAME",
+    "TASK_DEFINITION",
+    "METRIC_NAMESPACE",
+    "METRIC_NAME",
+    "METRIC_UNIT",
+    "METRIC_DIMENSIONS"
+]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
     raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
 
-# Boto3 Clients:
+# Boto3 Clients/Waiters:
 #    Can get cached if function is reused, keep clients that are *always* hit here:
 asg_client = boto3.client('autoscaling')
 ssm_client = boto3.client('ssm')
+ssm_command_waiter = ssm_client.get_waiter('command_executed')
+cloudwatch_client = boto3.client('cloudwatch')
 
-def lambda_handler(event, context):
+# Dimension map for cloudwatch:
+# Load the input:
+dimensions_input = json.loads(os.environ["METRIC_DIMENSIONS"])
+# Change it to the format boto3 cloudwatch wants:
+dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]
+
+def lambda_handler(event, context) -> None:
     instance_id = get_acg_instance_id()
     num_connections = get_instance_connections(instance_id)
-    # TODO: Push num_connections to CloudWatch Custom Metric here
+    push_to_cloudwatch_metric(num_connections)
+
+def push_to_cloudwatch_metric(num_connections: int) -> None:
+    cloudwatch_client.put_metric_data(
+        Namespace=os.environ["METRIC_NAMESPACE"],
+        MetricData=[{
+            'MetricName': os.environ["METRIC_NAME"],
+            'Dimensions': dimension_map,
+            'Unit': os.environ["METRIC_UNIT"],
+            'Value': num_connections,
+        }],
+    )
 
 def get_instance_connections(instance_id: str) -> int:
     ## Run the Command:
@@ -43,10 +70,8 @@ def get_instance_connections(instance_id: str) -> int:
     command_id = response['Command']['CommandId']
     # You get no feedback if the command fails. You can use this to look up the error
     #    in the console, but I couldn't find a way to get output there either:
-    # NOTE: The main failure I see is if the task hasn't started yet
     print(f"SSM Command ID: {command_id}")
-    waiter = ssm_client.get_waiter('command_executed')
-    waiter.wait(
+    ssm_command_waiter.wait(
         CommandId=command_id,
         InstanceId=instance_id,
         WaiterConfig={
@@ -54,6 +79,11 @@ def get_instance_connections(instance_id: str) -> int:
             "MaxAttempts": 120,
         },
     )
+    ## TODO: Able to test w/ adding error alarm
+    # try:
+    #     pass
+    # except TODO as e:
+    #     raise RuntimeError("Could not get connection count. Is the task running?") from e
 
     ## Get the output:
     output = ssm_client.get_command_invocation(
@@ -63,7 +93,7 @@ def get_instance_connections(instance_id: str) -> int:
 
     num_connections = output['StandardOutputContent']
     print(f"Number of Connections: {num_connections}")
-    return int(output)
+    return int(num_connections)
 
 def get_acg_instance_id() -> str:
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]
