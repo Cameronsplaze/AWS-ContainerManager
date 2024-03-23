@@ -19,6 +19,8 @@ from aws_cdk import (
     aws_events_targets as targets,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
+    aws_sns as sns,
+    aws_sns_subscriptions as subscriptions,
 )
 from constructs import Construct
 
@@ -317,11 +319,6 @@ class ContainerManagerStack(Stack):
             },
         )
 
-
-        ## TODO: When getting to auto-scaling ec2 instance, this might help? Supposed to grab
-        # the new IP address early:
-        #   - https://github.com/aws/aws-cdk/blob/v1-main/packages/@aws-cdk-containers/ecs-service-extensions/lib/extensions/assign-public-ip/assign-public-ip.ts
-        #   - https://stackoverflow.com/questions/68941663/is-there-anyway-to-determine-the-public-ip-of-a-fargate-container-before-it-beco
     
 
         ###########
@@ -335,6 +332,7 @@ class ContainerManagerStack(Stack):
 
         ## TODO: Have Route53 trigger lambda:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html
+        # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
 
         ## Add a record set that uses the base hosted zone
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
@@ -363,11 +361,7 @@ class ContainerManagerStack(Stack):
         ## Custom Metric for the number of connections
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html
-        # TODO: Look to see if it's worth moving metrics to the base stack. Have namespace be
-        #       the base stack name, and dimensions identify this stack. Could make graphing
-        #       cool to see all the different games in one metric.
-        #       (Although, is there way to lock permissions based on dimension?)
-        self.lambda_cron_NumConnections_metric = cloudwatch.Metric(
+        self.metric_num_connections = cloudwatch.Metric(
             namespace=self.metric_namespace,
             metric_name="Metric-NumConnections",
             dimensions_map=self.metric_dimension_map,
@@ -382,9 +376,7 @@ class ContainerManagerStack(Stack):
         )
         ## Trigger if 0 people are connected for too long:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html#createwbralarmscope-id-props
-        # TODO: Enable/Disable alarm with system? Lets the console be more accurate, but adds complexity.
-        #          Look into this AFTER stack is split apart, and diagrammed. Tried it, but got circular dependency error.
-        self.lambda_cron_NumConnections_alarm = self.lambda_cron_NumConnections_metric.create_alarm(
+        self.alarm_num_connections = self.metric_num_connections.create_alarm(
             self,
             f"{construct_id}-Alarm-NumConnections",
             alarm_name=f"{construct_id}-Alarm-NumConnections",
@@ -392,32 +384,25 @@ class ContainerManagerStack(Stack):
             evaluation_periods=MINUTES_WITHOUT_PLAYERS,
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
-            # TODO: Either disable alarm, or change this to OK? Otherwise the system is in constant alarm
-            #       when it's off. 
-            treat_missing_data=cloudwatch.TreatMissingData.IGNORE,
+            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
         )
 
 
         ## Lambda, count the number of connections and pass to CloudWatch Alarm
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        # TODO: Have one CloudWatch Alarm watch the function fails, and turn off the system
-        # TODO: Hook up to a custom Cloudwatch Alarm metric, and turn off system if no connections
-        #         (I keep thinking about combining the two by having it error if 0 connections, but
-        #          it just feels so hacky. Plus it's good practice to get num_connections to the metric.
-        #          AND you could have errors trigger at 3, and num_connections be configurable then.)
-        self.lambda_count_connections = aws_lambda.Function(
+        self.lambda_watchdog_num_connections = aws_lambda.Function(
             self,
-            f"{construct_id}-lambda-count-connections",
+            f"{construct_id}-lambda-watchdog-num-connections",
             description="Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
-            code=aws_lambda.Code.from_asset("./lambda-scale-container/"),
-            handler="check_instance_connections.lambda_handler",
+            code=aws_lambda.Code.from_asset("./lambda-watchdog-num-connections/"),
+            handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             environment={
                 "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
                 "TASK_DEFINITION": self.task_definition.family,
                 "METRIC_NAMESPACE": self.metric_namespace,
-                "METRIC_NAME": self.lambda_cron_NumConnections_metric.metric_name,
+                "METRIC_NAME": self.metric_num_connections.metric_name,
                 # Convert from an Enum, to a string that boto3 expects. (Words must have first letter
                 #   capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
                 "METRIC_UNIT": self.metric_unit.value.title(),
@@ -425,7 +410,7 @@ class ContainerManagerStack(Stack):
             },
         )
         # Just like the other lambda, check and find the running instance:
-        self.lambda_count_connections.add_to_role_policy(
+        self.lambda_watchdog_num_connections.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["autoscaling:DescribeAutoScalingGroups"],
@@ -433,7 +418,7 @@ class ContainerManagerStack(Stack):
             )
         )
         # Give it permissions to send commands to the instance host:
-        self.lambda_count_connections.add_to_role_policy(
+        self.lambda_watchdog_num_connections.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["ssm:SendCommand"],
@@ -446,14 +431,14 @@ class ContainerManagerStack(Stack):
                 },
             )
         )
-        self.lambda_count_connections.add_to_role_policy(
+        self.lambda_watchdog_num_connections.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["ssm:SendCommand"],
                 resources=[f"arn:aws:ssm:{self.region}::document/AWS-RunShellScript"],
             )
         )
-        self.lambda_count_connections.add_to_role_policy(
+        self.lambda_watchdog_num_connections.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["ssm:GetCommandInvocation"],
@@ -461,45 +446,51 @@ class ContainerManagerStack(Stack):
             )
         )
         ## Give it permissions to push metric data:
-        ## TODO: Check if it's as secure as this:
-        # self.lambda_count_connections.add_to_role_policy(
-        #     iam.PolicyStatement(
-        #         effect=iam.Effect.ALLOW,
-        #         actions=["cloudwatch:PutMetricData"],
-        #         resources=["*"],
-        #         conditions={
-        #             "StringEquals": {
-        #                 "cloudwatch:namespace": self.metric_namespace,
-        #             }
-        #         }
-        #     )
-        # )
-        self.lambda_cron_NumConnections_metric.grant_put_metric_data(self.lambda_count_connections)
+        self.lambda_watchdog_num_connections.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                conditions={
+                    "StringEquals": {
+                        "cloudwatch:namespace": self.metric_namespace,
+                    }
+                }
+            )
+        )
 
 
 
         ## EventBridge Rule to trigger lambda every minute, to see how many are using the container
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        self.rule_cron_count_connections = events.Rule(
+        self.rule_watchdog_trigger = events.Rule(
             self,
-            f"{construct_id}-rule-cron-count-connections",
-            rule_name=f"{construct_id}-rule-cron-count-connections",
-            description="Trigger Lambda every minute, to see how many are using the container",
+            f"{construct_id}-rule-watchdog-trigger",
+            rule_name=f"{construct_id}-rule-watchdog-trigger",
+            description="Trigger Watchdog Lambda every minute, to see how many are using the container",
             schedule=events.Schedule.rate(Duration.minutes(1)),
             targets=[
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
-                targets.LambdaFunction(self.lambda_count_connections),
+                targets.LambdaFunction(self.lambda_watchdog_num_connections),
             ],
-            # Start disabled, self.lambda_count_connections will enable it when instance starts up 
+            # Start disabled, self.lambda_watchdog_num_connections will enable it when instance starts up 
             enabled=False,
         )
 
+        ## SNS Topic to trigger this lambda
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
+        self.sns_topic_trigger_watchdog = sns.Topic(
+            self,
+            f"{construct_id}-sns-topic-watchdog-trigger",
+            display_name=f"{construct_id}-sns-topic-watchdog-trigger",
+        )
 
-
+        ## Lambda that turns system on/off
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         self.lambda_switch_system = aws_lambda.Function(
             self,
             f"{construct_id}-lambda-switch-system",
-            description="Switches the system on or off, based on the number of connections",
+            description="Switches the system on or off, based on the event triggering this",
             code=aws_lambda.Code.from_asset("./lambda-switch-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -508,14 +499,23 @@ class ContainerManagerStack(Stack):
                 "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
                 "ECS_SERVICE_NAME": self.ec2_service.service_name,
                 "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
-                "WATCH_INSTANCE_RULE": self.rule_cron_count_connections.rule_name,
+                "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
+                "SNS_TOPIC_ARN_SPIN_DOWN": self.sns_topic_trigger_watchdog.topic_arn,
             },
         )
-        ## Call this if switching to ALARM:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.lambda_cron_NumConnections_alarm.add_alarm_action(
-            cloudwatch_actions.LambdaAction(self.lambda_switch_system)
+        # ## Call this if switching to ALARM:
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        # self.alarm_num_connections.add_alarm_action(
+        #     cloudwatch_actions.LambdaAction(self.lambda_switch_system)
+        # )
+        ## The "target" of SNS:
+        self.sns_topic_trigger_watchdog.add_subscription(subscriptions.LambdaSubscription(self.lambda_switch_system))
+        ## One of the "sources" of SNS:
+        self.alarm_num_connections.add_alarm_action(
+            cloudwatch_actions.SnsAction(self.sns_topic_trigger_watchdog)
         )
+
+
         # Give it permissions to update the service desired_task:
         self.lambda_switch_system.add_to_role_policy(
             iam.PolicyStatement(
@@ -542,17 +542,16 @@ class ContainerManagerStack(Stack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["events:DisableRule"],
-                resources=[self.rule_cron_count_connections.rule_arn],
+                resources=[self.rule_watchdog_trigger.rule_arn],
             )
         )
 
 
-
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_instance_StateChange_hook = aws_lambda.Function(
+        self.lambda_asg_state_change_hook = aws_lambda.Function(
             self,
-            f"{construct_id}-lambda-instance-StateChange-hook",
+            f"{construct_id}-lambda-asg-StateChange-hook",
             description="Triggered by ec2 state changes. Starts the management logic",
             code=aws_lambda.Code.from_asset("./lambda-instance-StateChange-hook/"),
             handler="main.lambda_handler",
@@ -563,11 +562,10 @@ class ContainerManagerStack(Stack):
                 "DOMAIN_NAME": self.domain_name,
                 "UNAVAILABLE_IP": self.unavailable_ip,
                 "UNAVAILABLE_TTL": str(self.unavailable_ttl),
-                "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
-                "WATCH_INSTANCE_RULE": self.rule_cron_count_connections.rule_name,
+                "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
             },
         )
-        self.lambda_instance_StateChange_hook.add_to_role_policy(
+        self.lambda_asg_state_change_hook.add_to_role_policy(
             iam.PolicyStatement(
                 # NOTE: these are on the list of actions that CANNOT be locked down
                 #   in ANY way. You *must* use a wild card, and conditions *don't* work 🙄
@@ -582,7 +580,7 @@ class ContainerManagerStack(Stack):
             )
         )
         ## Let it update the DNS record of this stack:
-        self.lambda_instance_StateChange_hook.add_to_role_policy(
+        self.lambda_asg_state_change_hook.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["route53:ChangeResourceRecordSets"],
@@ -590,22 +588,22 @@ class ContainerManagerStack(Stack):
             )
         )
         ## Let it enable the cron rule for counting connections:
-        self.lambda_instance_StateChange_hook.add_to_role_policy(
+        self.lambda_asg_state_change_hook.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["events:EnableRule"],
-                resources=[self.rule_cron_count_connections.rule_arn],
+                resources=[self.rule_watchdog_trigger.rule_arn],
             )
         )
 
         ## EventBridge Rule: This is actually what hooks the Lambda to the ASG/Instance.
         #    Needed to keep the management in sync with if a container is running.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        self.rule_instance_StateChange_hook = events.Rule(
+        self.rule_asg_state_change_trigger = events.Rule(
             self,
-            f"{construct_id}-rule-instance-StateChange-hook",
-            rule_name=f"{construct_id}-rule-instance-StateChange-hook",
-            description="Trigger Lambda whenever the instance state changes, to keep DNS in sync",
+            f"{construct_id}-rule-ASG-StateChange-hook",
+            rule_name=f"{construct_id}-rule-ASG-StateChange-hook",
+            description="Trigger Lambda whenever the ASG state changes, to keep DNS in sync",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
                 source=["aws.autoscaling"],
@@ -619,22 +617,38 @@ class ContainerManagerStack(Stack):
             ),
             targets=[
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
-                targets.LambdaFunction(self.lambda_instance_StateChange_hook),
+                targets.LambdaFunction(self.lambda_asg_state_change_hook),
             ],
         )
 
+        ## Grab existing metric for Lambda fail alarm
+        # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
+        ## Something like this:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
+        self.metric_watchdog_errors = self.lambda_watchdog_num_connections.metric_errors(
+            label="Number of Watchdog Errors",
+            unit=cloudwatch.Unit.COUNT,
+            # If multiple requests happen in a period, and one isn't an error,
+            # use that one.
+            statistic=cloudwatch.Stats.MINIMUM,
+            period=Duration.minutes(1),
+        )
+        self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
+            self,
+            f"{construct_id}-Alarm-Watchdog-Errors",
+            alarm_name=f"{construct_id}-Alarm-Watchdog-Errors",
+            alarm_description="Trigger if the Lambda Watchdog fails too many times",
+            # Must be in alarm this long consecutively to trigger:
+            evaluation_periods=3,
+            # What counts as an alarm (ANY error here):
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
 
+        )
+        ## Call this if switching to ALARM:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        self.alarm_watchdog_errors.add_alarm_action(
+            cloudwatch_actions.SnsAction(self.sns_topic_trigger_watchdog)
+        )
 
-
-        # ## Grab existing metric for Lambda fail alarm
-        # # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
-        # ## Something like this:
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
-        # self.lambda_cron_errors_metric = self.lambda_count_connections.metric_errors(
-        #     # Default is average, I want ALL of them
-        #     # (Default period is 5 min, I think it costs $$$ to bump it past that)
-        #     statistic="Sum",
-        # )
-        # self.lambda_cron_errors_alarm = self.lambda_cron_errors_metric.create_alarm(
-        #     # TODO
-        # )

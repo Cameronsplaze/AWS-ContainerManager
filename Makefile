@@ -12,9 +12,10 @@ guard-%:
         exit 1; \
     fi
 
-#####################
-## Generic Helpers ##
-#####################
+#########################
+## Generic CDK Helpers ##
+#########################
+
 .PHONY := cdk-deploy
 cdk-deploy:
 	echo "Deploying Stack..." && \
@@ -34,6 +35,18 @@ cdk-destroy:
 	cdk destroy \
 		--force \
 		--all
+
+###################
+## Misc Commands ##
+###################
+
+.PHONY := aws-whoami
+aws-whoami:
+	# Make sure you're in the right account
+	aws sts get-caller-identity \
+		--query Arn \
+		--output text
+
 
 #######################
 ## One Time Commands ##

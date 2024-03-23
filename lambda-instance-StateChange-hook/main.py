@@ -4,7 +4,7 @@ import os
 import boto3
 
 
-required_vars = ["HOSTED_ZONE_ID", "DOMAIN_NAME", "UNAVAILABLE_IP", "UNAVAILABLE_TTL", "ASG_NAME", "WATCH_INSTANCE_RULE"]
+required_vars = ["HOSTED_ZONE_ID", "DOMAIN_NAME", "UNAVAILABLE_IP", "UNAVAILABLE_TTL", "WATCH_INSTANCE_RULE"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
     raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
@@ -32,17 +32,18 @@ def lambda_handler(event, context) -> None:
 
     # If the ec2 instance just went down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
+        asg_name = event["detail"]["AutoScalingGroupName"]
         # There's a window where if a instance is coming up as this is hit, this could wipe the
         # ip of the new instance from route53. Normally boto3.client is expensive, but we only
         # care about spin-up time. This is when the system is resetting anyways.
         asg_client = boto3.client('autoscaling')
-        asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]
+        asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])['AutoScalingGroups'][0]
         for instance in asg_info['Instances']:
             # If there's a instance in ANY of the Pending states, or just finished starting, let IT update the DNS stuff
             if instance['LifecycleState'].startswith("Pending") or  instance['LifecycleState'] == "InService":
                 print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event (triggered by '{event['EC2InstanceId']}')")
                 return
-        # Route53 info meaning the system is now off-line:
+        # Route53 info - meaning the system is now off-line:
         new_ip = os.environ["UNAVAILABLE_IP"]
         new_ttl = int(os.environ["UNAVAILABLE_TTL"])
 

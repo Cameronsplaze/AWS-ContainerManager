@@ -1,10 +1,11 @@
 
 import os
+import json
 
 import boto3
 
 
-required_vars = ["ECS_CLUSTER_NAME", "ECS_SERVICE_NAME", "ASG_NAME", "WATCH_INSTANCE_RULE"]
+required_vars = ["ECS_CLUSTER_NAME", "ECS_SERVICE_NAME", "ASG_NAME", "WATCH_INSTANCE_RULE", "SNS_TOPIC_ARN_SPIN_DOWN"]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
     raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
@@ -19,12 +20,17 @@ events_client = boto3.client('events')
 def lambda_handler(event, context):
     print("DEBUG INFO")
     print({"Event": event, "Context": context})
+    # If SNS record, grab the only record:
+    if "Records" in event:
+        assert len(event["Records"]) == 1, "Error, more than one record in event! I'm not sure how this is possible tbh."
+        event = event["Records"][0]
+
     if False:
         print("TODO: Trigger system on when someone connects to DNS:")
         update_ecs_container(switch=True)
-    elif event["source"] == "aws.cloudwatch" and event.get("alarmData")["state"]["value"] == "ALARM":
-        alarm_name = event["alarmData"]["alarmName"]
-        print(f"Alarm '{alarm_name}' triggered, spinning down container!")
+    elif event.get("EventSource") == "aws:sns" and event.get("Sns")["TopicArn"] == os.environ["SNS_TOPIC_ARN_SPIN_DOWN"]:
+        alarm_message = json.loads(event["Sns"]["Message"])
+        print(f"SNS Alarm hit, spinning down. Alarm: '{alarm_message['AlarmName']}' went into '{alarm_message['NewStateValue']}'.")
         update_ecs_container(switch=False)
     else:
         print({"Event": event, "Context": context})

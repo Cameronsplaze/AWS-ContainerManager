@@ -108,15 +108,10 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 1, MVP
 
-- Finish the prototype for leaf/game stack.
-  - Add two alarms on the "cron lambda" (Different, so they have different thresholds/counts before alarming)
-    - One that gets pushed "num_connections" from lambda, and alarms if it's 0 for too long. (If you just called lambda directly on first 0, it could be while the user is re-logging. The alarm forces multiple points to be 0, so you know they're gone)
-    - Built in metric that alarms if the lambda errors too many times.
-  - If EITHER trigger, point to same lambda that spins down the EC2 instance.
-    - Move the "events:DisableRule" call here. If cron lambda ever gets left on without an instance, this lets the system reset itself.
+- Finish the prototype for the Leaf Stack:
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
-  - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect. [One example here](https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk).
+  - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect.
     - When this triggers lambda to start the ASG, is it possible to also reset the metric for player count? At least push metric of 1. This lets you keep the container alive while it updates to the latest version, without anyone having to down-date to that version and connect. Once it updates, it restarts and you can connect with the latest version.
 
 - Finish the prototype for the Base Stack:
@@ -124,6 +119,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     - I think switch to **public** hosted zone too? That's what it will be if they create one in the console. Plus the docs say "route traffic on internet". Even though the ec2 is in a VPC, we're using it's public IP.
   - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
 
+- Maybe move the EC2 service task logic to follow the same route as the watchdog cron enable/disable rule? Aka have the ASG StateChange hook spin UP the task, then have the switch_lambda spin it back down after.
+  - Still stable, since the lambda is spinning it down before the instance. With ASG Hook spinning it up, this could solve the "Wait" problem of starting tasks too soon. Plus if you start a instance in the console, this will start the task on it too.
 
 ### Phase 2, Optimize and Cleanup
 
@@ -132,7 +129,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
   - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
 
-  - Go through Cloudwatch Groups, make sure everything has a rentention policy by default
+  - Go through Cloudwatch Groups, make sure everything has a retention policy by default
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
