@@ -112,15 +112,12 @@ My work has "Day of Innovation" every once in a while, where we can work on what
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
   - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect.
-    - When this triggers lambda to start the ASG, is it possible to also reset the metric for player count? At least push metric of 1. This lets you keep the container alive while it updates to the latest version, without anyone having to down-date to that version and connect. Once it updates, it restarts and you can connect with the latest version.
 
 - Finish the prototype for the Base Stack:
   - Figure out passing in host ID, if the domain already exists.
     - I think switch to **public** hosted zone too? That's what it will be if they create one in the console. Plus the docs say "route traffic on internet". Even though the ec2 is in a VPC, we're using it's public IP.
   - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
 
-- Maybe move the EC2 service task logic to follow the same route as the watchdog cron enable/disable rule? Aka have the ASG StateChange hook spin UP the task, then have the switch_lambda spin it back down after.
-  - Still stable, since the lambda is spinning it down before the instance. With ASG Hook spinning it up, this could solve the "Wait" problem of starting tasks too soon. Plus if you start a instance in the console, this will start the task on it too.
 
 ### Phase 2, Optimize and Cleanup
 

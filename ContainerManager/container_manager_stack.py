@@ -369,6 +369,7 @@ class ContainerManagerStack(Stack):
             unit=self.metric_unit,
             # If multiple requests happen in a period, this takes the higher of the two.
             # This way BOTH have to be zero for it to count as an alarm trigger.
+            # (And it's still accurate, multiple of the same value will just be that value)
             statistic=cloudwatch.Stats.MAXIMUM,
             # It costs $0.30 to create this metric, but then the first million API
             # requests are free. Since this only happens when the container is up, we're fine.
@@ -501,6 +502,15 @@ class ContainerManagerStack(Stack):
                 "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
                 "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
                 "SNS_TOPIC_ARN_SPIN_DOWN": self.sns_topic_trigger_watchdog.topic_arn,
+
+
+                "METRIC_NAMESPACE": self.metric_namespace,
+                "METRIC_NAME": self.metric_num_connections.metric_name,
+                # Convert from an Enum, to a string that boto3 expects. (Words must have first letter
+                #   capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
+                "METRIC_UNIT": self.metric_unit.value.title(),
+                "METRIC_DIMENSIONS": json.dumps(self.metric_dimension_map),
+
             },
         )
         # ## Call this if switching to ALARM:

@@ -11,7 +11,7 @@ required_vars = [
     "METRIC_NAMESPACE",
     "METRIC_NAME",
     "METRIC_UNIT",
-    "METRIC_DIMENSIONS"
+    "METRIC_DIMENSIONS",
 ]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
@@ -25,7 +25,7 @@ ssm_command_waiter = ssm_client.get_waiter('command_executed')
 cloudwatch_client = boto3.client('cloudwatch')
 
 # Dimension map for cloudwatch:
-# Load the input:
+# Load the metric dimension map:
 dimensions_input = json.loads(os.environ["METRIC_DIMENSIONS"])
 # Change it to the format boto3 cloudwatch wants:
 dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]
