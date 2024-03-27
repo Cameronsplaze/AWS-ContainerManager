@@ -1,7 +1,9 @@
 
 import os
 import json
+
 import boto3
+import botocore
 
 required_vars = [
     "ASG_NAME",
@@ -29,6 +31,7 @@ dimensions_input = json.loads(os.environ["METRIC_DIMENSIONS"])
 dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]
 
 def lambda_handler(event, context) -> None:
+    print(json.dumps({"Event": event, "Context": context}, default=str))
     instance_id = get_acg_instance_id()
     num_connections = get_instance_connections(instance_id)
     push_to_cloudwatch_metric(num_connections)
@@ -64,26 +67,23 @@ def get_instance_connections(instance_id: str) -> int:
             ]
         }
     )
-
-    ## Wait for it:
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/waiter/CommandExecuted.html
     command_id = response['Command']['CommandId']
     # You get no feedback if the command fails. You can use this to look up the error
     #    in the console, but I couldn't find a way to get output there either:
     print(f"SSM Command ID: {command_id}")
-    ssm_command_waiter.wait(
-        CommandId=command_id,
-        InstanceId=instance_id,
-        WaiterConfig={
-            "Delay": 1,
-            "MaxAttempts": 120,
-        },
-    )
-    ## TODO: Able to test w/ adding error alarm
-    # try:
-    #     pass
-    # except TODO as e:
-    #     raise RuntimeError("Could not get connection count. Is the task running?") from e
+    try:
+        ## Wait for it:
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/waiter/CommandExecuted.html
+        ssm_command_waiter.wait(
+            CommandId=command_id,
+            InstanceId=instance_id,
+            WaiterConfig={
+                "Delay": 1,
+                "MaxAttempts": 120,
+            },
+        )
+    except botocore.exceptions.WaiterError as e:
+        raise RuntimeError("Could not get connection count. Is the task running?") from e
 
     ## Get the output:
     output = ssm_client.get_command_invocation(

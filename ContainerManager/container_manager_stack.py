@@ -39,8 +39,8 @@ container_environment = {
     "RCRON_PASSWORD": os.environ["RCRON_PASSWORD"],
 }
 
-# MINUTES_WITHOUT_PLAYERS = 5
-MINUTES_WITHOUT_PLAYERS = 1
+MINUTES_WITHOUT_PLAYERS = 5
+# MINUTES_WITHOUT_PLAYERS = 1
 
 class ContainerManagerStack(Stack):
 
@@ -393,7 +393,7 @@ class ContainerManagerStack(Stack):
         self.lambda_watchdog_num_connections = aws_lambda.Function(
             self,
             f"{construct_id}-lambda-watchdog-num-connections",
-            description="Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
+            description=f"{container_name_id}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
             code=aws_lambda.Code.from_asset("./lambda-watchdog-num-connections/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -490,7 +490,7 @@ class ContainerManagerStack(Stack):
         self.lambda_switch_system = aws_lambda.Function(
             self,
             f"{construct_id}-lambda-switch-system",
-            description="Switches the system on or off, based on the event triggering this",
+            description=f"{container_name_id}-Switch: Switches the system on or off, based on the event triggering this",
             code=aws_lambda.Code.from_asset("./lambda-switch-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -552,7 +552,7 @@ class ContainerManagerStack(Stack):
         self.lambda_asg_state_change_hook = aws_lambda.Function(
             self,
             f"{construct_id}-lambda-asg-StateChange-hook",
-            description="Triggered by ec2 state changes. Starts the management logic",
+            description=f"{container_name_id}-ASG-StateChange: Triggered by ec2 state changes. Starts the management logic",
             code=aws_lambda.Code.from_asset("./lambda-instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -563,6 +563,8 @@ class ContainerManagerStack(Stack):
                 "UNAVAILABLE_IP": self.unavailable_ip,
                 "UNAVAILABLE_TTL": str(self.unavailable_ttl),
                 "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
+                "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
+                "ECS_SERVICE_NAME": self.ec2_service.service_name,
             },
         )
         self.lambda_asg_state_change_hook.add_to_role_policy(
@@ -577,6 +579,17 @@ class ContainerManagerStack(Stack):
                     "autoscaling:DescribeAutoScalingGroups",
                 ],
                 resources=["*"],
+            )
+        )
+        # Give it permissions to update the service desired_task:
+        self.lambda_asg_state_change_hook.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "ecs:UpdateService",
+                    "ecs:DescribeServices",
+                ],
+                resources=[self.ec2_service.service_arn],
             )
         )
         ## Let it update the DNS record of this stack:
