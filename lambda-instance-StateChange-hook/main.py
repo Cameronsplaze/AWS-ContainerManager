@@ -24,12 +24,12 @@ route53_client = boto3.client('route53')
 
 def lambda_handler(event, context) -> None:
     print(json.dumps({"Event": event, "Context": context}, default=str))
-    # If the ec2 instance just came up:
+    # If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
         instance_id = event["detail"]["EC2InstanceId"]
         new_ip, new_ttl = spin_up_system(instance_id)
 
-    # If the ec2 instance just went down:
+    # If the ec2 instance just STARTED to go down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
         asg_name = event["detail"]["AutoScalingGroupName"]
         new_ip, new_ttl = spin_down_system(asg_name)

@@ -85,15 +85,18 @@ The actual core logic for managing and running the container.
   - **Cons for ASG**:
     - Part of the management, the lambda cron that checks for connections, will fail if there's no task running. This can happen if it triggers too fast. To get around it, I'll have a Metric + Alarm hooked up to the lambda, and only care about the failure if you get X many in a row. (The management framework being ready TOO fast is a good problem to have anyways).
 
-- Turning off System: Inside lambda-instance-StateChange-hook vs lambda-scale-container:
-  - (Went with lambda-scale-container)
-  - **Pros for lambda-scale-container**:
+- Turning off System: Inside lambda-instance-StateChange-hook vs lambda-switch-system:
+  - (Went with lambda-switch-system)
+  - **Pros for lambda-switch-system**:
     - This is the lambda that turns the system on when route53 sees someone is trying to connect.
-    - If you're ever left in a case where the lambda watchdog is on, but instance is off, watchdog will error for not being able to find the instance. I'll have an alarm hooked up regardless here. That alarm can trigger ASG directly to turn off the system, and theoretically if you go this route, the system will look straight forward. (Use the ASG Hook to both turn ON the system, and turn it OFF.). The problem with this is if the system ever hits a state where a instance is off, but the watchdog lambda is left on. The alarm will set the desired_count to 0, but because it's already 0, the ASG OFF hook will never trigger. By having all of the "turn off system" logic in a lambda, I can BOTH set the desired_count to 0, AND turn off the EventBridge triggering the watchdog lambda. It'll trigger and shut everything off, even if there's no instance. (Bonus, it has similar permissions anyway since it needs to set desired_count to 1 when route53 triggers it too).
+    - If you're left in a state where the system is on, but there's no instance, the lambda will trigger every minute all night long. This fixes that by letting the lambda directly turn off the system. (Otherwise if desired_count is already 0, and you SET it to 0, the instance StateChange hook will never trigger).
+    - The ASG and ECS Task also spin up/down in the order you expect.
+      - Turn on: Instance spins up, triggering Statechange Hook, spins up ECS Task.
+      - Turn off: SNS triggers lambda-switch-system, which spins off ECS Task, then spins down instance.
+    - The watchdog lambda is only running if there is an active instance, never as the instance is activaly spinning up/down.
   - **Pros for lambda-instance-StateChange-hook**:
     - The main thing is it makes how each part integrates so simple, I keep second guessing not using this route. The built in fail-safe of the other option is soo desirable though.
-    - The other pro is I'd move the task desired_count to this lambda as well. That'd probably fix the "no task placement" error from starting the task too soon too. I then would make both the alarms from the watchdog lambda (num_connections=0, and LambdaErrors), trigger a ASG scale down. If you can get Route53 to trigger a ASG Spin up directly (maybe event bridge?), then there'd be no need for the lambda-switch-system AT ALL. (Though I guess you can maybe get an alert to your email if it triggers too many times? Though a self-correcting system seems more desirable tbh. Plus the lambda-switch-system is nice for both debugging, and optimization testing anyways. We might need it later too for expanding the system).
-    - Plus according to [SubscriptionFilter Docs](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html), you have to target lambda from route53 anyways, I don't see a way to target ASG like with alarms.
+    - Plus according to [SubscriptionFilter Docs](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html), you have to target lambda from route53 anyways, I don't see a way to target ASG like with alarms. This means there's no way to get rid of the lambda-switch-system function and move the code into the lambda-instance-StateChange-hook function.
 
 ### Slides
 

@@ -83,5 +83,3 @@ flowchart TD
 - Put all EFS stuff in 1 stack
 - Look at params, make anything they reference directly in a stack
   - I.e domain_name, unavailable_ip, and ttl are used in two places.
-- Make the two alarms in DIFFERENT stacks.
-
