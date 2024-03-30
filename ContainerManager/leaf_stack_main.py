@@ -14,7 +14,6 @@ from aws_cdk import (
     aws_efs as efs,
     aws_logs as logs,
     aws_autoscaling as autoscaling,
-    aws_route53 as route53,
     aws_events as events,
     aws_events_targets as targets,
     aws_cloudwatch as cloudwatch,
@@ -25,6 +24,7 @@ from aws_cdk import (
 from constructs import Construct
 
 from .base_stack import ContainerManagerBaseStack
+from .leaf_stack_domain_info import DomainStack
 from .get_param import get_param
 
 
@@ -44,7 +44,7 @@ MINUTES_WITHOUT_PLAYERS = 5
 
 class ContainerManagerStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, container_name_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, domain_stack: DomainStack, container_name_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.container_name_id = container_name_id
@@ -54,7 +54,6 @@ class ContainerManagerStack(Stack):
 
         self.vpc = base_stack.vpc
         self.sg_vpc_traffic = base_stack.sg_vpc_traffic
-        self.hosted_zone = base_stack.hosted_zone
 
         ###########
         ## Setup Security Groups
@@ -318,37 +317,10 @@ class ContainerManagerStack(Stack):
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
         )
-
     
-
-        ###########
-        ## Setup Route53
-        ###########
-        ## The instance isn't up, use the "unknown" ip address:
-        # https://www.lifewire.com/four-zero-ip-address-818384
-        self.unavailable_ip = "0.0.0.0"
-        # Never set TTL to 0, it's not defined in the standard
-        self.unavailable_ttl = 1
-
         ## TODO: Have Route53 trigger lambda:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html
         # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
-
-        ## Add a record set that uses the base hosted zone
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
-        self.domain_name = f"{self.container_name_id}.{self.hosted_zone.zone_name}"
-        self.dns_record = route53.RecordSet(
-            self,
-            f"{construct_id}-DnsRecord",
-            zone=self.hosted_zone,
-            record_name=self.domain_name,
-            record_type=route53.RecordType.A,
-            target=route53.RecordTarget.from_values(self.unavailable_ip),
-            ttl=Duration.seconds(self.unavailable_ttl),
-        )
-
-
-
 
         ###########
         ## Setup Lambda WatchDog Timer
@@ -555,7 +527,15 @@ class ContainerManagerStack(Stack):
                 resources=[self.rule_watchdog_trigger.rule_arn],
             )
         )
-
+        ## TODO: TEMP - Testing permissions issue:
+        self.lambda_switch_system.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["lambda:InvokeFunction"],
+                # resources=[f"arn:aws:*:us-east-1:{self.account}:*"],
+                resources=["*"],
+            )
+        )
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
@@ -568,10 +548,10 @@ class ContainerManagerStack(Stack):
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             environment={
-                "HOSTED_ZONE_ID": self.hosted_zone.hosted_zone_id,
-                "DOMAIN_NAME": self.domain_name,
-                "UNAVAILABLE_IP": self.unavailable_ip,
-                "UNAVAILABLE_TTL": str(self.unavailable_ttl),
+                "HOSTED_ZONE_ID": domain_stack.sub_hosted_zone.hosted_zone_id,
+                "DOMAIN_NAME": domain_stack.sub_domain_name,
+                "UNAVAILABLE_IP": domain_stack.unavailable_ip,
+                "UNAVAILABLE_TTL": str(domain_stack.unavailable_ttl),
                 "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
                 "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
                 "ECS_SERVICE_NAME": self.ec2_service.service_name,
@@ -607,7 +587,7 @@ class ContainerManagerStack(Stack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["route53:ChangeResourceRecordSets"],
-                resources=[self.hosted_zone.hosted_zone_arn],
+                resources=[domain_stack.sub_hosted_zone.hosted_zone_arn],
             )
         )
         ## Let it enable the cron rule for counting connections:

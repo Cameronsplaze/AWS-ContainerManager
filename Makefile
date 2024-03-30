@@ -56,4 +56,7 @@ cdk-bootstrap: guard-AWS_REGION guard-AWS_PROFILE
 	# This needs to be run once per account/region combo
 	export AWS_DEFAULT_ACCOUNT=$$(aws --region=${AWS_REGION} sts get-caller-identity --query Account --output text) && \
 	echo "Running: \`cdk bootstrap aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}\`..." && \
-	cdk bootstrap aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}
+	cdk bootstrap "aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}" && \
+	echo "Required in us-east-1 for domain_stack too, running there now..." && \
+	cdk bootstrap "aws://$${AWS_DEFAULT_ACCOUNT}/us-east-1" && \
+	echo "DONE!"

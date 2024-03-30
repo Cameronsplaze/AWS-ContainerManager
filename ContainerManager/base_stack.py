@@ -22,6 +22,7 @@ class ContainerManagerBaseStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         self.domain_name = get_param(self, "DOMAIN_NAME")
+        self.root_hosted_zone_id = get_param(self, "HOSTED_ZONE_ID", default=None)
 
         #################
         ### VPC STUFF ###
@@ -63,26 +64,25 @@ class ContainerManagerBaseStack(Stack):
         ### Route53 STUFF ###
         #####################
 
-        # Create a Route53 Hosted Zone:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PrivateHostedZone.html
-        # NOTE: This maybe dynamic based on variables you set. If you register a domain in
-        # AWS, it creates a hosted zone automatically.
-        # NOTE 2: Testing out private first, it's the only one that you can add to a vpc.
-        self.hosted_zone = route53.PrivateHostedZone(
-            self,
-            f"{construct_id}-hosted-zone",
-            zone_name=self.domain_name,
-            vpc=self.vpc,
-            comment=f"Hosted zone for {construct_id}: {self.domain_name}",
-        )
-        # self.hosted_zone = route53.PublicHostedZone(
-        #     self,
-        #     f"{construct_id}-hosted-zone",
-        #     zone_name=self.domain_name,
-        #     comment=f"Hosted zone for {construct_id}: {self.domain_name}",
-        # )
-        # NOTE: ONLY apply this if you just created the hosted zone!!!
-        self.hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
+        if self.root_hosted_zone_id:
+            ## Import the existing Route53 Hosted Zone:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
+            self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
+                self,
+                f"{construct_id}-hosted-zone",
+                hosted_zone_id=self.root_hosted_zone_id,
+                zone_name=self.domain_name,
+            )
+        else:
+            ## Create a Route53 Hosted Zone:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
+            self.root_hosted_zone = route53.PublicHostedZone(
+                self,
+                f"{construct_id}-hosted-zone",
+                zone_name=self.domain_name,
+                comment=f"Hosted zone for {construct_id}: {self.domain_name}",
+            )
+            self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
 
         ## Update DNS for the VPC
         # (TODO: Test if you need this if it's a public hosted zone)

@@ -12,7 +12,9 @@ from aws_cdk import (
 def get_param(
         stack: Stack,
         key: str,
-        default: Union[str, int, float, bool]=None,
+        # Passing in 'None' here is possible. It means 'Don't create the
+        #  things referencing this'. Need ... to know if they SET None.
+        default: Union[str, int, float, bool, None]=...,
         description: str="",
     ) -> Union[str, int, float, bool]:
     """
@@ -23,10 +25,13 @@ def get_param(
         default: The default value if not set. DON'T set this if you want it to be required.
         description: The description to attach to the param in AWS
     """
-    # Figure out what the value should be
-    val = os.environ.get(key) or default
+    # If val is in the environment, just use that:
+    val = os.environ.get(key)
+    # Else check if a default is declared:
     if val is None:
-        raise ValueError(f"Missing required parameter: '{key}', and no default is set.")
+        if default is ...:
+            raise ValueError(f"Missing required parameter: '{key}', and no default is set.")
+        val = default
     # val could be a string of int, because of os.environ.get anyways,
     # and CfnParameter only accepts strings. Keep it as a string here
     val = str(val)
@@ -56,4 +61,7 @@ def get_param(
     ## If it's a bool, change it to one:
     elif val.lower() in ["true", "false"]:
         val = val.lower() == "true"
+    ## If it's 'None', change it to one:
+    elif val == "None":
+        val = None
     return val

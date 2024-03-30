@@ -111,6 +111,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 1, MVP
 
+- RIP: Route53 logs only go to us-east-1, and the only way OUT of us-east-1 is lambda. Will either have to re-design a few things, or have the lambda in us-east-1 trigger the one in the dynamic region... Idk what to do yet.
+
 - Finish the prototype for the Leaf Stack:
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
