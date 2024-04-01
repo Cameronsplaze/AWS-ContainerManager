@@ -464,7 +464,7 @@ class ContainerManagerStack(Stack):
             self,
             f"{construct_id}-lambda-switch-system",
             description=f"{container_name_id}-Switch: Switches the system on or off, based on the event triggering this",
-            code=aws_lambda.Code.from_asset("./lambda-switch-system/"),
+            code=aws_lambda.Code.from_asset("./lambda-start-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),

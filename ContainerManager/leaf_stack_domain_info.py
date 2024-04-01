@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_iam as iam,
     aws_logs as logs,
+    aws_lambda as aws_lambda,
 )
 from constructs import Construct
 
@@ -14,7 +15,7 @@ from .base_stack import ContainerManagerBaseStack
 
 class DomainStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, container_name_id: str, **kwargs):
+    def __init__(self, scope: Construct, construct_id: str, container_name_id: str, base_stack: ContainerManagerBaseStack, **kwargs):
         super().__init__(scope, construct_id, **kwargs)
 
         ## The instance isn't up, use the "unknown" ip address:
