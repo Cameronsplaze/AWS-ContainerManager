@@ -21,8 +21,8 @@ class ContainerManagerBaseStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        self.domain_name = get_param(self, "DOMAIN_NAME")
         self.root_hosted_zone_id = get_param(self, "HOSTED_ZONE_ID", default=None)
+        self.domain_name = str(get_param(self, "DOMAIN_NAME")).lower()
 
         #################
         ### VPC STUFF ###

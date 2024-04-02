@@ -21,6 +21,8 @@ if any(missing_vars):
 # Boto3 Clients:
 #    Can get cached if function is reused, keep clients that are *always* hit here:
 route53_client = boto3.client('route53')
+events_client = boto3.client('events')
+ecs_client = boto3.client('ecs')
 
 def lambda_handler(event, context) -> None:
     print(json.dumps({"Event": event, "Context": context}, default=str))
@@ -59,7 +61,6 @@ def lambda_handler(event, context) -> None:
 
 def spin_up_system(instance_id):
     try:
-        ecs_client = boto3.client('ecs')
         ## Spin up the task on the new instance:
         ecs_client.update_service(
             cluster=os.environ["ECS_CLUSTER_NAME"],
@@ -85,10 +86,10 @@ def spin_up_system(instance_id):
         new_ip = instance_details["PublicIpAddress"]
         new_ttl = 60
     finally:
-        # If this rule ever doesn't start, you're left with an instance without
-        # anything watching it. It'll never turn off, and you'll be charged a LOT.
-        # We also want this to run last, so it's here:
-        events_client = boto3.client('events')
+        pass
+        # # If this rule ever doesn't start, you're left with an instance without
+        # # anything watching it. It'll never turn off, and you'll be charged a LOT.
+        # # We also want this to run last, so it's here:
         events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
     return new_ip, new_ttl
 
@@ -103,6 +104,14 @@ def spin_down_system(asg_name):
         if instance['LifecycleState'].startswith("Pending") or  instance['LifecycleState'] == "InService":
             print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event.")
             sys.exit()
+    # Spin down the rule:
+    events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
+    ## Spin up the task on the new instance:
+    ecs_client.update_service(
+        cluster=os.environ["ECS_CLUSTER_NAME"],
+        service=os.environ["ECS_SERVICE_NAME"],
+        desiredCount=0,
+    )
     # Route53 info - meaning the system is now off-line:
     new_ip = os.environ["UNAVAILABLE_IP"]
     new_ttl = int(os.environ["UNAVAILABLE_TTL"])

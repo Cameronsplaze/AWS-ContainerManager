@@ -123,6 +123,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     - I think switch to **public** hosted zone too? That's what it will be if they create one in the console. Plus the docs say "route traffic on internet". Even though the ec2 is in a VPC, we're using it's public IP.
   - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
 
+- Possible timing bug?:
+  - If the lambda is throwing an alarm, it causes the system to spin down. What if you connect right then, causing it to spin up? The system will never go out of the "alarm" state, even if you log off. Since it never changes states, nothing will trigger. Maybe there's a place you can put this [alarm.set_state](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/alarm/set_state.html) call to fix this? In the ASG StateChangeHook?
 
 ### Phase 2, Optimize and Cleanup
 

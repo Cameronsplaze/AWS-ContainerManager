@@ -54,9 +54,23 @@ class LinkStack(Stack):
                 resources=[manager_stack.auto_scaling_group.auto_scaling_group_arn],
             )
         )
+        # Give it permissions to push to the metric:
+        self.lambda_start_system.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                conditions={
+                    "StringEquals": {
+                        "cloudwatch:namespace": manager_stack.metric_namespace,
+                    }
+                }
+            )
+        )
 
         ## Trigger the system when someone connects:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html
+        # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
         self.subscription_filter = logs.SubscriptionFilter(
             self,
             f"{construct_id}-subscription-filter",

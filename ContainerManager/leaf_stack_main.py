@@ -164,7 +164,7 @@ class ContainerManagerStack(Stack):
             f"{construct_id}-ASG",
             vpc=self.vpc,
             launch_template=self.launch_template,
-            desired_capacity=0,
+            # desired_capacity=0,
             min_capacity=0,
             max_capacity=1,
             new_instances_protected_from_scale_in=False,
@@ -318,9 +318,16 @@ class ContainerManagerStack(Stack):
             },
         )
     
-        ## TODO: Have Route53 trigger lambda:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html
-        # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
+
+        ## Scale down ASG if this is ever triggered:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
+        # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
+        scale_down_asg_action = autoscaling.StepScalingAction(self,
+            f"{construct_id}-scale-down-asg-action",
+            auto_scaling_group=self.auto_scaling_group,
+            adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY
+        )
+        scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
 
         ###########
         ## Setup Lambda WatchDog Timer
@@ -359,7 +366,11 @@ class ContainerManagerStack(Stack):
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
         )
-
+        ## Call this if switching to ALARM:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        self.alarm_num_connections.add_alarm_action(
+            cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
+        )
 
         ## Lambda, count the number of connections and pass to CloudWatch Alarm
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
@@ -418,7 +429,7 @@ class ContainerManagerStack(Stack):
                 resources=[f"arn:aws:ssm:{self.region}:{self.account}:*"],
             )
         )
-        ## Give it permissions to push metric data:
+        # Give it permissions to push metric data:
         self.lambda_watchdog_num_connections.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -450,92 +461,83 @@ class ContainerManagerStack(Stack):
             enabled=False,
         )
 
-        ## SNS Topic to trigger this lambda
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
-        self.sns_topic_trigger_watchdog = sns.Topic(
-            self,
-            f"{construct_id}-sns-topic-watchdog-trigger",
-            display_name=f"{construct_id}-sns-topic-watchdog-trigger",
-        )
-
-        ## Lambda that turns system on/off
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_switch_system = aws_lambda.Function(
-            self,
-            f"{construct_id}-lambda-switch-system",
-            description=f"{container_name_id}-Switch: Switches the system on or off, based on the event triggering this",
-            code=aws_lambda.Code.from_asset("./lambda-start-system/"),
-            handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(30),
-            environment={
-                "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
-                "ECS_SERVICE_NAME": self.ec2_service.service_name,
-                "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
-                "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
-                "SNS_TOPIC_ARN_SPIN_DOWN": self.sns_topic_trigger_watchdog.topic_arn,
-
-
-                "METRIC_NAMESPACE": self.metric_namespace,
-                "METRIC_NAME": self.metric_num_connections.metric_name,
-                # Convert from an Enum, to a string that boto3 expects. (Words must have first letter
-                #   capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
-                "METRIC_UNIT": self.metric_unit.value.title(),
-                "METRIC_DIMENSIONS": json.dumps(self.metric_dimension_map),
-
-            },
-        )
-        # ## Call this if switching to ALARM:
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        # self.alarm_num_connections.add_alarm_action(
-        #     cloudwatch_actions.LambdaAction(self.lambda_switch_system)
+        # ## SNS Topic to trigger this lambda
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
+        # self.sns_topic_trigger_watchdog = sns.Topic(
+        #     self,
+        #     f"{construct_id}-sns-topic-watchdog-trigger",
+        #     display_name=f"{construct_id}-sns-topic-watchdog-trigger",
         # )
-        ## The "target" of SNS:
-        self.sns_topic_trigger_watchdog.add_subscription(subscriptions.LambdaSubscription(self.lambda_switch_system))
-        ## One of the "sources" of SNS:
-        self.alarm_num_connections.add_alarm_action(
-            cloudwatch_actions.SnsAction(self.sns_topic_trigger_watchdog)
-        )
+
+        # ## Lambda that turns system on/off
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+        # self.lambda_switch_system = aws_lambda.Function(
+        #     self,
+        #     f"{construct_id}-lambda-switch-system",
+        #     description=f"{container_name_id}-Switch: Switches the system on or off, based on the event triggering this",
+        #     code=aws_lambda.Code.from_asset("./lambda-start-system/"),
+        #     handler="main.lambda_handler",
+        #     runtime=aws_lambda.Runtime.PYTHON_3_12,
+        #     timeout=Duration.seconds(30),
+        #     environment={
+        #         "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
+        #         "ECS_SERVICE_NAME": self.ec2_service.service_name,
+        #         "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
+        #         "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
+        #         "SNS_TOPIC_ARN_SPIN_DOWN": self.sns_topic_trigger_watchdog.topic_arn,
 
 
-        # Give it permissions to update the service desired_task:
-        self.lambda_switch_system.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "ecs:UpdateService",
-                    "ecs:DescribeServices",
-                ],
-                resources=[self.ec2_service.service_arn],
-            )
-        )
-        # Give it permissions to update the ASG desired_capacity:
-        self.lambda_switch_system.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "autoscaling:UpdateAutoScalingGroup",
-                ],
-                resources=[self.auto_scaling_group.auto_scaling_group_arn],
-            )
-        )
-        ## Let it disable the cron rule for counting connections:
-        self.lambda_switch_system.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["events:DisableRule"],
-                resources=[self.rule_watchdog_trigger.rule_arn],
-            )
-        )
-        ## TODO: TEMP - Testing permissions issue:
-        self.lambda_switch_system.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["lambda:InvokeFunction"],
-                # resources=[f"arn:aws:*:us-east-1:{self.account}:*"],
-                resources=["*"],
-            )
-        )
+        #         "METRIC_NAMESPACE": self.metric_namespace,
+        #         "METRIC_NAME": self.metric_num_connections.metric_name,
+        #         # Convert from an Enum, to a string that boto3 expects. (Words must have first letter
+        #         #   capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
+        #         "METRIC_UNIT": self.metric_unit.value.title(),
+        #         "METRIC_DIMENSIONS": json.dumps(self.metric_dimension_map),
+
+        #     },
+        # )
+        # # ## Call this if switching to ALARM:
+        # # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        # # self.alarm_num_connections.add_alarm_action(
+        # #     cloudwatch_actions.LambdaAction(self.lambda_switch_system)
+        # # )
+        # ## The "target" of SNS:
+        # self.sns_topic_trigger_watchdog.add_subscription(subscriptions.LambdaSubscription(self.lambda_switch_system))
+        # ## One of the "sources" of SNS:
+        # self.alarm_num_connections.add_alarm_action(
+        #     cloudwatch_actions.SnsAction(self.sns_topic_trigger_watchdog)
+        # )
+
+
+        # # Give it permissions to update the service desired_task:
+        # self.lambda_switch_system.add_to_role_policy(
+        #     iam.PolicyStatement(
+        #         effect=iam.Effect.ALLOW,
+        #         actions=[
+        #             "ecs:UpdateService",
+        #             "ecs:DescribeServices",
+        #         ],
+        #         resources=[self.ec2_service.service_arn],
+        #     )
+        # )
+        # # Give it permissions to update the ASG desired_capacity:
+        # self.lambda_switch_system.add_to_role_policy(
+        #     iam.PolicyStatement(
+        #         effect=iam.Effect.ALLOW,
+        #         actions=[
+        #             "autoscaling:UpdateAutoScalingGroup",
+        #         ],
+        #         resources=[self.auto_scaling_group.auto_scaling_group_arn],
+        #     )
+        # )
+        # ## Let it disable the cron rule for counting connections:
+        # self.lambda_switch_system.add_to_role_policy(
+        #     iam.PolicyStatement(
+        #         effect=iam.Effect.ALLOW,
+        #         actions=["events:DisableRule"],
+        #         resources=[self.rule_watchdog_trigger.rule_arn],
+        #     )
+        # )
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
@@ -590,11 +592,14 @@ class ContainerManagerStack(Stack):
                 resources=[domain_stack.sub_hosted_zone.hosted_zone_arn],
             )
         )
-        ## Let it enable the cron rule for counting connections:
+        ## Let it enable/disable the cron rule for counting connections:
         self.lambda_asg_state_change_hook.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=["events:EnableRule"],
+                actions=[
+                    "events:EnableRule",
+                    "events:DisableRule",
+                ],
                 resources=[self.rule_watchdog_trigger.rule_arn],
             )
         )
@@ -647,11 +652,14 @@ class ContainerManagerStack(Stack):
             threshold=1,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
-
         )
+
         ## Call this if switching to ALARM:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
         self.alarm_watchdog_errors.add_alarm_action(
-            cloudwatch_actions.SnsAction(self.sns_topic_trigger_watchdog)
+            cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
         )
+
+        ## TODO: Use this to fix a timing bug in alarms not turning off in time. More details in readme:
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/alarm/set_state.html
 
