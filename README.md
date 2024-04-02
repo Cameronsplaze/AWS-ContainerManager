@@ -125,6 +125,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - Possible timing bug?:
   - If the lambda is throwing an alarm, it causes the system to spin down. What if you connect right then, causing it to spin up? The system will never go out of the "alarm" state, even if you log off. Since it never changes states, nothing will trigger. Maybe there's a place you can put this [alarm.set_state](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/alarm/set_state.html) call to fix this? In the ASG StateChangeHook?
+  - Think about this more. I also see it being in alarm, and resetting the system fixes the issue. However since it's in alarm, it'll just spin everyting back down when you try to connect. Hmmmm...
 
 ### Phase 2, Optimize and Cleanup
 

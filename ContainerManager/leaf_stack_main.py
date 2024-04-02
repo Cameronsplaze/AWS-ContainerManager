@@ -659,7 +659,3 @@ class ContainerManagerStack(Stack):
         self.alarm_watchdog_errors.add_alarm_action(
             cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
         )
-
-        ## TODO: Use this to fix a timing bug in alarms not turning off in time. More details in readme:
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/alarm/set_state.html
-
