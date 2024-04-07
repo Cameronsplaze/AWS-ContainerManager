@@ -34,13 +34,21 @@ make cdk-deploy
 
 ## Devel Stuff
 
-### ContainerManager_VPC Stack
+### ContainerManager - base_stack
 
 The base stack that the ContainerManager stack links to. This lets you share common resources between containers if you're running more than one. (Why have a VPC for each container?).
 
-### ContainerManager Stack
+### ContainerManager - leaf_stack_main
 
-The actual core logic for managing and running the container.
+The core of the automation, for a single container.
+
+### ContainerManager - leaf_stack_domain_info
+
+The logic of someone connecting to the container. Must be it's own stack because route53 logs have to live in us-east-1.
+
+### ContainerManager - leaf_stack_link
+
+This connects the other two stacks together. Need to be it's own thing to avoid a circular dependency. (Also lives in us-east-1, and calls the main stack to spin up when someone connects by updating the ASG.).
 
 ### Old Design choices
 
@@ -86,17 +94,18 @@ The actual core logic for managing and running the container.
     - Part of the management, the lambda cron that checks for connections, will fail if there's no task running. This can happen if it triggers too fast. To get around it, I'll have a Metric + Alarm hooked up to the lambda, and only care about the failure if you get X many in a row. (The management framework being ready TOO fast is a good problem to have anyways).
 
 - Turning off System: Inside lambda-instance-StateChange-hook vs lambda-switch-system:
-  - (Went with lambda-switch-system)
+  - (Went with lambda-instance-StateChange-hook)
   - **Pros for lambda-switch-system**:
     - This is the lambda that turns the system on when route53 sees someone is trying to connect.
     - If you're left in a state where the system is on, but there's no instance, the lambda will trigger every minute all night long. This fixes that by letting the lambda directly turn off the system. (Otherwise if desired_count is already 0, and you SET it to 0, the instance StateChange hook will never trigger).
     - The ASG and ECS Task also spin up/down in the order you expect.
       - Turn on: Instance spins up, triggering Statechange Hook, spins up ECS Task.
       - Turn off: SNS triggers lambda-switch-system, which spins off ECS Task, then spins down instance.
-    - The watchdog lambda is only running if there is an active instance, never as the instance is activaly spinning up/down.
+    - The watchdog lambda is only running if there is an active instance, never as the instance is actively spinning up/down.
   - **Pros for lambda-instance-StateChange-hook**:
-    - The main thing is it makes how each part integrates so simple, I keep second guessing not using this route. The built in fail-safe of the other option is soo desirable though.
-    - Plus according to [SubscriptionFilter Docs](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html), you have to target lambda from route53 anyways, I don't see a way to target ASG like with alarms. This means there's no way to get rid of the lambda-switch-system function and move the code into the lambda-instance-StateChange-hook function.
+    - Originally I went with the other option. It turns out that route53 logs can only live in us-east-1, and with how tightly the "lambda-switch-system" lambda was integrated into the system, that meant that 1) the ENTIRE stack would have to be in us-east-1, or 2) You'd need one lambda to forward the request to the second. Alarms can adjust ASG's directly, so by doing this route, there's no need for a "lambda switch system".
+    - This also keeps the system straight forward.
+    - There's probably  a way to build in the same fail-safe of turning off the system, by adding a alarm to the ASG StateChangeHook too.
 
 ### Slides
 
@@ -111,21 +120,13 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 1, MVP
 
-- RIP: Route53 logs only go to us-east-1, and the only way OUT of us-east-1 is lambda. Will either have to re-design a few things, or have the lambda in us-east-1 trigger the one in the dynamic region... Idk what to do yet.
-
 - Finish the prototype for the Leaf Stack:
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
   - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect.
 
 - Finish the prototype for the Base Stack:
-  - Figure out passing in host ID, if the domain already exists.
-    - I think switch to **public** hosted zone too? That's what it will be if they create one in the console. Plus the docs say "route traffic on internet". Even though the ec2 is in a VPC, we're using it's public IP.
   - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
-
-- Possible timing bug?:
-  - If the lambda is throwing an alarm, it causes the system to spin down. What if you connect right then, causing it to spin up? The system will never go out of the "alarm" state, even if you log off. Since it never changes states, nothing will trigger. Maybe there's a place you can put this [alarm.set_state](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/alarm/set_state.html) call to fix this? In the ASG StateChangeHook?
-  - Think about this more. I also see it being in alarm, and resetting the system fixes the issue. However since it's in alarm, it'll just spin everyting back down when you try to connect. Hmmmm...
 
 ### Phase 2, Optimize and Cleanup
 

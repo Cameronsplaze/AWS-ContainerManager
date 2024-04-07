@@ -8,7 +8,9 @@ I figured out the dependency graph up to this point, to help when I split pieces
 
 - Mermaid Docs: <https://mermaid.js.org/syntax/flowchart.html>
 
-```mermaid
+TODO: Update Mermaid Chart...
+
+<!-- ```mermaid
 flowchart TD
     ECS-C[ECS Cluster]
     LT[Launch Template]
@@ -82,4 +84,4 @@ flowchart TD
 
 - Put all EFS stuff in 1 stack
 - Look at params, make anything they reference directly in a stack
-  - I.e domain_name, unavailable_ip, and ttl are used in two places.
+  - I.e domain_name, unavailable_ip, and ttl are used in two places. -->

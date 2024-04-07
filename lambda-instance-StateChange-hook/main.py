@@ -29,20 +29,47 @@ def lambda_handler(event, context) -> None:
     # If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
         instance_id = event["detail"]["EC2InstanceId"]
-        new_ip, new_ttl = spin_up_system(instance_id)
+        # Get the new public IP from the instance:
+        new_ip, new_ttl = get_ip_info(instance_id)
+        # Update DNS to the new instance public IP:
+        update_dns_zone(new_ip, new_ttl)
+        # Spin up the task on this instance:
+        update_ecs_service(desired_count=1)
+        # Start the WatchDog Lambda:
+        events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
 
     # If the ec2 instance just STARTED to go down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
+        # Check if another instance is spinning up, so you can just quit:
         asg_name = event["detail"]["AutoScalingGroupName"]
-        new_ip, new_ttl = spin_down_system(asg_name)
+        check_asg_if_pending(asg_name)
+        # Grab the unavailable info:
+        new_ip = os.environ["UNAVAILABLE_IP"]
+        new_ttl = int(os.environ["UNAVAILABLE_TTL"])
+        # Tell DNS we're done:
+        update_dns_zone(new_ip, new_ttl)
+        # Stop the WatchDog Lambda:
+        events_client.disable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
+        # Spin down the task:
+        update_ecs_service(desired_count=0)
+
 
     # If the EventBridge filter somehow changed (This should never happen):
     else:
         print({"Event": event, "Context": context})
         raise RuntimeError(f"Unknown event type: '{event['detail-type']}'. Did you mess with the EventBridge Rule??")
 
-    print(f"Changing to new IP: {new_ip}")
+def get_ip_info(instance_id: str) -> tuple[str, int]:
+        ## Get the new IP from the instance:
+        ec2_client = boto3.client('ec2')
+        instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
+        # Now you have the new Route53 info:
+        new_ip = instance_details["PublicIpAddress"]
+        new_ttl = 60
+        return new_ip, new_ttl
 
+def update_dns_zone(new_ip: str, new_ttl: int) -> None:
+    print(f"Changing to new IP: {new_ip}")
     ### Update the record with the new IP:
     route53_client.change_resource_record_sets(
         HostedZoneId=os.environ['HOSTED_ZONE_ID'],
@@ -59,41 +86,26 @@ def lambda_handler(event, context) -> None:
         }
     )
 
-def spin_up_system(instance_id):
-    try:
-        ## Spin up the task on the new instance:
-        ecs_client.update_service(
-            cluster=os.environ["ECS_CLUSTER_NAME"],
-            service=os.environ["ECS_SERVICE_NAME"],
-            desiredCount=1,
-        )
-        ### TODO: Should we wait for it to finish? If we don't,
-        ## it'll update the DNS faster, and maybe they finish at
-        ## the same time?
-        # ecs_service_waiter = ecs_client.get_waiter('services_stable')
-        # ecs_service_waiter.wait(
-        #     cluster=os.environ["ECS_CLUSTER_NAME"],
-        #     services=[os.environ["ECS_SERVICE_NAME"]],
-        #     WaiterConfig={
-        #         "Delay": 1,
-        #         "MaxAttempts": 120,
-        #     },
-        # )
-        ## Get the new IP from the instance:
-        ec2_client = boto3.client('ec2')
-        instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
-        # Now you have the new Route53 info:
-        new_ip = instance_details["PublicIpAddress"]
-        new_ttl = 60
-    finally:
-        pass
-        # # If this rule ever doesn't start, you're left with an instance without
-        # # anything watching it. It'll never turn off, and you'll be charged a LOT.
-        # # We also want this to run last, so it's here:
-        events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
-    return new_ip, new_ttl
+def update_ecs_service(desired_count: int) -> None:
+    print(f"Spinning {'up' if desired_count else 'down'} ecs service ({desired_count=})")
+    ## Spin up the task on the new instance:
+    ecs_client.update_service(
+        cluster=os.environ["ECS_CLUSTER_NAME"],
+        service=os.environ["ECS_SERVICE_NAME"],
+        desiredCount=desired_count,
+    )
+    ## I don't think we ever need to wait for this to finish? But just in case:
+    # ecs_service_waiter = ecs_client.get_waiter('services_stable')
+    # ecs_service_waiter.wait(
+    #     cluster=os.environ["ECS_CLUSTER_NAME"],
+    #     services=[os.environ["ECS_SERVICE_NAME"]],
+    #     WaiterConfig={
+    #         "Delay": 1,
+    #         "MaxAttempts": 120,
+    #     },
+    # )
 
-def spin_down_system(asg_name):
+def check_asg_if_pending(asg_name) -> None:
     # There's a window where if a instance is coming up as this is hit, this could wipe the
     # ip of the new instance from route53. Normally boto3.client is expensive, but we only
     # care about spin-up time. This is when the system is resetting anyways.
@@ -104,15 +116,4 @@ def spin_down_system(asg_name):
         if instance['LifecycleState'].startswith("Pending") or  instance['LifecycleState'] == "InService":
             print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event.")
             sys.exit()
-    # Spin down the rule:
-    events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
-    ## Spin up the task on the new instance:
-    ecs_client.update_service(
-        cluster=os.environ["ECS_CLUSTER_NAME"],
-        service=os.environ["ECS_SERVICE_NAME"],
-        desiredCount=0,
-    )
-    # Route53 info - meaning the system is now off-line:
-    new_ip = os.environ["UNAVAILABLE_IP"]
-    new_ttl = int(os.environ["UNAVAILABLE_TTL"])
-    return new_ip, new_ttl
+

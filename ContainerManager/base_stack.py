@@ -23,6 +23,7 @@ class ContainerManagerBaseStack(Stack):
 
         self.root_hosted_zone_id = get_param(self, "HOSTED_ZONE_ID", default=None)
         self.domain_name = str(get_param(self, "DOMAIN_NAME")).lower()
+        self.alert_email = get_param(self, "EMAIL", default=None)
 
         #################
         ### VPC STUFF ###
@@ -59,6 +60,30 @@ class ContainerManagerBaseStack(Stack):
             # - Let containers update if you run `yum update` or `apt-get update`
             description="Allow HTTPS traffic OUT",
         )
+
+        ########################
+        ### SNS Notify STUFF ###
+        ########################
+        # ONLY if they give us a email to notify:
+        if self.alert_email:
+            ## Create an SNS Topic for notifications:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
+            self.sns_notify_topic = sns.Topic(
+                self,
+                f"{construct_id}-sns-notify-topic",
+                display_name=f"{construct_id}-sns-notify-topic",
+            )
+
+            ## Email with a SNS Subscription:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
+            self.sns_notify_subscription = sns.Subscription(
+                self,
+                f"{construct_id}-sns-notify-subscription",
+                protocol=sns.SubscriptionProtocol.EMAIL,
+                endpoint=self.alert_email,
+                topic=self.sns_notify_topic,
+            )
+
 
         #####################
         ### Route53 STUFF ###

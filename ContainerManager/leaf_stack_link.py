@@ -28,7 +28,7 @@ class LinkStack(Stack):
             f"{construct_id}-lambda-start-system",
             description=f"{construct_id}-lambda-start-system: Turn system on, when someone connects.",
             code=aws_lambda.Code.from_asset("./lambda-start-system/"),
-            handler="main_v2.lambda_handler",
+            handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             environment={
