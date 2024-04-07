@@ -10,7 +10,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from .base_stack import ContainerManagerBaseStack
+from ContainerManager.base_stack import ContainerManagerBaseStack
 
 
 class DomainStack(Stack):

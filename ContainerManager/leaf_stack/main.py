@@ -23,9 +23,9 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from .base_stack import ContainerManagerBaseStack
-from .leaf_stack_domain_info import DomainStack
-from .get_param import get_param
+from ContainerManager.base_stack import ContainerManagerBaseStack
+from ContainerManager.leaf_stack.domain_info import DomainStack
+from ContainerManager.get_param import get_param
 
 
 INSTANCE_TYPE = "m5.large"
@@ -54,6 +54,10 @@ class ContainerManagerStack(Stack):
 
         self.vpc = base_stack.vpc
         self.sg_vpc_traffic = base_stack.sg_vpc_traffic
+
+        # TODO: Make this a list of emails in config:
+        self.alert_email_list = [get_param(self, "LEAF_EMAIL", default=None)]
+        self.alert_email_list = [email for email in self.alert_email_list if email]
 
         ###########
         ## Setup Security Groups
@@ -105,6 +109,33 @@ class ContainerManagerStack(Stack):
             port_range=ec2.Port.tcp(2049),
             description="Allow EFS traffic IN - from EFS Server",
         )
+
+        ###########
+        ## Container-specific Notify
+        ###########
+        ## You can subscribe to this instead if you only care about one of
+        ## the containers, and not every.
+
+        ## Create an SNS Topic for notifications:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
+        self.sns_notify_topic = sns.Topic(
+            self,
+            f"{construct_id}-sns-notify-topic",
+            display_name=f"{construct_id}-sns-notify-topic",
+        )
+        for email in self.alert_email_list:
+            ## Email with a SNS Subscription:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
+            self.sns_notify_subscription = sns.Subscription(
+                self,
+                f"{construct_id}-sns-notify-subscription",
+                ### TODO: There's also SMS (text) and https (webhook) options:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html
+                protocol=sns.SubscriptionProtocol.EMAIL,
+                endpoint=email,
+                topic=self.sns_notify_topic,
+            )
+
 
         ###########
         ## Setup ECS
@@ -236,6 +267,39 @@ class ContainerManagerStack(Stack):
             # execution_role= ecs agent permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
         )
+
+        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        message = events.RuleTargetInput.from_text(f"Container for {self.container_name_id} has started!")
+        self.rule_notify_up = events.Rule(
+            self,
+            f"{construct_id}-rule-notify-up",
+            rule_name=f"{self.container_name_id}-rule-notify-up",
+            description="Let user know when system finishes spinning UP",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.ecs"],
+                detail_type=["ECS Task State Change"],
+                detail={
+                    "clusterArn": [self.ecs_cluster.cluster_arn],
+                    # You only care if the TASK starts, or the INSTANCE stops:
+                    "lastStatus": ["RUNNING"],
+                    "desiredStatus": ["RUNNING"],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                targets.SnsTopic(
+                    base_stack.sns_notify_topic,
+                    message=message,
+                ),
+                targets.SnsTopic(
+                    self.sns_notify_topic,
+                    message=message,
+                ),
+            ],
+        )
+
         self.volume_name = f"{construct_id}-efs-volume"
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
         self.task_definition.add_volume(
@@ -443,14 +507,12 @@ class ContainerManagerStack(Stack):
             )
         )
 
-
-
         ## EventBridge Rule to trigger lambda every minute, to see how many are using the container
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         self.rule_watchdog_trigger = events.Rule(
             self,
             f"{construct_id}-rule-watchdog-trigger",
-            rule_name=f"{construct_id}-rule-watchdog-trigger",
+            rule_name=f"{self.container_name_id}-rule-watchdog-trigger",
             description="Trigger Watchdog Lambda every minute, to see how many are using the container",
             schedule=events.Schedule.rate(Duration.minutes(1)),
             targets=[
@@ -460,84 +522,6 @@ class ContainerManagerStack(Stack):
             # Start disabled, self.lambda_watchdog_num_connections will enable it when instance starts up 
             enabled=False,
         )
-
-        # ## SNS Topic to trigger this lambda
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
-        # self.sns_topic_trigger_watchdog = sns.Topic(
-        #     self,
-        #     f"{construct_id}-sns-topic-watchdog-trigger",
-        #     display_name=f"{construct_id}-sns-topic-watchdog-trigger",
-        # )
-
-        # ## Lambda that turns system on/off
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        # self.lambda_switch_system = aws_lambda.Function(
-        #     self,
-        #     f"{construct_id}-lambda-switch-system",
-        #     description=f"{container_name_id}-Switch: Switches the system on or off, based on the event triggering this",
-        #     code=aws_lambda.Code.from_asset("./lambda-start-system/"),
-        #     handler="main.lambda_handler",
-        #     runtime=aws_lambda.Runtime.PYTHON_3_12,
-        #     timeout=Duration.seconds(30),
-        #     environment={
-        #         "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
-        #         "ECS_SERVICE_NAME": self.ec2_service.service_name,
-        #         "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
-        #         "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
-        #         "SNS_TOPIC_ARN_SPIN_DOWN": self.sns_topic_trigger_watchdog.topic_arn,
-
-
-        #         "METRIC_NAMESPACE": self.metric_namespace,
-        #         "METRIC_NAME": self.metric_num_connections.metric_name,
-        #         # Convert from an Enum, to a string that boto3 expects. (Words must have first letter
-        #         #   capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
-        #         "METRIC_UNIT": self.metric_unit.value.title(),
-        #         "METRIC_DIMENSIONS": json.dumps(self.metric_dimension_map),
-
-        #     },
-        # )
-        # # ## Call this if switching to ALARM:
-        # # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        # # self.alarm_num_connections.add_alarm_action(
-        # #     cloudwatch_actions.LambdaAction(self.lambda_switch_system)
-        # # )
-        # ## The "target" of SNS:
-        # self.sns_topic_trigger_watchdog.add_subscription(subscriptions.LambdaSubscription(self.lambda_switch_system))
-        # ## One of the "sources" of SNS:
-        # self.alarm_num_connections.add_alarm_action(
-        #     cloudwatch_actions.SnsAction(self.sns_topic_trigger_watchdog)
-        # )
-
-
-        # # Give it permissions to update the service desired_task:
-        # self.lambda_switch_system.add_to_role_policy(
-        #     iam.PolicyStatement(
-        #         effect=iam.Effect.ALLOW,
-        #         actions=[
-        #             "ecs:UpdateService",
-        #             "ecs:DescribeServices",
-        #         ],
-        #         resources=[self.ec2_service.service_arn],
-        #     )
-        # )
-        # # Give it permissions to update the ASG desired_capacity:
-        # self.lambda_switch_system.add_to_role_policy(
-        #     iam.PolicyStatement(
-        #         effect=iam.Effect.ALLOW,
-        #         actions=[
-        #             "autoscaling:UpdateAutoScalingGroup",
-        #         ],
-        #         resources=[self.auto_scaling_group.auto_scaling_group_arn],
-        #     )
-        # )
-        # ## Let it disable the cron rule for counting connections:
-        # self.lambda_switch_system.add_to_role_policy(
-        #     iam.PolicyStatement(
-        #         effect=iam.Effect.ALLOW,
-        #         actions=["events:DisableRule"],
-        #         resources=[self.rule_watchdog_trigger.rule_arn],
-        #     )
-        # )
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
@@ -610,7 +594,7 @@ class ContainerManagerStack(Stack):
         self.rule_asg_state_change_trigger = events.Rule(
             self,
             f"{construct_id}-rule-ASG-StateChange-hook",
-            rule_name=f"{construct_id}-rule-ASG-StateChange-hook",
+            rule_name=f"{self.container_name_id}-rule-ASG-StateChange-hook",
             description="Trigger Lambda whenever the ASG state changes, to keep DNS in sync",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
@@ -626,6 +610,34 @@ class ContainerManagerStack(Stack):
             targets=[
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 targets.LambdaFunction(self.lambda_asg_state_change_hook),
+            ],
+        )
+        ## Same thing, but notify user when task spins down finally:
+        ##   (Can't combine with above target, since we care about different 'detail_type'.
+        ##    Don't want to spam the user sadly.)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        message = events.RuleTargetInput.from_text(f"Container for '{self.container_name_id}' has stopped.")
+        self.rule_notify_down = events.Rule(
+            self,
+            f"{construct_id}-rule-notify-down",
+            rule_name=f"{self.container_name_id}-rule-notify-up-down",
+            description="Let user know when system finishes spinning down",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.autoscaling"],
+                detail_type=["EC2 Instance-terminate Lifecycle Action"],
+                detail={
+                    "AutoScalingGroupName": [self.auto_scaling_group.auto_scaling_group_name],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                targets.SnsTopic(base_stack.sns_notify_topic, message=message),
+                ### TODO: Think about this. If you're only subscribed to a specific container,
+                ###       you probably only care about it spinning UP? You're not paying for it...
+                ###         (Actually maybe make this configurable in the config?
+                ###          You'd need a different topic for BOTH up and down though.)
+                targets.SnsTopic(self.sns_notify_topic, message=message),
             ],
         )
 

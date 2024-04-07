@@ -4,9 +4,9 @@ import os
 import aws_cdk as cdk
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
-from ContainerManager.leaf_stack_main import ContainerManagerStack
-from ContainerManager.leaf_stack_domain_info import DomainStack
-from ContainerManager.leaf_stack_link import LinkStack
+from ContainerManager.leaf_stack.main import ContainerManagerStack
+from ContainerManager.leaf_stack.domain_info import DomainStack
+from ContainerManager.leaf_stack.link_together import LinkTogetherStack
 
 app = cdk.App()
 
@@ -54,9 +54,9 @@ manager_stack = ContainerManagerStack(
     domain_stack=domain_stack,
     container_name_id=container_name_id,
 )
-LinkStack(
+LinkTogetherStack(
     app,
-    f"ContainerManager-{container_name_id}-LinkStack",
+    f"ContainerManager-{container_name_id}-LinkTogetherStack",
     description="To avoid a circular dependency, and connect the ContainerManagerStack and DomainStack together.",
     cross_region_references=True,
     env=us_east_1_env,

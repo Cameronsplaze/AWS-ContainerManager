@@ -34,21 +34,7 @@ make cdk-deploy
 
 ## Devel Stuff
 
-### ContainerManager - base_stack
-
-The base stack that the ContainerManager stack links to. This lets you share common resources between containers if you're running more than one. (Why have a VPC for each container?).
-
-### ContainerManager - leaf_stack_main
-
-The core of the automation, for a single container.
-
-### ContainerManager - leaf_stack_domain_info
-
-The logic of someone connecting to the container. Must be it's own stack because route53 logs have to live in us-east-1.
-
-### ContainerManager - leaf_stack_link
-
-This connects the other two stacks together. Need to be it's own thing to avoid a circular dependency. (Also lives in us-east-1, and calls the main stack to spin up when someone connects by updating the ASG.).
+See the ContainerManager's [README.md](./ContainerManager/README.md) for info on each stack component, and details in that area.
 
 ### Old Design choices
 
@@ -135,7 +121,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
   - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
 
-  - Go through Cloudwatch Groups, make sure everything has a retention policy by default
+  - Go through Cloudwatch log Groups, make sure everything has a retention policy by default
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
@@ -161,6 +147,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     ```
 
     - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
+
+- Add a second sns notify point, to the leaf stack. If you want to be notified about ANY game, you can subscribe to the base_stack's sns. Otherwise if you only care about one (maybe a friend who plays minecraft, but not lethal company for example), you can add their info to just this sns instead. (And the lists can live in different configs too this way, to keep things organized).
 
 ## Phase 4, Get ready for Production!
 

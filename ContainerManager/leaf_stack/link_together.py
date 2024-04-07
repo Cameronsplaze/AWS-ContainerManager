@@ -13,11 +13,11 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from ContainerManager.leaf_stack_main import ContainerManagerStack
-from ContainerManager.leaf_stack_domain_info import DomainStack
+from ContainerManager.leaf_stack.main import ContainerManagerStack
+from ContainerManager.leaf_stack.domain_info import DomainStack
 
 
-class LinkStack(Stack):
+class LinkTogetherStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, domain_stack: DomainStack, manager_stack: ContainerManagerStack, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
