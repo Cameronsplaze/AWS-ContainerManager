@@ -28,29 +28,28 @@ def lambda_handler(event, context) -> None:
     print(json.dumps({"Event": event, "Context": context}, default=str))
     # If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
-        instance_id = event["detail"]["EC2InstanceId"]
-        # Get the new public IP from the instance:
-        new_ip, new_ttl = get_ip_info(instance_id)
-        # Update DNS to the new instance public IP:
-        update_dns_zone(new_ip, new_ttl)
-        # Spin up the task on this instance:
+        ### Start ECS First, it'll take the longest:
         update_ecs_service(desired_count=1)
-        # Start the WatchDog Lambda:
+        ### Update DNS to the new public IP:
+        instance_id = event["detail"]["EC2InstanceId"]
+        new_ip, new_ttl = get_ip_info(instance_id)
+        update_dns_zone(new_ip, new_ttl)
+        ### Start the WatchDog Lambda:
+        # (Doing this last since it's not required for a user to connect)
         events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
 
     # If the ec2 instance just STARTED to go down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
-        # Check if another instance is spinning up, so you can just quit:
+        ### Check if another instance is spinning up, so you can just quit:
         asg_name = event["detail"]["AutoScalingGroupName"]
         check_asg_if_pending(asg_name)
-        # Grab the unavailable info:
+        ### Update DNS with the unavailable info:
         new_ip = os.environ["UNAVAILABLE_IP"]
         new_ttl = int(os.environ["UNAVAILABLE_TTL"])
-        # Tell DNS we're done:
         update_dns_zone(new_ip, new_ttl)
-        # Stop the WatchDog Lambda:
+        ### Stop the WatchDog Lambda:
         events_client.disable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
-        # Spin down the task:
+        ### Spin down the task:
         update_ecs_service(desired_count=0)
 
 
