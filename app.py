@@ -4,10 +4,9 @@ import os
 import aws_cdk as cdk
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
-from ContainerManager.leaf_stack_main import ContainerManagerStack
-from ContainerManager.leaf_stack_domain_info import DomainStack
-from ContainerManager.leaf_stack_subscription_filter import SubscriptionFilterStack
-
+from ContainerManager.leaf_stack.main import ContainerManagerStack
+from ContainerManager.leaf_stack.domain_info import DomainStack
+from ContainerManager.leaf_stack.link_together import LinkTogetherStack
 
 app = cdk.App()
 
@@ -15,11 +14,11 @@ app = cdk.App()
 # if you need to:
 main_env = cdk.Environment(
     account=os.getenv('CDK_DEFAULT_ACCOUNT'),
-    region=os.getenv('CDK_DEFAULT_REGION')
+    region=os.getenv('CDK_DEFAULT_REGION'),
 )
 us_east_1_env = cdk.Environment(
-    region="us-east-1",
     account=main_env.account,
+    region="us-east-1",
 )
 
 
@@ -28,18 +27,21 @@ base_stack = ContainerManagerBaseStack(
     app,
     "ContainerManager-BaseStack",
     description="The base VPC for all other ContainerManage stacks to use.",
+    cross_region_references=True,
     env=main_env,
 )
 
-# Create the stack for ONE Container:
+### Create the stack for ONE Container:
 container_name_id = os.environ.get('CONTAINER_NAME_ID') or 'UKN'
+
 domain_stack = DomainStack(
     app,
     f"ContainerManager-{container_name_id}-DomainStack",
-    description=f"Routing for '{container_name_id}', since it MUST be in us-east-1",
+    description=f"Route53 for '{container_name_id}', since it MUST be in us-east-1",
+    cross_region_references=True,
     env=us_east_1_env,
-    base_stack=base_stack,
     container_name_id=container_name_id,
+    base_stack=base_stack,
 )
 
 manager_stack = ContainerManagerStack(
@@ -54,10 +56,10 @@ manager_stack = ContainerManagerStack(
     domain_stack=domain_stack,
     container_name_id=container_name_id,
 )
-SubscriptionFilterStack(
+LinkTogetherStack(
     app,
-    f"ContainerManager-{container_name_id}-SubscriptionFilterStack",
-    description="To avoid a circular dependency, and connect the ContainerManagerStack and DomainStack.",
+    f"ContainerManager-{container_name_id}-LinkTogetherStack",
+    description="To avoid a circular dependency, and connect the ContainerManagerStack and DomainStack together.",
     cross_region_references=True,
     env=us_east_1_env,
     domain_stack=domain_stack,

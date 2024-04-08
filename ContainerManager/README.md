@@ -1,12 +1,19 @@
 # How the Stack Works
 
-TODO: Write this section.
+## Overview
 
-I figured out the dependency graph up to this point, to help when I split pieces off into their own parts. (Each line says `A relies on B`.)
+- The [base_stack.py](./base_stack.py) is common architecture that different containers can share (i.e VPC). Multiple "Leaf Stacks" can point to the same "Base Stack".
+- The "Leaf Stack" is a single container. This links to the base stack, and is in-charge of a single container. Inside of the leaf stack:
+  - The [domain_info.py](./leaf_stack/domain_info.py) stack has to be it's own stack because route53 logs must live in us-east-1.
+  - The [main.py](./leaf_stack/main.py) stack can be in any region you want, and is the core logic.
+  - the [link_together.py](./leaf_stack/link_together.py) stack is to avoid a circular dependency between the first two. When it sees a connection in the logs of the `domain_info` stack, it updates the ASG in the `main` stack to spin up the container.
 
 ## Diagrams
 
 - Mermaid Docs: <https://mermaid.js.org/syntax/flowchart.html>
+
+TODO: Update Mermaid Chart...
+      It is VERY out of date now, but I want to figure out the config logic first.
 
 ```mermaid
 flowchart TD
@@ -81,5 +88,6 @@ flowchart TD
 ```
 
 - Put all EFS stuff in 1 stack
+- Put all Notify User stuff in one stack
 - Look at params, make anything they reference directly in a stack
   - I.e domain_name, unavailable_ip, and ttl are used in two places.

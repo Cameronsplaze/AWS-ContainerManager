@@ -34,13 +34,7 @@ make cdk-deploy
 
 ## Devel Stuff
 
-### ContainerManager_VPC Stack
-
-The base stack that the ContainerManager stack links to. This lets you share common resources between containers if you're running more than one. (Why have a VPC for each container?).
-
-### ContainerManager Stack
-
-The actual core logic for managing and running the container.
+See the ContainerManager's [README.md](./ContainerManager/README.md) for info on each stack component, and details in that area.
 
 ### Old Design choices
 
@@ -86,17 +80,18 @@ The actual core logic for managing and running the container.
     - Part of the management, the lambda cron that checks for connections, will fail if there's no task running. This can happen if it triggers too fast. To get around it, I'll have a Metric + Alarm hooked up to the lambda, and only care about the failure if you get X many in a row. (The management framework being ready TOO fast is a good problem to have anyways).
 
 - Turning off System: Inside lambda-instance-StateChange-hook vs lambda-switch-system:
-  - (Went with lambda-switch-system)
+  - (Went with lambda-instance-StateChange-hook)
   - **Pros for lambda-switch-system**:
     - This is the lambda that turns the system on when route53 sees someone is trying to connect.
     - If you're left in a state where the system is on, but there's no instance, the lambda will trigger every minute all night long. This fixes that by letting the lambda directly turn off the system. (Otherwise if desired_count is already 0, and you SET it to 0, the instance StateChange hook will never trigger).
     - The ASG and ECS Task also spin up/down in the order you expect.
       - Turn on: Instance spins up, triggering Statechange Hook, spins up ECS Task.
       - Turn off: SNS triggers lambda-switch-system, which spins off ECS Task, then spins down instance.
-    - The watchdog lambda is only running if there is an active instance, never as the instance is activaly spinning up/down.
+    - The watchdog lambda is only running if there is an active instance, never as the instance is actively spinning up/down.
   - **Pros for lambda-instance-StateChange-hook**:
-    - The main thing is it makes how each part integrates so simple, I keep second guessing not using this route. The built in fail-safe of the other option is soo desirable though.
-    - Plus according to [SubscriptionFilter Docs](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html), you have to target lambda from route53 anyways, I don't see a way to target ASG like with alarms. This means there's no way to get rid of the lambda-switch-system function and move the code into the lambda-instance-StateChange-hook function.
+    - Originally I went with the other option. It turns out that route53 logs can only live in us-east-1, and with how tightly the "lambda-switch-system" lambda was integrated into the system, that meant that 1) the ENTIRE stack would have to be in us-east-1, or 2) You'd need one lambda to forward the request to the second. Alarms can adjust ASG's directly, so by doing this route, there's no need for a "lambda switch system".
+    - This also keeps the system straight forward.
+    - There's probably  a way to build in the same fail-safe of turning off the system, by adding a alarm to the ASG StateChangeHook too.
 
 ### Slides
 
@@ -111,18 +106,13 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 1, MVP
 
-- RIP: Route53 logs only go to us-east-1, and the only way OUT of us-east-1 is lambda. Will either have to re-design a few things, or have the lambda in us-east-1 trigger the one in the dynamic region... Idk what to do yet.
-
 - Finish the prototype for the Leaf Stack:
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
   - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect.
 
 - Finish the prototype for the Base Stack:
-  - Figure out passing in host ID, if the domain already exists.
-    - I think switch to **public** hosted zone too? That's what it will be if they create one in the console. Plus the docs say "route traffic on internet". Even though the ec2 is in a VPC, we're using it's public IP.
   - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
-
 
 ### Phase 2, Optimize and Cleanup
 
@@ -131,7 +121,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
   - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
 
-  - Go through Cloudwatch Groups, make sure everything has a retention policy by default
+  - Go through Cloudwatch log Groups, make sure everything has a retention policy by default
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
@@ -157,6 +147,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     ```
 
     - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
+
+- Add a second sns notify point, to the leaf stack. If you want to be notified about ANY game, you can subscribe to the base_stack's sns. Otherwise if you only care about one (maybe a friend who plays minecraft, but not lethal company for example), you can add their info to just this sns instead. (And the lists can live in different configs too this way, to keep things organized).
 
 ## Phase 4, Get ready for Production!
 
