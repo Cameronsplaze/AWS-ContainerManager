@@ -34,7 +34,7 @@ class ContainerManagerBaseStack(Stack):
         # Create a Public VPC to run instances in:
         self.vpc = ec2.Vpc(
             self,
-            f"{construct_id}-VPC",
+            "VPC",
             nat_gateways=0,
             max_azs=2,
             subnet_configuration=[
@@ -49,7 +49,7 @@ class ContainerManagerBaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_vpc_traffic = ec2.SecurityGroup(
             self,
-            f"{construct_id}-sg-vpc-traffic",
+            "sg-vpc-traffic",
             description="Traffic for the VPC itself",
             vpc=self.vpc,
             allow_all_outbound=False
@@ -72,7 +72,7 @@ class ContainerManagerBaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
         self.sns_notify_topic = sns.Topic(
             self,
-            f"{construct_id}-sns-notify-topic",
+            "sns-notify-topic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
         for email in self.alert_email_list:
@@ -80,7 +80,7 @@ class ContainerManagerBaseStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
             self.sns_notify_subscription = sns.Subscription(
                 self,
-                f"{construct_id}-sns-notify-subscription",
+                "sns-notify-subscription",
                 ### TODO: There's also SMS (text) and https (webhook) options:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html
                 protocol=sns.SubscriptionProtocol.EMAIL,
@@ -98,7 +98,7 @@ class ContainerManagerBaseStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
             self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
                 self,
-                f"{construct_id}-hosted-zone",
+                "root-hosted-zone",
                 hosted_zone_id=self.root_hosted_zone_id,
                 zone_name=self.domain_name,
             )
@@ -107,7 +107,7 @@ class ContainerManagerBaseStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
             self.root_hosted_zone = route53.PublicHostedZone(
                 self,
-                f"{construct_id}-hosted-zone",
+                "root-hosted-zone",
                 zone_name=self.domain_name,
                 comment=f"Hosted zone for {construct_id}: {self.domain_name}",
             )

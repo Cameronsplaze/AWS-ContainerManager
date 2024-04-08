@@ -25,7 +25,7 @@ class LinkTogetherStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         self.lambda_start_system = aws_lambda.Function(
             self,
-            f"{construct_id}-lambda-start-system",
+            "lambda-start-system",
             description=f"{construct_id}-lambda-start-system: Turn system on, when someone connects.",
             code=aws_lambda.Code.from_asset("./lambda-start-system/"),
             handler="main.lambda_handler",
@@ -73,7 +73,7 @@ class LinkTogetherStack(Stack):
         # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
         self.subscription_filter = logs.SubscriptionFilter(
             self,
-            f"{construct_id}-subscription-filter",
+            "subscription-filter",
             log_group=domain_stack.route53_query_log_group,
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
             filter_pattern=logs.FilterPattern.any_term(domain_stack.sub_domain_name),

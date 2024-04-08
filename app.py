@@ -14,11 +14,11 @@ app = cdk.App()
 # if you need to:
 main_env = cdk.Environment(
     account=os.getenv('CDK_DEFAULT_ACCOUNT'),
-    region=os.getenv('CDK_DEFAULT_REGION')
+    region=os.getenv('CDK_DEFAULT_REGION'),
 )
 us_east_1_env = cdk.Environment(
-    region="us-east-1",
     account=main_env.account,
+    region="us-east-1",
 )
 
 
@@ -27,6 +27,7 @@ base_stack = ContainerManagerBaseStack(
     app,
     "ContainerManager-BaseStack",
     description="The base VPC for all other ContainerManage stacks to use.",
+    cross_region_references=True,
     env=main_env,
 )
 
@@ -37,6 +38,7 @@ domain_stack = DomainStack(
     app,
     f"ContainerManager-{container_name_id}-DomainStack",
     description=f"Route53 for '{container_name_id}', since it MUST be in us-east-1",
+    cross_region_references=True,
     env=us_east_1_env,
     container_name_id=container_name_id,
     base_stack=base_stack,
