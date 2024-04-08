@@ -109,10 +109,9 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 - Finish the prototype for the Leaf Stack:
   - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
-  - Once base stack is prototyped, figure out logic for spinning up the container when someone tries to connect.
 
-- Finish the prototype for the Base Stack:
-  - Create SNS alarm that emails when specific errors happen. The Leaf stack can hook into this and email when instance is up for too long.
+- Possible optimization: [EventBridge on ASG can spin up/down ECS Tasks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.EcsTask.html). This might spin up the ECS task faster than the lambda doing it. This will mean you'll have to take out the "multiple instance safeguard" in the lambda, but now that we're using the right hook, that might not get hit anyways. (OR since you'll have to create two event bridges anyways, maybe only have the "ON" event bridge trigger ECS Task, and the "OFF" still go through lambda? We don't care about spin-down time, only spin-up anyways...)
+
 
 ### Phase 2, Optimize and Cleanup
 
