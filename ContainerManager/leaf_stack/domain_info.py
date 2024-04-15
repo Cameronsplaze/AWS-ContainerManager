@@ -60,6 +60,7 @@ class DomainStack(Stack):
             values=self.sub_hosted_zone.hosted_zone_name_servers,
             record_name=self.sub_domain_name,
         )
+        self.ns_record.apply_removal_policy(RemovalPolicy.DESTROY)
         ## Add a record set that uses the base hosted zone
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
         self.dns_record = route53.RecordSet(
@@ -71,3 +72,7 @@ class DomainStack(Stack):
             target=route53.RecordTarget.from_values(self.unavailable_ip),
             ttl=Duration.seconds(self.unavailable_ttl),
         )
+        self.dns_record.apply_removal_policy(RemovalPolicy.DESTROY)
+        # TODO: Make sure this lets you clean up the stack. IDK why it isn't the
+        #    default. It uses sub_hosted_zone when creating it...
+        self.dns_record.node.add_dependency(self.sub_hosted_zone)

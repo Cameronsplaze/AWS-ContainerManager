@@ -12,10 +12,10 @@ container:
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
-  # volumes:
-  #   - path: /data
-  #   - path: /testing
-  #     read_only: True
+  volumes:
+    - path: /data
+    # - path: /testing
+    #   read_only: True
 
 Alert Subscription:
   - Type: Email

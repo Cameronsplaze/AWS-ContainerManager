@@ -259,32 +259,15 @@ class ContainerManagerStack(Stack):
         ## Tell the EFS side that the task can access it:
         self.efs_file_system.grant_root_access(self.task_definition.task_role)
 
-        # self.container_log_group = logs.LogGroup(
-        #     self,
-        #     "container-log-group",
-        #     log_group_name=f"{construct_id}-ContainerLogs",
-        #     retention=logs.RetentionDays.ONE_WEEK,
-        #     removal_policy=RemovalPolicy.DESTROY,
-        # )
-        # ## Give the task read AND write logging permissions:
-        # self.container_log_group.grant_write(self.task_definition.task_role)
-        # self.container_log_group.grant_read(self.task_definition.task_role)
-        # TODO: Lock this down more
-        self.task_definition.add_to_task_role_policy(
-            iam.PolicyStatement(
-                sid="LogAccess",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "logs:Create*",
-                    "logs:Put*",
-                    "logs:Get*",
-                    "logs:Describe*",
-                    "logs:List*",
-                ],
-                # resources=[f"arn:aws:logs:{self.region}:{self.account}:log-group:{self.container_log_group.log_group_name}:*"],
-                resources=[f"arn:aws:logs:{self.region}:{self.account}:log-group:*:*"],
-            )
+        self.container_log_group = logs.LogGroup(
+            self,
+            "container-log-group",
+            log_group_name=f"/aws/ec2/{construct_id}-ContainerLogs",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY,
         )
+        # ## Give the task write logging permissions:
+        self.container_log_group.grant_write(self.task_definition.task_role)
         
         ## Details for add_container:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#addwbrcontainerid-props
@@ -302,7 +285,7 @@ class ContainerManagerStack(Stack):
                 )
             )
         self.container = self.task_definition.add_container(
-            f"container-{self.container_name_id}",
+            self.container_name_id.title(),
             image=ecs.ContainerImage.from_registry(self.docker_image),
             port_mappings=port_mappings,
             ## Hard limit. Won't ever go above this
@@ -315,9 +298,7 @@ class ContainerManagerStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix="ContainerLogs",
-                # mode=ecs.AwsLogDriverMode.NON_BLOCKING,
-                # log_group=self.container_log_group,
-                log_retention=logs.RetentionDays.ONE_WEEK,
+                log_group=self.container_log_group,
             ),
         )
 
@@ -342,13 +323,15 @@ class ContainerManagerStack(Stack):
                 #     uid="1001",
                 #     gid="1001",
                 # ),
-                # create_acl=efs.Acl(owner_gid="1001", owner_uid="1001", permissions="750"),
                 # TMP root
                 # posix_user=efs.PosixUser(
                 #     uid="1000",
                 #     gid="1000",
                 # ),
-                # create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
+                ### Create ACL:
+                # (From the docs, if the `path` above does not exist, you must specify this)
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
+                create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
             )
             volume_name = f"efs-volume-{volume_id}"
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
@@ -386,7 +369,6 @@ class ContainerManagerStack(Stack):
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
         )
-    
 
         ## Scale down ASG if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
@@ -640,10 +622,6 @@ class ContainerManagerStack(Stack):
             targets=[
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
                 targets.SnsTopic(base_stack.sns_notify_topic, message=message),
-                ### TODO: Think about this. If you're only subscribed to a specific container,
-                ###       you probably only care about it spinning UP? You're not paying for it...
-                ###         (Actually maybe make this configurable in the config?
-                ###          You'd need a different topic for BOTH up and down though.)
                 targets.SnsTopic(self.sns_notify_topic, message=message),
             ],
         )
