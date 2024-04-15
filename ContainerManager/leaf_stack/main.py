@@ -25,50 +25,28 @@ from constructs import Construct
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.domain_info import DomainStack
-from ContainerManager.get_param import get_param
+from ContainerManager.utils.get_param import get_param
+from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
 
-INSTANCE_TYPE = "m5.large"
-DATA_DIR = "/data"
-
-container_environment = {
-    "EULA": "TRUE",
-    # From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
-    "TUNE_VIRTUALIZED": "TRUE",
-    "DIFFICULTY": "hard",
-    "RCRON_PASSWORD": os.environ["RCRON_PASSWORD"],
-}
-
-MINUTES_WITHOUT_PLAYERS = 5
-# MINUTES_WITHOUT_PLAYERS = 1
 
 class ContainerManagerStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, domain_stack: DomainStack, container_name_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, domain_stack: DomainStack, container_name_id: str, config: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.container_name_id = container_name_id
-        self.docker_image = get_param(self, "DOCKER_IMAGE")
-        self.docker_port = get_param(self, "DOCKER_PORT")
-        self.instance_type = get_param(self, "INSTANCE_TYPE", default=INSTANCE_TYPE)
+        self.docker_image = config["container"]["image"]
+        self.docker_ports = config["container"].get("ports", [])
+        self.instance_type = config["instance_type"]
 
         self.vpc = base_stack.vpc
         self.sg_vpc_traffic = base_stack.sg_vpc_traffic
-
-        # TODO: Make this a list of emails in config:
-        self.alert_email_list = [get_param(self, "LEAF_EMAIL", default=None)]
-        self.alert_email_list = [email for email in self.alert_email_list if email]
 
         ###########
         ## Setup Security Groups
         ###########
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
-
-        self.sg_vpc_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(self.docker_port),
-            description="Game port to allow traffic IN from",
-        )
 
         ## Security Group for EFS instance's traffic:
         self.sg_efs_traffic = ec2.SecurityGroup(
@@ -90,12 +68,24 @@ class ContainerManagerStack(Stack):
             description="Traffic that can go into the container",
         )
         Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/sg-container-traffic")
-        self.sg_container_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
-            # self.sg_vpc_traffic,
-            ec2.Port.tcp(self.docker_port),
-            description="Game port to open traffic IN from",
-        )
+
+        for port_info in self.docker_ports:
+            protocol, port = list(port_info.items())[0]
+            self.sg_vpc_traffic.connections.allow_from(
+                ec2.Peer.any_ipv4(),
+                ## Dynamically use tcp or udp from:
+                # This will create something like: ec2.Port.tcp(25565)
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Port.html
+                getattr(ec2.Port, protocol.lower())(port),
+                description="Game port to allow traffic IN from",
+            )
+
+            self.sg_container_traffic.connections.allow_from(
+                ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
+                # self.sg_vpc_traffic,
+                getattr(ec2.Port, protocol.lower())(port),
+                description="Game port to open traffic IN from",
+            )
 
         ## Now allow the two groups to talk to each other:
         self.sg_efs_traffic.connections.allow_from(
@@ -123,18 +113,8 @@ class ContainerManagerStack(Stack):
             "sns-notify-topic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
-        for email in self.alert_email_list:
-            ## Email with a SNS Subscription:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
-            self.sns_notify_subscription = sns.Subscription(
-                self,
-                "sns-notify-subscription",
-                ### TODO: There's also SMS (text) and https (webhook) options:
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html
-                protocol=sns.SubscriptionProtocol.EMAIL,
-                endpoint=email,
-                topic=self.sns_notify_topic,
-            )
+        subscriptions = config.get("Alert Subscription", [])
+        add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
 
 
         ###########
@@ -161,8 +141,6 @@ class ContainerManagerStack(Stack):
         )
 
         ## Let the instance register itself to a ecs cluster:
-        # TODO: Why are these attached to the launch_template role, instead of task_definition execution role?
-        #           What are the differences and pros/cons of the two?
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
         self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
         ## Let the instance allow SSM Session Manager to connect to it:
@@ -231,31 +209,6 @@ class ContainerManagerStack(Stack):
             allow_anonymous_access=False,
         )
 
-        ## Access the Persistent Storage:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-        ## What it returns:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-        self.access_point = self.efs_file_system.add_access_point(
-            "efs-access-point",
-            # The task data is the only thing inside EFS:
-            path="/",
-            ### One of these cause the chown/chmod in the minecraft container to fail. But I'm not sure I need
-            ### them? Only one container has access to one EFS, we don't need user permissions *inside* it I think...
-            ### TODO: Look into this a bit more later.
-            # # user/group: ec2-user
-            # posix_user=efs.PosixUser(
-            #     uid="1001",
-            #     gid="1001",
-            # ),
-            # create_acl=efs.Acl(owner_gid="1001", owner_uid="1001", permissions="750"),
-            # TMP root
-            # posix_user=efs.PosixUser(
-            #     uid="1000",
-            #     gid="1000",
-            # ),
-            # create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
-        )
-
 
         ## The details of a task definition run on an EC2 cluster.
         # (Root task definition, attach containers to this)
@@ -264,7 +217,7 @@ class ContainerManagerStack(Stack):
             self,
             "task-definition",
 
-            # execution_role= ecs agent permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
+            # execution_role= ecs **agent** permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
         )
 
@@ -303,23 +256,19 @@ class ContainerManagerStack(Stack):
             ],
         )
 
-        self.volume_name = f"{construct_id}-efs-volume"
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
-        self.task_definition.add_volume(
-            name=self.volume_name,
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
-            efs_volume_configuration=ecs.EfsVolumeConfiguration(
-                file_system_id=self.efs_file_system.file_system_id,
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
-                authorization_config=ecs.AuthorizationConfig(
-                    access_point_id=self.access_point.access_point_id,
-                    iam="ENABLED",
-                ),
-                transit_encryption="ENABLED",
-            ),
-        )
+        ## Tell the EFS side that the task can access it:
+        self.efs_file_system.grant_root_access(self.task_definition.task_role)
 
-        # Give the task logging permissions
+        # self.container_log_group = logs.LogGroup(
+        #     self,
+        #     "container-log-group",
+        #     log_group_name=f"{construct_id}-ContainerLogs",
+        #     retention=logs.RetentionDays.ONE_WEEK,
+        #     removal_policy=RemovalPolicy.DESTROY,
+        # )
+        # ## Give the task read AND write logging permissions:
+        # self.container_log_group.grant_write(self.task_definition.task_role)
+        # self.container_log_group.grant_read(self.task_definition.task_role)
         # TODO: Lock this down more
         self.task_definition.add_to_task_role_policy(
             iam.PolicyStatement(
@@ -332,44 +281,97 @@ class ContainerManagerStack(Stack):
                     "logs:Describe*",
                     "logs:List*",
                 ],
-                resources=[f"arn:aws:logs:{self.region}:{self.account}:log-group:{construct_id}-*:*"],
+                # resources=[f"arn:aws:logs:{self.region}:{self.account}:log-group:{self.container_log_group.log_group_name}:*"],
+                resources=[f"arn:aws:logs:{self.region}:{self.account}:log-group:*:*"],
             )
         )
-        ## Tell the EFS side that the task can access it:
-        self.efs_file_system.grant_root_access(self.task_definition.task_role)
-
-
+        
         ## Details for add_container:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#addwbrcontainerid-props
         ## And what it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
+        port_mappings = []
+        for port_info in self.docker_ports:
+            protocol, port = list(port_info.items())[0]
+            port_mappings.append(
+                ecs.PortMapping(
+                    host_port=port,
+                    container_port=port,
+                    # This will create something like: ecs.Protocol.TCP
+                    protocol=getattr(ecs.Protocol, protocol.upper()),
+                )
+            )
         self.container = self.task_definition.add_container(
             f"container-{self.container_name_id}",
             image=ecs.ContainerImage.from_registry(self.docker_image),
-            port_mappings=[
-                ecs.PortMapping(host_port=self.docker_port, container_port=self.docker_port, protocol=ecs.Protocol.TCP),
-            ],
+            port_mappings=port_mappings,
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
             ## Add environment variables into the container here:
-            environment=container_environment,
+            environment=config["container"].get("environment", {}),
             ## Logging, straight from:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix="ContainerLogs",
-                mode=ecs.AwsLogDriverMode.NON_BLOCKING,
+                # mode=ecs.AwsLogDriverMode.NON_BLOCKING,
+                # log_group=self.container_log_group,
                 log_retention=logs.RetentionDays.ONE_WEEK,
             ),
         )
-        self.container.add_mount_points(
-            ecs.MountPoint(
-                container_path=DATA_DIR,
-                source_volume=self.volume_name,
-                read_only=False,
+
+        for volume_info in config["container"].get("volumes", []):
+            volume_path = volume_info["path"]
+            read_only = volume_info.get("read_only", False)
+            ## Create a unique name, take out non-alpha characters from the path:
+            volume_id = f"{container_name_id}-{''.join(filter(str.isalnum, volume_path))}"
+            ## Access the Persistent Storage:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
+            ## What it returns:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
+            access_point = self.efs_file_system.add_access_point(
+                f"efs-access-point-{volume_id}",
+                # The task data is the only thing inside EFS:
+                path=volume_path,
+                ### One of these cause the chown/chmod in the minecraft container to fail. But I'm not sure I need
+                ### them? Only one container has access to one EFS, we don't need user permissions *inside* it I think...
+                ### TODO: Look into this a bit more later.
+                # # user/group: ec2-user
+                # posix_user=efs.PosixUser(
+                #     uid="1001",
+                #     gid="1001",
+                # ),
+                # create_acl=efs.Acl(owner_gid="1001", owner_uid="1001", permissions="750"),
+                # TMP root
+                # posix_user=efs.PosixUser(
+                #     uid="1000",
+                #     gid="1000",
+                # ),
+                # create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
             )
-        )
+            volume_name = f"efs-volume-{volume_id}"
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
+            self.task_definition.add_volume(
+                name=volume_name,
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
+                efs_volume_configuration=ecs.EfsVolumeConfiguration(
+                    file_system_id=self.efs_file_system.file_system_id,
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
+                    authorization_config=ecs.AuthorizationConfig(
+                        access_point_id=access_point.access_point_id,
+                        iam="ENABLED",
+                    ),
+                    transit_encryption="ENABLED",
+                ),
+            )
+            self.container.add_mount_points(
+                ecs.MountPoint(
+                    container_path=volume_path,
+                    source_volume=volume_name,
+                    read_only=read_only,
+                )
+            )
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
@@ -392,7 +394,7 @@ class ContainerManagerStack(Stack):
         scale_down_asg_action = autoscaling.StepScalingAction(self,
             f"{construct_id}-scale-down-asg-action",
             auto_scaling_group=self.auto_scaling_group,
-            adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY
+            adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
         )
         scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
 
@@ -428,7 +430,7 @@ class ContainerManagerStack(Stack):
             "Alarm-NumConnections",
             alarm_name=f"{construct_id}-Alarm-NumConnections",
             alarm_description="Trigger if 0 people are connected for too long",
-            evaluation_periods=MINUTES_WITHOUT_PLAYERS,
+            evaluation_periods=config.get("minutes_without_players", 5),
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
@@ -449,6 +451,7 @@ class ContainerManagerStack(Stack):
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
+            log_retention=logs.RetentionDays.ONE_WEEK,
             environment={
                 "ASG_NAME": self.auto_scaling_group.auto_scaling_group_name,
                 "TASK_DEFINITION": self.task_definition.family,
@@ -536,6 +539,7 @@ class ContainerManagerStack(Stack):
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
+            log_retention=logs.RetentionDays.ONE_WEEK,
             environment={
                 "HOSTED_ZONE_ID": domain_stack.sub_hosted_zone.hosted_zone_id,
                 "DOMAIN_NAME": domain_stack.sub_domain_name,

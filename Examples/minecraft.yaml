@@ -1,0 +1,23 @@
+
+instance_type: m5.large
+minutes_without_players: 5
+
+container:
+  image: itzg/minecraft-server
+  ports:
+    - TCP: 25565
+  environment:
+    EULA: "TRUE"
+    # From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
+    TUNE_VIRTUALIZED: "TRUE"
+    DIFFICULTY: "hard"
+    RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
+  # volumes:
+  #   - path: /data
+  #   - path: /testing
+  #     read_only: True
+
+Alert Subscription:
+  - Type: Email
+    Value: Does@Not.Exist
+  # - Email: !ENV ${EMAIL}

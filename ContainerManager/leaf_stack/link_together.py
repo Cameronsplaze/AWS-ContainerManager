@@ -31,6 +31,7 @@ class LinkTogetherStack(Stack):
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
+            log_retention=logs.RetentionDays.ONE_WEEK,
             environment={
                 "ASG_NAME": manager_stack.auto_scaling_group.auto_scaling_group_name,
                 "MANAGER_STACK_REGION": manager_stack.region,

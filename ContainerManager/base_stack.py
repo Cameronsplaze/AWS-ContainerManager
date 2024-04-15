@@ -15,18 +15,13 @@ from aws_cdk import (
     aws_sns as sns,
 )
 
-from .get_param import get_param
+from .utils.get_param import get_param
+from .utils.sns_subscriptions import add_sns_subscriptions
 
 class ContainerManagerBaseStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, config: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        self.root_hosted_zone_id = get_param(self, "HOSTED_ZONE_ID", default=None)
-        self.domain_name = str(get_param(self, "DOMAIN_NAME")).lower()
-        # TODO: Make this a list of emails in config:
-        self.alert_email_list = [get_param(self, "BASE_EMAIL", default=None)]
-        self.alert_email_list = [email for email in self.alert_email_list if email]
 
         #################
         ### VPC STUFF ###
@@ -75,23 +70,20 @@ class ContainerManagerBaseStack(Stack):
             "sns-notify-topic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
-        for email in self.alert_email_list:
-            ## Email with a SNS Subscription:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
-            self.sns_notify_subscription = sns.Subscription(
-                self,
-                "sns-notify-subscription",
-                ### TODO: There's also SMS (text) and https (webhook) options:
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html
-                protocol=sns.SubscriptionProtocol.EMAIL,
-                endpoint=email,
-                topic=self.sns_notify_topic,
-            )
+        subscriptions = config.get("Alert Subscription", [])
+        add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
 
 
         #####################
         ### Route53 STUFF ###
         #####################
+        if "Domain" not in config:
+            raise ValueError("Required key 'Domain' missing from config. See TODO on writing configs")
+        if "Name" not in config["Domain"]:
+            raise ValueError("Required key 'Domain.Name' missing from config. See TODO on writing configs")
+
+        self.domain_name = str(config["Domain"]["Name"]).lower()
+        self.root_hosted_zone_id = config["Domain"].get("HostedZoneId")
 
         if self.root_hosted_zone_id:
             ## Import the existing Route53 Hosted Zone:

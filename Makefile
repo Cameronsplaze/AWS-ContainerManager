@@ -22,19 +22,21 @@ cdk-deploy:
 	cdk deploy \
 		--require-approval never \
 		--no-previous-parameters \
-		--all
+		--all \
+		--context config-file="$(config-file)"
 
 .PHONY := cdk-synth
 cdk-synth:
 	echo "Synthesizing Stack..." && \
-	cdk synth
+	cdk synth --context config-file="$(config-file)"
 
-.PHONY := cdk-destroy
-cdk-destroy:
+.PHONY := cdk-destroy-all
+cdk-destroy-all:
 	echo "Destroying Stack..." && \
 	cdk destroy \
 		--force \
-		--all
+		--all \
+		--context config-file="$(config-file)"
 
 ###################
 ## Misc Commands ##

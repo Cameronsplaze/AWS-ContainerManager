@@ -107,7 +107,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 ### Phase 1, MVP
 
 - Finish the prototype for the Leaf Stack:
-  - Incase the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
+  - In case the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
 
 - Possible optimization: [EventBridge on ASG can spin up/down ECS Tasks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.EcsTask.html). This might spin up the ECS task faster than the lambda doing it. This will mean you'll have to take out the "multiple instance safeguard" in the lambda, but now that we're using the right hook, that might not get hit anyways. (OR since you'll have to create two event bridges anyways, maybe only have the "ON" event bridge trigger ECS Task, and the "OFF" still go through lambda? We don't care about spin-down time, only spin-up anyways...)
@@ -120,7 +120,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
   - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
 
-  - Go through Cloudwatch log Groups, make sure everything has a retention policy by default
+  - Go through Cloudwatch log Groups, make sure everything has a retention policy by default, and removal policy DESTROY.
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
@@ -146,8 +146,6 @@ My work has "Day of Innovation" every once in a while, where we can work on what
     ```
 
     - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
-
-- Add a second sns notify point, to the leaf stack. If you want to be notified about ANY game, you can subscribe to the base_stack's sns. Otherwise if you only care about one (maybe a friend who plays minecraft, but not lethal company for example), you can add their info to just this sns instead. (And the lists can live in different configs too this way, to keep things organized).
 
 ## Phase 4, Get ready for Production!
 
