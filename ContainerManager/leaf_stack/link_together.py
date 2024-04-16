@@ -4,8 +4,6 @@ import json
 from aws_cdk import (
     Stack,
     Duration,
-    RemovalPolicy,
-    aws_route53 as route53,
     aws_iam as iam,
     aws_logs as logs,
     aws_logs_destinations as logs_destinations,

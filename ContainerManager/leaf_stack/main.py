@@ -1,5 +1,4 @@
 
-import os
 import json
 
 from aws_cdk import (
@@ -19,13 +18,12 @@ from aws_cdk import (
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
     aws_sns as sns,
-    aws_sns_subscriptions as subscriptions,
 )
 from constructs import Construct
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.domain_info import DomainStack
-from ContainerManager.utils.get_param import get_param
+# from ContainerManager.utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
 
@@ -168,6 +166,8 @@ class ContainerManagerStack(Stack):
 
         ## A Fleet represents a managed set of EC2 instances:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
+        # TODO: Looking in the console "Activity" tab, there's a way to send SNS if instance fails to start/stop.
+        #       look into pushing that SNS to at least the base stack's topic.
         self.auto_scaling_group = autoscaling.AutoScalingGroup(
             self,
             "ASG",
@@ -177,6 +177,14 @@ class ContainerManagerStack(Stack):
             min_capacity=0,
             max_capacity=1,
             new_instances_protected_from_scale_in=False,
+            ## Notifications:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html#notifications
+            notifications=[
+                # Let base stack sns know if something goes wrong, to flag the admin:
+                autoscaling.NotificationConfiguration(topic=base_stack.sns_notify_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
+                # Let users of this specific stack know the same thing:
+                autoscaling.NotificationConfiguration(topic=self.sns_notify_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
+            ]
         )
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.

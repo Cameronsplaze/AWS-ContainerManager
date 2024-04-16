@@ -12,6 +12,10 @@ container:
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
+  # volume_info:
+  #   UID: 1000
+  #   GID: 1000
+  #   Permissions: 750
   volumes:
     - path: /data
     # - path: /testing

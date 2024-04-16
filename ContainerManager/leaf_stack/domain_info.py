@@ -6,7 +6,6 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_iam as iam,
     aws_logs as logs,
-    aws_lambda as aws_lambda,
 )
 from constructs import Construct
 
@@ -28,7 +27,7 @@ class DomainStack(Stack):
         ## Log group for the Route53 DNS logs:
         self.route53_query_log_group = logs.LogGroup(
             self,
-            f"route53-query-log-group",
+            "route53-query-log-group",
             log_group_name=f"/aws/route53/{construct_id}-query-logs",
             # Only need logs to trigger the lambda, don't need long-term:
             retention=logs.RetentionDays.ONE_DAY,
@@ -73,6 +72,6 @@ class DomainStack(Stack):
             ttl=Duration.seconds(self.unavailable_ttl),
         )
         self.dns_record.apply_removal_policy(RemovalPolicy.DESTROY)
-        # TODO: Make sure this lets you clean up the stack. IDK why it isn't the
-        #    default. It uses sub_hosted_zone when creating it...
+        # Make sure the record is removed BEFORE you try to remove the zone
+        #     idk why this isn't the default....
         self.dns_record.node.add_dependency(self.sub_hosted_zone)
