@@ -1,8 +1,9 @@
 
+MaxAZs: 1
+
 Domain:
   Name: theamazingcameron.com
   HostedZoneId: !ENV ${HOSTED_ZONE_ID}
 
-Alert Subscription:
-  - Type: Email
-    Value: !ENV ${EMAIL}
+AlertSubscription:
+  - Email: !ENV ${EMAIL}

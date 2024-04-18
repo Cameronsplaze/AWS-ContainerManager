@@ -25,7 +25,7 @@ class LinkTogetherStack(Stack):
             self,
             "lambda-start-system",
             description=f"{construct_id}-lambda-start-system: Turn system on, when someone connects.",
-            code=aws_lambda.Code.from_asset("./lambda-start-system/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/trigger-start-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),

@@ -3,19 +3,14 @@
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    CfnParameter,
     Tags,
     RemovalPolicy,
     aws_ec2 as ec2,
-    aws_ecs as ecs,
-    aws_ecs_patterns as ecs_patterns,
-    aws_iam as iam,
-    aws_autoscaling as autoscaling,
     aws_route53 as route53,
     aws_sns as sns,
 )
 
-from .utils.get_param import get_param
+# from .utils.get_param import get_param
 from .utils.sns_subscriptions import add_sns_subscriptions
 
 class ContainerManagerBaseStack(Stack):
@@ -31,7 +26,7 @@ class ContainerManagerBaseStack(Stack):
             self,
             "VPC",
             nat_gateways=0,
-            max_azs=2,
+            max_azs=config.get("MaxAZs", 1),
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     name=f"public-{construct_id}-sn",
@@ -70,7 +65,7 @@ class ContainerManagerBaseStack(Stack):
             "sns-notify-topic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
-        subscriptions = config.get("Alert Subscription", [])
+        subscriptions = config.get("AlertSubscription", [])
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
 
 

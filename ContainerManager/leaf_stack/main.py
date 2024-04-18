@@ -26,34 +26,25 @@ from ContainerManager.leaf_stack.domain_info import DomainStack
 # from ContainerManager.utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
-
+## Import Nested Stacks:
+from ContainerManager.leaf_stack.NestedStacks.Efs import EfsNestedStack
 
 class ContainerManagerStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, domain_stack: DomainStack, container_name_id: str, config: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        self.container_name_id = container_name_id
-        self.docker_image = config["container"]["image"]
-        self.docker_ports = config["container"].get("ports", [])
-        self.instance_type = config["instance_type"]
-
-        self.vpc = base_stack.vpc
-        self.sg_vpc_traffic = base_stack.sg_vpc_traffic
+        self.instance_type = config["InstanceType"]
+        self.docker_image = config["Container"]["Image"]
+        self.docker_ports = config["Container"].get("Ports", [])
+        for port in self.docker_ports:
+            if len(port) != 1:
+                raise ValueError(f"Each port should have only one key-value pair. Got: {port}")
 
         ###########
         ## Setup Security Groups
         ###########
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
 
-        ## Security Group for EFS instance's traffic:
-        self.sg_efs_traffic = ec2.SecurityGroup(
-            self,
-            f"{construct_id}-sg-efs-traffic",
-            vpc=self.vpc,
-            description="Traffic that can go into the EFS instance",
-        )
-        Tags.of(self.sg_efs_traffic).add("Name", f"{construct_id}/sg-efs-traffic")
 
         ## Security Group for container traffic:
         # TODO: Since someone could theoretically break into the container,
@@ -62,14 +53,15 @@ class ContainerManagerStack(Stack):
         self.sg_container_traffic = ec2.SecurityGroup(
             self,
             "sg-container-traffic",
-            vpc=self.vpc,
+            vpc=base_stack.vpc,
             description="Traffic that can go into the container",
         )
-        Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/sg-container-traffic")
+        # Create a name of `<StackName>/<ClassName>/sg-container-traffic` to find it easier:
+        Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/{self.__class__.__name__}/sg-container-traffic")
 
         for port_info in self.docker_ports:
             protocol, port = list(port_info.items())[0]
-            self.sg_vpc_traffic.connections.allow_from(
+            base_stack.sg_vpc_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),
                 ## Dynamically use tcp or udp from:
                 # This will create something like: ec2.Port.tcp(25565)
@@ -80,23 +72,10 @@ class ContainerManagerStack(Stack):
 
             self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
-                # self.sg_vpc_traffic,
+                # base_stack.sg_vpc_traffic,
                 getattr(ec2.Port, protocol.lower())(port),
                 description="Game port to open traffic IN from",
             )
-
-        ## Now allow the two groups to talk to each other:
-        self.sg_efs_traffic.connections.allow_from(
-            self.sg_container_traffic,
-            port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from container",
-        )
-        self.sg_container_traffic.connections.allow_from(
-            # Allow efs traffic from within the Group.
-            self.sg_efs_traffic,
-            port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from EFS Server",
-        )
 
         ###########
         ## Container-specific Notify
@@ -111,7 +90,7 @@ class ContainerManagerStack(Stack):
             "sns-notify-topic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
-        subscriptions = config.get("Alert Subscription", [])
+        subscriptions = config.get("AlertSubscription", [])
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
 
 
@@ -127,7 +106,7 @@ class ContainerManagerStack(Stack):
             self,
             "ecs-cluster",
             cluster_name=f"{construct_id}-ecs-cluster",
-            vpc=self.vpc,
+            vpc=base_stack.vpc,
         )
 
         ## Permissions for inside the instance:
@@ -171,7 +150,7 @@ class ContainerManagerStack(Stack):
         self.auto_scaling_group = autoscaling.AutoScalingGroup(
             self,
             "ASG",
-            vpc=self.vpc,
+            vpc=base_stack.vpc,
             launch_template=self.launch_template,
             # desired_capacity=0,
             min_capacity=0,
@@ -204,19 +183,6 @@ class ContainerManagerStack(Stack):
             ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name)
         ])
 
-        ## Persistent Storage:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
-        self.efs_file_system = efs.FileSystem(
-            self,
-            "efs-file-system",
-            vpc=self.vpc,
-            # TODO: Just for developing. Keep users minecraft worlds SAFE!!
-            # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
-            removal_policy=RemovalPolicy.DESTROY,
-            security_group=self.sg_efs_traffic,
-            allow_anonymous_access=False,
-        )
-
 
         ## The details of a task definition run on an EC2 cluster.
         # (Root task definition, attach containers to this)
@@ -232,13 +198,13 @@ class ContainerManagerStack(Stack):
         ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         message = events.RuleTargetInput.from_text("\n".join([
-            f"Container for '{self.container_name_id}' has started!",
+            f"Container for '{container_name_id}' has started!",
             f"Connect to it at: '{domain_stack.sub_domain_name}'.",
         ]))
         self.rule_notify_up = events.Rule(
             self,
             "rule-notify-up",
-            rule_name=f"{self.container_name_id}-rule-notify-up",
+            rule_name=f"{container_name_id}-rule-notify-up",
             description="Let user know when system finishes spinning UP",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
@@ -263,9 +229,6 @@ class ContainerManagerStack(Stack):
                 ),
             ],
         )
-
-        ## Tell the EFS side that the task can access it:
-        self.efs_file_system.grant_root_access(self.task_definition.task_role)
 
         self.container_log_group = logs.LogGroup(
             self,
@@ -293,7 +256,7 @@ class ContainerManagerStack(Stack):
                 )
             )
         self.container = self.task_definition.add_container(
-            self.container_name_id.title(),
+            container_name_id.title(),
             image=ecs.ContainerImage.from_registry(self.docker_image),
             port_mappings=port_mappings,
             ## Hard limit. Won't ever go above this
@@ -301,7 +264,7 @@ class ContainerManagerStack(Stack):
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
             ## Add environment variables into the container here:
-            environment=config["container"].get("environment", {}),
+            environment=config["Container"].get("Environment", {}),
             ## Logging, straight from:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
             logging=ecs.LogDrivers.aws_logs(
@@ -310,59 +273,18 @@ class ContainerManagerStack(Stack):
             ),
         )
 
-        for volume_info in config["container"].get("volumes", []):
-            volume_path = volume_info["path"]
-            read_only = volume_info.get("read_only", False)
-            ## Create a unique name, take out non-alpha characters from the path:
-            volume_id = f"{container_name_id}-{''.join(filter(str.isalnum, volume_path))}"
-            ## Access the Persistent Storage:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-            ## What it returns:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-            access_point = self.efs_file_system.add_access_point(
-                f"efs-access-point-{volume_id}",
-                # The task data is the only thing inside EFS:
-                path=volume_path,
-                ### One of these cause the chown/chmod in the minecraft container to fail. But I'm not sure I need
-                ### them? Only one container has access to one EFS, we don't need user permissions *inside* it I think...
-                ### TODO: Look into this a bit more later.
-                # # user/group: ec2-user
-                # posix_user=efs.PosixUser(
-                #     uid="1001",
-                #     gid="1001",
-                # ),
-                # TMP root
-                # posix_user=efs.PosixUser(
-                #     uid="1000",
-                #     gid="1000",
-                # ),
-                ### Create ACL:
-                # (From the docs, if the `path` above does not exist, you must specify this)
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-                create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
-            )
-            volume_name = f"efs-volume-{volume_id}"
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
-            self.task_definition.add_volume(
-                name=volume_name,
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
-                efs_volume_configuration=ecs.EfsVolumeConfiguration(
-                    file_system_id=self.efs_file_system.file_system_id,
-                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
-                    authorization_config=ecs.AuthorizationConfig(
-                        access_point_id=access_point.access_point_id,
-                        iam="ENABLED",
-                    ),
-                    transit_encryption="ENABLED",
-                ),
-            )
-            self.container.add_mount_points(
-                ecs.MountPoint(
-                    container_path=volume_path,
-                    source_volume=volume_name,
-                    read_only=read_only,
-                )
-            )
+
+        efs_nested_stack = EfsNestedStack(
+            self,
+            construct_id,
+            description=f"EFS Logic for {construct_id}",
+            vpc=base_stack.vpc,
+            sg_container_traffic=self.sg_container_traffic,
+            task_definition=self.task_definition,
+            container=self.container,
+            volumes_config=config["Container"].get("Volumes", []),
+        )
+        self.efs_file_system = efs_nested_stack.efs_file_system
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
@@ -394,7 +316,7 @@ class ContainerManagerStack(Stack):
         self.metric_namespace = construct_id
         self.metric_unit = cloudwatch.Unit.COUNT
         self.metric_dimension_map = {
-            "ContainerNameID": self.container_name_id,
+            "ContainerNameID": container_name_id,
         }
         ## Custom Metric for the number of connections
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
@@ -420,7 +342,7 @@ class ContainerManagerStack(Stack):
             "Alarm-NumConnections",
             alarm_name=f"{construct_id}-Alarm-NumConnections",
             alarm_description="Trigger if 0 people are connected for too long",
-            evaluation_periods=config.get("minutes_without_players", 5),
+            evaluation_periods=config.get("MinutesWithoutPlayers", 5),
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
@@ -437,7 +359,7 @@ class ContainerManagerStack(Stack):
             self,
             "lambda-watchdog-num-connections",
             description=f"{container_name_id}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
-            code=aws_lambda.Code.from_asset("./lambda-watchdog-num-connections/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/watchdog-num-connections/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
@@ -508,7 +430,7 @@ class ContainerManagerStack(Stack):
         self.rule_watchdog_trigger = events.Rule(
             self,
             "rule-watchdog-trigger",
-            rule_name=f"{self.container_name_id}-rule-watchdog-trigger",
+            rule_name=f"{container_name_id}-rule-watchdog-trigger",
             description="Trigger Watchdog Lambda every minute, to see how many are using the container",
             schedule=events.Schedule.rate(Duration.minutes(1)),
             targets=[
@@ -525,7 +447,7 @@ class ContainerManagerStack(Stack):
             self,
             "lambda-asg-StateChange-hook",
             description=f"{container_name_id}-ASG-StateChange: Triggered by ec2 state changes. Starts the management logic",
-            code=aws_lambda.Code.from_asset("./lambda-instance-StateChange-hook/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
@@ -591,7 +513,7 @@ class ContainerManagerStack(Stack):
         self.rule_asg_state_change_trigger = events.Rule(
             self,
             "rule-ASG-StateChange-hook",
-            rule_name=f"{self.container_name_id}-rule-ASG-StateChange-hook",
+            rule_name=f"{container_name_id}-rule-ASG-StateChange-hook",
             description="Trigger Lambda whenever the ASG state changes, to keep DNS in sync",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
@@ -613,11 +535,11 @@ class ContainerManagerStack(Stack):
         ##   (Can't combine with above target, since we care about different 'detail_type'.
         ##    Don't want to spam the user sadly.)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        message = events.RuleTargetInput.from_text(f"Container for '{self.container_name_id}' has stopped.")
+        message = events.RuleTargetInput.from_text(f"Container for '{container_name_id}' has stopped.")
         self.rule_notify_down = events.Rule(
             self,
             "rule-notify-down",
-            rule_name=f"{self.container_name_id}-rule-notify-up-down",
+            rule_name=f"{container_name_id}-rule-notify-up-down",
             description="Let user know when system finishes spinning down",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
