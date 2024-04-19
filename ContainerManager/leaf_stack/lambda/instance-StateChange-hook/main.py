@@ -10,6 +10,7 @@ required_vars = [
     "DOMAIN_NAME",
     "UNAVAILABLE_IP",
     "UNAVAILABLE_TTL",
+    "RECORD_TYPE",
     "WATCH_INSTANCE_RULE",
     "ECS_CLUSTER_NAME",
     "ECS_SERVICE_NAME",
@@ -77,7 +78,7 @@ def update_dns_zone(new_ip: str, new_ttl: int) -> None:
                 'Action': 'UPSERT',
                 'ResourceRecordSet': {
                     'Name': os.environ['DOMAIN_NAME'],
-                    'Type': 'A',
+                    'Type': os.environ['RECORD_TYPE'],
                     'TTL': new_ttl,
                     'ResourceRecords': [{'Value': new_ip}]
                 }

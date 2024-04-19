@@ -22,6 +22,7 @@ class DomainStack(Stack):
         self.unavailable_ip = "0.0.0.0"
         # Never set TTL to 0, it's not defined in the standard
         self.unavailable_ttl = 1
+        self.record_type = route53.RecordType.A
         self.sub_domain_name = f"{container_name_id}.{base_stack.root_hosted_zone.zone_name}".lower()
 
         ## Log group for the Route53 DNS logs:
@@ -67,7 +68,7 @@ class DomainStack(Stack):
             "DnsRecord",
             zone=self.sub_hosted_zone,
             record_name=self.sub_domain_name,
-            record_type=route53.RecordType.A,
+            record_type=self.record_type,
             target=route53.RecordTarget.from_values(self.unavailable_ip),
             ttl=Duration.seconds(self.unavailable_ttl),
         )

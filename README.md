@@ -147,6 +147,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
     - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
 
+- Look at creating/deleting stacks again. Rn there's no way to delete the leaf stack, and not the base stack. Think about how to pass in CLI args to help here.
+
 ## Phase 4, Get ready for Production!
 
 - Add a way to connect with FileZilla to upload files. (Don't go through s3 bucket, you'll pay for extra data storage that way.). Make FTP server optional in config, so you can turn it on when first setting up, then deploy again to disable it.

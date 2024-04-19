@@ -16,15 +16,14 @@ class EfsNestedStack(NestedStack):
     def __init__(
             self,
             leaf_stack,
-            construct_id: str,
+            leaf_construct_id: str,
             vpc: ec2.Vpc,
-            sg_container_traffic: ec2.SecurityGroup,
             task_definition: ecs.Ec2TaskDefinition,
             container: ecs.ContainerDefinition,
             volumes_config: list,
             **kwargs
         ):
-        super().__init__(leaf_stack, construct_id, **kwargs)
+        super().__init__(leaf_stack, f"{leaf_construct_id}-EFS", **kwargs)
 
         ## Security Group for EFS instance's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
@@ -35,20 +34,7 @@ class EfsNestedStack(NestedStack):
             description=f"Traffic that can go into the {container.container_name} EFS instance",
         )
         # Create a name of `<StackName>/<ClassName>/sg-efs-traffic` to find it easier:
-        Tags.of(self.sg_efs_traffic).add("Name", f"{construct_id}/{self.__class__.__name__}/sg-efs-traffic")
-
-        ## Now allow the two groups to talk to each other:
-        self.sg_efs_traffic.connections.allow_from(
-            sg_container_traffic,
-            port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from container",
-        )
-        sg_container_traffic.connections.allow_from(
-            # Allow efs traffic from within the Group.
-            self.sg_efs_traffic,
-            port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from EFS Server",
-        )
+        Tags.of(self.sg_efs_traffic).add("Name", f"{leaf_construct_id}/{self.__class__.__name__}/sg-efs-traffic")
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html

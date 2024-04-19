@@ -10,7 +10,6 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
-    aws_efs as efs,
     aws_logs as logs,
     aws_autoscaling as autoscaling,
     aws_events as events,
@@ -28,6 +27,7 @@ from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
 ## Import Nested Stacks:
 from ContainerManager.leaf_stack.NestedStacks.Efs import EfsNestedStack
+from ContainerManager.leaf_stack.NestedStacks.Container import ContainerNestedStack
 
 class ContainerManagerStack(Stack):
 
@@ -35,47 +35,7 @@ class ContainerManagerStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         self.instance_type = config["InstanceType"]
-        self.docker_image = config["Container"]["Image"]
-        self.docker_ports = config["Container"].get("Ports", [])
-        for port in self.docker_ports:
-            if len(port) != 1:
-                raise ValueError(f"Each port should have only one key-value pair. Got: {port}")
 
-        ###########
-        ## Setup Security Groups
-        ###########
-
-
-        ## Security Group for container traffic:
-        # TODO: Since someone could theoretically break into the container,
-        #        lock down traffic leaving it too.
-        #        (Should be the same as VPC sg BEFORE any stacks are added. Maybe have a base SG that both use?)
-        self.sg_container_traffic = ec2.SecurityGroup(
-            self,
-            "sg-container-traffic",
-            vpc=base_stack.vpc,
-            description="Traffic that can go into the container",
-        )
-        # Create a name of `<StackName>/<ClassName>/sg-container-traffic` to find it easier:
-        Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/{self.__class__.__name__}/sg-container-traffic")
-
-        for port_info in self.docker_ports:
-            protocol, port = list(port_info.items())[0]
-            base_stack.sg_vpc_traffic.connections.allow_from(
-                ec2.Peer.any_ipv4(),
-                ## Dynamically use tcp or udp from:
-                # This will create something like: ec2.Port.tcp(25565)
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Port.html
-                getattr(ec2.Port, protocol.lower())(port),
-                description="Game port to allow traffic IN from",
-            )
-
-            self.sg_container_traffic.connections.allow_from(
-                ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
-                # base_stack.sg_vpc_traffic,
-                getattr(ec2.Port, protocol.lower())(port),
-                description="Game port to open traffic IN from",
-            )
 
         ###########
         ## Container-specific Notify
@@ -109,6 +69,97 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
         )
 
+
+        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        message = events.RuleTargetInput.from_text("\n".join([
+            f"Container for '{container_name_id}' has started!",
+            f"Connect to it at: '{domain_stack.sub_domain_name}'.",
+        ]))
+        self.rule_notify_up = events.Rule(
+            self,
+            "rule-notify-up",
+            rule_name=f"{container_name_id}-rule-notify-up",
+            description="Let user know when system finishes spinning UP",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.ecs"],
+                detail_type=["ECS Task State Change"],
+                detail={
+                    "clusterArn": [self.ecs_cluster.cluster_arn],
+                    # You only care if the TASK starts, or the INSTANCE stops:
+                    "lastStatus": ["RUNNING"],
+                    "desiredStatus": ["RUNNING"],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                targets.SnsTopic(
+                    base_stack.sns_notify_topic,
+                    message=message,
+                ),
+                targets.SnsTopic(
+                    self.sns_notify_topic,
+                    message=message,
+                ),
+            ],
+        )
+
+
+        # ## Security Group for container traffic:
+        # # TODO: Since someone could theoretically break into the container,
+        # #        lock down traffic leaving it too.
+        # #        (Should be the same as VPC sg BEFORE any stacks are added. Maybe have a base SG that both use?)
+        # self.sg_container_traffic = ec2.SecurityGroup(
+        #     self,
+        #     "sg-container-traffic",
+        #     vpc=base_stack.vpc,
+        #     description="Traffic that can go into the container",
+        # )
+        # # Create a name of `<StackName>/<ClassName>/sg-container-traffic` to find it easier:
+        # Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/{self.__class__.__name__}/sg-container-traffic")
+
+        ### All the info for the Container Stuff
+        container_nested_stack = ContainerNestedStack(
+            self,
+            construct_id,
+            description=f"Container Logic for {construct_id}",
+            base_stack=base_stack,
+            container_name_id=container_name_id,
+            docker_image=config["Container"]["Image"],
+            docker_environment=config["Container"].get("Environment", {}),
+            docker_ports_config=config["Container"].get("Ports", []),
+            # sg_container_traffic=self.sg_container_traffic,
+        )
+        self.container = container_nested_stack.container
+        self.sg_container_traffic = container_nested_stack.sg_container_traffic
+        self.task_definition = container_nested_stack.task_definition
+
+        ### All the info for EFS Stuff
+        efs_nested_stack = EfsNestedStack(
+            self,
+            construct_id,
+            description=f"EFS Logic for {construct_id}",
+            vpc=base_stack.vpc,
+            task_definition=self.task_definition,
+            container=self.container,
+            volumes_config=config["Container"].get("Volumes", []),
+        )
+        self.sg_efs_traffic = efs_nested_stack.sg_efs_traffic
+
+        ## Now allow the two groups to talk to each other:
+        # self.sg_efs_traffic.connections.allow_from(
+        #     self.sg_container_traffic,
+        #     port_range=ec2.Port.tcp(2049),
+        #     description="Allow EFS traffic IN - from container",
+        # )
+        self.sg_container_traffic.connections.allow_from(
+            # Allow efs traffic from within the Group.
+            self.sg_efs_traffic,
+            port_range=ec2.Port.tcp(2049),
+            description="Allow EFS traffic IN - from EFS Server",
+        )
+
         ## Permissions for inside the instance:
         self.ec2_role = iam.Role(
             self,
@@ -133,7 +184,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
         self.launch_template = ec2.LaunchTemplate(
             self,
-            f"{construct_id}-ASG-LaunchTemplate",
+            "ASG-LaunchTemplate",
             instance_type=ec2.InstanceType(self.instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
@@ -142,6 +193,16 @@ class ContainerManagerStack(Stack):
             user_data=self.ec2_user_data,
             role=self.ec2_role,
         )
+
+
+
+
+
+
+
+
+
+
 
         ## A Fleet represents a managed set of EC2 instances:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
@@ -184,107 +245,8 @@ class ContainerManagerStack(Stack):
         ])
 
 
-        ## The details of a task definition run on an EC2 cluster.
-        # (Root task definition, attach containers to this)
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html
-        self.task_definition = ecs.Ec2TaskDefinition(
-            self,
-            "task-definition",
-
-            # execution_role= ecs **agent** permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
-            # task_role= permissions for *inside* the container
-        )
-
-        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        message = events.RuleTargetInput.from_text("\n".join([
-            f"Container for '{container_name_id}' has started!",
-            f"Connect to it at: '{domain_stack.sub_domain_name}'.",
-        ]))
-        self.rule_notify_up = events.Rule(
-            self,
-            "rule-notify-up",
-            rule_name=f"{container_name_id}-rule-notify-up",
-            description="Let user know when system finishes spinning UP",
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
-            event_pattern=events.EventPattern(
-                source=["aws.ecs"],
-                detail_type=["ECS Task State Change"],
-                detail={
-                    "clusterArn": [self.ecs_cluster.cluster_arn],
-                    # You only care if the TASK starts, or the INSTANCE stops:
-                    "lastStatus": ["RUNNING"],
-                    "desiredStatus": ["RUNNING"],
-                },
-            ),
-            targets=[
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
-                targets.SnsTopic(
-                    base_stack.sns_notify_topic,
-                    message=message,
-                ),
-                targets.SnsTopic(
-                    self.sns_notify_topic,
-                    message=message,
-                ),
-            ],
-        )
-
-        self.container_log_group = logs.LogGroup(
-            self,
-            "container-log-group",
-            log_group_name=f"/aws/ec2/{construct_id}-ContainerLogs",
-            retention=logs.RetentionDays.ONE_WEEK,
-            removal_policy=RemovalPolicy.DESTROY,
-        )
-        # ## Give the task write logging permissions:
-        self.container_log_group.grant_write(self.task_definition.task_role)
-        
-        ## Details for add_container:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#addwbrcontainerid-props
-        ## And what it returns:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
-        port_mappings = []
-        for port_info in self.docker_ports:
-            protocol, port = list(port_info.items())[0]
-            port_mappings.append(
-                ecs.PortMapping(
-                    host_port=port,
-                    container_port=port,
-                    # This will create something like: ecs.Protocol.TCP
-                    protocol=getattr(ecs.Protocol, protocol.upper()),
-                )
-            )
-        self.container = self.task_definition.add_container(
-            container_name_id.title(),
-            image=ecs.ContainerImage.from_registry(self.docker_image),
-            port_mappings=port_mappings,
-            ## Hard limit. Won't ever go above this
-            # memory_limit_mib=999999999,
-            ## Soft limit. Container will go down to this if under heavy load, but can go higher
-            memory_reservation_mib=4*1024,
-            ## Add environment variables into the container here:
-            environment=config["Container"].get("Environment", {}),
-            ## Logging, straight from:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
-            logging=ecs.LogDrivers.aws_logs(
-                stream_prefix="ContainerLogs",
-                log_group=self.container_log_group,
-            ),
-        )
 
 
-        efs_nested_stack = EfsNestedStack(
-            self,
-            construct_id,
-            description=f"EFS Logic for {construct_id}",
-            vpc=base_stack.vpc,
-            sg_container_traffic=self.sg_container_traffic,
-            task_definition=self.task_definition,
-            container=self.container,
-            volumes_config=config["Container"].get("Volumes", []),
-        )
-        self.efs_file_system = efs_nested_stack.efs_file_system
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
@@ -457,6 +419,7 @@ class ContainerManagerStack(Stack):
                 "DOMAIN_NAME": domain_stack.sub_domain_name,
                 "UNAVAILABLE_IP": domain_stack.unavailable_ip,
                 "UNAVAILABLE_TTL": str(domain_stack.unavailable_ttl),
+                "RECORD_TYPE": domain_stack.record_type.value,
                 "WATCH_INSTANCE_RULE": self.rule_watchdog_trigger.rule_name,
                 "ECS_CLUSTER_NAME": self.ecs_cluster.cluster_name,
                 "ECS_SERVICE_NAME": self.ec2_service.service_name,

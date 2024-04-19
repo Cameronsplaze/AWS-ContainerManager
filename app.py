@@ -37,7 +37,6 @@ base_stack = ContainerManagerBaseStack(
 file_path = app.node.try_get_context("config-file")
 if file_path:
     leaf_config = load_config(file_path)
-    os.path.splitext(file_path)[0]
     # Get the filename, without the extension:
     container_name_id = os.path.basename(os.path.splitext(file_path)[0])
 
