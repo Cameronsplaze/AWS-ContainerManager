@@ -18,7 +18,7 @@ class SecurityGroupsNestedStack(NestedStack):
             leaf_construct_id: str,
             base_stack: ContainerManagerBaseStack,
             docker_ports_config: list,
-            **kwargs
+            **kwargs,
         ):
         super().__init__(leaf_stack, f"{leaf_construct_id}-SecurityGroups", **kwargs)
         ## Security Group for container traffic:

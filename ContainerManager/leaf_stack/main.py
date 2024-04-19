@@ -4,11 +4,7 @@ import json
 from aws_cdk import (
     Stack,
     Duration,
-    RemovalPolicy,
-    Tags,
     aws_lambda,
-    aws_ec2 as ec2,
-    aws_ecs as ecs,
     aws_iam as iam,
     aws_logs as logs,
     aws_autoscaling as autoscaling,
@@ -29,13 +25,12 @@ from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 from ContainerManager.leaf_stack.NestedStacks.Efs import EfsNestedStack
 from ContainerManager.leaf_stack.NestedStacks.Container import ContainerNestedStack
 from ContainerManager.leaf_stack.NestedStacks.SecurityGroups import SecurityGroupsNestedStack
+from ContainerManager.leaf_stack.NestedStacks.EcsAsg import EcsAsgNestedStack
 
 class ContainerManagerStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, domain_stack: DomainStack, container_name_id: str, config: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        self.instance_type = config["InstanceType"]
 
 
         ###########
@@ -55,58 +50,8 @@ class ContainerManagerStack(Stack):
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
 
 
-        ###########
-        ## Setup ECS
-        ###########
 
-        ## Cluster for all the games
-        # This has to stay in this stack. A cluster represents a single "instance type"
-        # sort of. This is the only way to tie the ASG to the ECS Service, one-to-one.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html
-        self.ecs_cluster = ecs.Cluster(
-            self,
-            "ecs-cluster",
-            cluster_name=f"{construct_id}-ecs-cluster",
-            vpc=base_stack.vpc,
-        )
-
-
-        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        message = events.RuleTargetInput.from_text("\n".join([
-            f"Container for '{container_name_id}' has started!",
-            f"Connect to it at: '{domain_stack.sub_domain_name}'.",
-        ]))
-        self.rule_notify_up = events.Rule(
-            self,
-            "rule-notify-up",
-            rule_name=f"{container_name_id}-rule-notify-up",
-            description="Let user know when system finishes spinning UP",
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
-            event_pattern=events.EventPattern(
-                source=["aws.ecs"],
-                detail_type=["ECS Task State Change"],
-                detail={
-                    "clusterArn": [self.ecs_cluster.cluster_arn],
-                    # You only care if the TASK starts, or the INSTANCE stops:
-                    "lastStatus": ["RUNNING"],
-                    "desiredStatus": ["RUNNING"],
-                },
-            ),
-            targets=[
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
-                targets.SnsTopic(
-                    base_stack.sns_notify_topic,
-                    message=message,
-                ),
-                targets.SnsTopic(
-                    self.sns_notify_topic,
-                    message=message,
-                ),
-            ],
-        )
-
-
+        ### All the info for the Security Group Stuff
         sg_nested_stack = SecurityGroupsNestedStack(
             self,
             construct_id,
@@ -143,112 +88,52 @@ class ContainerManagerStack(Stack):
             sg_efs_traffic=self.sg_efs_traffic,
         )
 
-
-        ## Permissions for inside the instance:
-        self.ec2_role = iam.Role(
+        ### All the info for the ECS and ASG Stuff
+        ecs_asg_nested_stack = EcsAsgNestedStack(
             self,
-            "ec2-execution-role",
-            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
-            description="This instance's permissions, the host of the container",
-        )
-
-        ## Let the instance register itself to a ecs cluster:
-        # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
-        self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
-        ## Let the instance allow SSM Session Manager to connect to it:
-        # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-instance-profile.html
-        # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedEC2InstanceDefaultPolicy.html
-        self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedEC2InstanceDefaultPolicy"))
-
-        ## For Running Commands (on container creation I think? Keeping just in case we need it later)
-        self.ec2_user_data = ec2.UserData.for_linux()
-        # self.ec2_user_data.add_commands()
-
-        ## Contains the configuration information to launch an instance, and stores launch parameters
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
-        self.launch_template = ec2.LaunchTemplate(
-            self,
-            "ASG-LaunchTemplate",
-            instance_type=ec2.InstanceType(self.instance_type),
-            ## Needs to be an "EcsOptimized" image to register to the cluster
-            machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
-            # Lets Specific traffic to/from the instance:
-            security_group=self.sg_container_traffic,
-            user_data=self.ec2_user_data,
-            role=self.ec2_role,
-        )
-
-
-
-
-
-        ## A Fleet represents a managed set of EC2 instances:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
-        # TODO: Looking in the console "Activity" tab, there's a way to send SNS if instance fails to start/stop.
-        #       look into pushing that SNS to at least the base stack's topic.
-        self.auto_scaling_group = autoscaling.AutoScalingGroup(
-            self,
-            "ASG",
+            construct_id,
+            description=f"Ec2Service Logic for {construct_id}",
             vpc=base_stack.vpc,
-            launch_template=self.launch_template,
-            # desired_capacity=0,
-            min_capacity=0,
-            max_capacity=1,
-            new_instances_protected_from_scale_in=False,
-            ## Notifications:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html#notifications
-            notifications=[
-                # Let base stack sns know if something goes wrong, to flag the admin:
-                autoscaling.NotificationConfiguration(topic=base_stack.sns_notify_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
-                # Let users of this specific stack know the same thing:
-                autoscaling.NotificationConfiguration(topic=self.sns_notify_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
-            ]
-        )
-
-        ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
-        # Can ensure that instances are not prematurely terminated while there are still tasks running on them.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AsgCapacityProvider.html
-        self.capacity_provider = ecs.AsgCapacityProvider(
-            self,
-            "AsgCapacityProvider",
-            auto_scaling_group=self.auto_scaling_group,
-            # To let me delete the stack!!:
-            enable_managed_termination_protection=False,
-        )
-        self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
-        ## Just to populate information in the console, doesn't change the logic:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html#addwbrdefaultwbrcapacitywbrproviderwbrstrategydefaultcapacityproviderstrategy
-        self.ecs_cluster.add_default_capacity_provider_strategy([
-            ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name)
-        ])
-
-
-
-
-
-        ## This creates a service using the EC2 launch type on an ECS cluster
-        # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
-        self.ec2_service = ecs.Ec2Service(
-            self,
-            "ec2-service",
-            cluster=self.ecs_cluster,
             task_definition=self.task_definition,
-            desired_count=0,
-            circuit_breaker={
-                "rollback": False # Don't keep trying to restart the container if it fails
-            },
+            instance_type=config["InstanceType"],
+            sg_container_traffic=self.sg_container_traffic,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
+            leaf_stack_sns_topic=self.sns_notify_topic,
         )
+        self.ecs_cluster = ecs_asg_nested_stack.ecs_cluster
+        self.ec2_service = ecs_asg_nested_stack.ec2_service
+        self.auto_scaling_group = ecs_asg_nested_stack.auto_scaling_group
+
+
+
+
+
+
+
+
+
+
 
         ## Scale down ASG if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
         # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
+        #    TODO: Eventually BOTH of the lambdas will trigger this if they error:
+        #       (It's small enough, maybe just duplicate in each of the Nested Stacks?)
         scale_down_asg_action = autoscaling.StepScalingAction(self,
-            f"{construct_id}-scale-down-asg-action",
+            "scale-down-asg-action",
             auto_scaling_group=self.auto_scaling_group,
             adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
         )
         scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
+
+
+
+
+
+
+
+
+
 
         ###########
         ## Setup Lambda WatchDog Timer
@@ -365,6 +250,37 @@ class ContainerManagerStack(Stack):
             )
         )
 
+        ## Grab existing metric for Lambda fail alarm
+        # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
+        ## Something like this:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
+        self.metric_watchdog_errors = self.lambda_watchdog_num_connections.metric_errors(
+            label="Number of Watchdog Errors",
+            unit=cloudwatch.Unit.COUNT,
+            # If multiple requests happen in a period, and one isn't an error,
+            # use that one.
+            statistic=cloudwatch.Stats.MINIMUM,
+            period=Duration.minutes(1),
+        )
+        self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
+            self,
+            "Alarm-Watchdog-Errors",
+            alarm_name=f"{construct_id}-Alarm-Watchdog-Errors",
+            alarm_description="Trigger if the Lambda Watchdog fails too many times",
+            # Must be in alarm this long consecutively to trigger:
+            evaluation_periods=3,
+            # What counts as an alarm (ANY error here):
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
+        )
+
+        ## Call this if switching to ALARM:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        self.alarm_watchdog_errors.add_alarm_action(
+            cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
+        )
+
         ## EventBridge Rule to trigger lambda every minute, to see how many are using the container
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         self.rule_watchdog_trigger = events.Rule(
@@ -380,6 +296,25 @@ class ContainerManagerStack(Stack):
             # Start disabled, self.lambda_watchdog_num_connections will enable it when instance starts up 
             enabled=False,
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
@@ -472,6 +407,60 @@ class ContainerManagerStack(Stack):
                 targets.LambdaFunction(self.lambda_asg_state_change_hook),
             ],
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        message = events.RuleTargetInput.from_text("\n".join([
+            f"Container for '{container_name_id}' has started!",
+            f"Connect to it at: '{domain_stack.sub_domain_name}'.",
+        ]))
+        self.rule_notify_up = events.Rule(
+            self,
+            "rule-notify-up",
+            rule_name=f"{container_name_id}-rule-notify-up",
+            description="Let user know when system finishes spinning UP",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.ecs"],
+                detail_type=["ECS Task State Change"],
+                detail={
+                    "clusterArn": [self.ecs_cluster.cluster_arn],
+                    # You only care if the TASK starts, or the INSTANCE stops:
+                    "lastStatus": ["RUNNING"],
+                    "desiredStatus": ["RUNNING"],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                targets.SnsTopic(
+                    base_stack.sns_notify_topic,
+                    message=message,
+                ),
+                targets.SnsTopic(
+                    self.sns_notify_topic,
+                    message=message,
+                ),
+            ],
+        )
+
         ## Same thing, but notify user when task spins down finally:
         ##   (Can't combine with above target, since we care about different 'detail_type'.
         ##    Don't want to spam the user sadly.)
@@ -497,33 +486,3 @@ class ContainerManagerStack(Stack):
             ],
         )
 
-        ## Grab existing metric for Lambda fail alarm
-        # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
-        ## Something like this:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
-        self.metric_watchdog_errors = self.lambda_watchdog_num_connections.metric_errors(
-            label="Number of Watchdog Errors",
-            unit=cloudwatch.Unit.COUNT,
-            # If multiple requests happen in a period, and one isn't an error,
-            # use that one.
-            statistic=cloudwatch.Stats.MINIMUM,
-            period=Duration.minutes(1),
-        )
-        self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
-            self,
-            "Alarm-Watchdog-Errors",
-            alarm_name=f"{construct_id}-Alarm-Watchdog-Errors",
-            alarm_description="Trigger if the Lambda Watchdog fails too many times",
-            # Must be in alarm this long consecutively to trigger:
-            evaluation_periods=3,
-            # What counts as an alarm (ANY error here):
-            threshold=1,
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
-        )
-
-        ## Call this if switching to ALARM:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.alarm_watchdog_errors.add_alarm_action(
-            cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
-        )

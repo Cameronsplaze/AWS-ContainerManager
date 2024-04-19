@@ -21,7 +21,7 @@ class EfsNestedStack(NestedStack):
             container: ecs.ContainerDefinition,
             volumes_config: list,
             sg_efs_traffic: ec2.SecurityGroup,
-            **kwargs
+            **kwargs,
         ):
         super().__init__(leaf_stack, f"{leaf_construct_id}-EFS", **kwargs)
 
