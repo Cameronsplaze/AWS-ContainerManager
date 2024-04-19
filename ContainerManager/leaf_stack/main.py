@@ -424,7 +424,10 @@ class ContainerManagerStack(Stack):
 
 
 
-
+        ## TODO: Think about moving these two into the EcsAsg stack instead maybe?
+        ##       idk yet if it's worth creating a stack for just these two. Mayyybe.
+        ##       You need to create the sns first in the beginning anyway, so everything
+        ##       can push to it.
 
         ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
