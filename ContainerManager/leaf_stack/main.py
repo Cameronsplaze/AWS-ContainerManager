@@ -28,6 +28,7 @@ from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 ## Import Nested Stacks:
 from ContainerManager.leaf_stack.NestedStacks.Efs import EfsNestedStack
 from ContainerManager.leaf_stack.NestedStacks.Container import ContainerNestedStack
+from ContainerManager.leaf_stack.NestedStacks.SecurityGroups import SecurityGroupsNestedStack
 
 class ContainerManagerStack(Stack):
 
@@ -106,25 +107,21 @@ class ContainerManagerStack(Stack):
         )
 
 
-        # ## Security Group for container traffic:
-        # # TODO: Since someone could theoretically break into the container,
-        # #        lock down traffic leaving it too.
-        # #        (Should be the same as VPC sg BEFORE any stacks are added. Maybe have a base SG that both use?)
-        # self.sg_container_traffic = ec2.SecurityGroup(
-        #     self,
-        #     "sg-container-traffic",
-        #     vpc=base_stack.vpc,
-        #     description="Traffic that can go into the container",
-        # )
-        # # Create a name of `<StackName>/<ClassName>/sg-container-traffic` to find it easier:
-        # Tags.of(self.sg_container_traffic).add("Name", f"{construct_id}/{self.__class__.__name__}/sg-container-traffic")
+        sg_nested_stack = SecurityGroupsNestedStack(
+            self,
+            construct_id,
+            description=f"Security Group Logic for {construct_id}",
+            base_stack=base_stack,
+            docker_ports_config=config["Container"].get("Ports", []),
+        )
+        self.sg_efs_traffic = sg_nested_stack.sg_efs_traffic
+        self.sg_container_traffic = sg_nested_stack.sg_container_traffic
 
         ### All the info for the Container Stuff
         container_nested_stack = ContainerNestedStack(
             self,
             construct_id,
             description=f"Container Logic for {construct_id}",
-            base_stack=base_stack,
             container_name_id=container_name_id,
             docker_image=config["Container"]["Image"],
             docker_environment=config["Container"].get("Environment", {}),
@@ -132,7 +129,6 @@ class ContainerManagerStack(Stack):
             # sg_container_traffic=self.sg_container_traffic,
         )
         self.container = container_nested_stack.container
-        self.sg_container_traffic = container_nested_stack.sg_container_traffic
         self.task_definition = container_nested_stack.task_definition
 
         ### All the info for EFS Stuff
@@ -144,21 +140,9 @@ class ContainerManagerStack(Stack):
             task_definition=self.task_definition,
             container=self.container,
             volumes_config=config["Container"].get("Volumes", []),
+            sg_efs_traffic=self.sg_efs_traffic,
         )
-        self.sg_efs_traffic = efs_nested_stack.sg_efs_traffic
 
-        ## Now allow the two groups to talk to each other:
-        # self.sg_efs_traffic.connections.allow_from(
-        #     self.sg_container_traffic,
-        #     port_range=ec2.Port.tcp(2049),
-        #     description="Allow EFS traffic IN - from container",
-        # )
-        self.sg_container_traffic.connections.allow_from(
-            # Allow efs traffic from within the Group.
-            self.sg_efs_traffic,
-            port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from EFS Server",
-        )
 
         ## Permissions for inside the instance:
         self.ec2_role = iam.Role(
@@ -193,12 +177,6 @@ class ContainerManagerStack(Stack):
             user_data=self.ec2_user_data,
             role=self.ec2_role,
         )
-
-
-
-
-
-
 
 
 

@@ -3,11 +3,13 @@ InstanceType: m5.large
 MinutesWithoutPlayers: 5
 
 Container:
+  # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/
   Image: itzg/minecraft-server
   Ports:
     - TCP: 25565
   Environment:
     EULA: "TRUE"
+    TYPE: "PAPER"
     # From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"

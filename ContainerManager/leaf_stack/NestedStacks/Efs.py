@@ -2,7 +2,6 @@
 from aws_cdk import (
     NestedStack,
     RemovalPolicy,
-    Tags,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_efs as efs,
@@ -21,20 +20,10 @@ class EfsNestedStack(NestedStack):
             task_definition: ecs.Ec2TaskDefinition,
             container: ecs.ContainerDefinition,
             volumes_config: list,
+            sg_efs_traffic: ec2.SecurityGroup,
             **kwargs
         ):
         super().__init__(leaf_stack, f"{leaf_construct_id}-EFS", **kwargs)
-
-        ## Security Group for EFS instance's traffic:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
-        self.sg_efs_traffic = ec2.SecurityGroup(
-            self,
-            "sg-efs-traffic",
-            vpc=vpc,
-            description=f"Traffic that can go into the {container.container_name} EFS instance",
-        )
-        # Create a name of `<StackName>/<ClassName>/sg-efs-traffic` to find it easier:
-        Tags.of(self.sg_efs_traffic).add("Name", f"{leaf_construct_id}/{self.__class__.__name__}/sg-efs-traffic")
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
@@ -45,7 +34,7 @@ class EfsNestedStack(NestedStack):
             # TODO: Just for developing. Keep users minecraft worlds SAFE!!
             # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
             removal_policy=RemovalPolicy.DESTROY,
-            security_group=self.sg_efs_traffic,
+            security_group=sg_efs_traffic,
             allow_anonymous_access=False,
         )
         ## Tell the EFS side that the task can access it:
