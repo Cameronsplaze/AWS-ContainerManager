@@ -128,7 +128,8 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
         # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
         #    TODO: Eventually BOTH of the lambdas will trigger this if they error:
-        #       (It's small enough, maybe just duplicate in each of the Nested Stacks?)
+        #       - (It's small enough, maybe just duplicate in each of the Nested Stacks?)
+        #       - (Maybe move it to EcsAsg stack, since it uses the ASG????? I like this the most so far...)
         scale_down_asg_action = autoscaling.StepScalingAction(self,
             "scale-down-asg-action",
             auto_scaling_group=self.auto_scaling_group,
