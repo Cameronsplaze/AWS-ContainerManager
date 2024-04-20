@@ -29,7 +29,16 @@ from ContainerManager.leaf_stack.NestedStacks.EcsAsg import EcsAsgNestedStack
 
 class ContainerManagerStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, base_stack: ContainerManagerBaseStack, domain_stack: DomainStack, container_name_id: str, config: dict, **kwargs) -> None:
+    def __init__(
+            self,
+            scope: Construct,
+            construct_id: str,
+            base_stack: ContainerManagerBaseStack,
+            domain_stack: DomainStack,
+            container_name_id: str,
+            config: dict,
+            **kwargs
+        ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
 
@@ -56,7 +65,8 @@ class ContainerManagerStack(Stack):
             self,
             construct_id,
             description=f"Security Group Logic for {construct_id}",
-            base_stack=base_stack,
+            vpc=base_stack.vpc,
+            sg_vpc_traffic=base_stack.sg_vpc_traffic,
             docker_ports_config=config["Container"].get("Ports", []),
         )
         self.sg_efs_traffic = sg_nested_stack.sg_efs_traffic

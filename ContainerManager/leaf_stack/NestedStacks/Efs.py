@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_efs as efs,
 )
+from constructs import Construct
 
 
 
@@ -14,7 +15,7 @@ from aws_cdk import (
 class EfsNestedStack(NestedStack):
     def __init__(
             self,
-            leaf_stack,
+            scope: Construct,
             leaf_construct_id: str,
             vpc: ec2.Vpc,
             task_definition: ecs.Ec2TaskDefinition,
@@ -23,7 +24,7 @@ class EfsNestedStack(NestedStack):
             sg_efs_traffic: ec2.SecurityGroup,
             **kwargs,
         ):
-        super().__init__(leaf_stack, f"{leaf_construct_id}-EFS", **kwargs)
+        super().__init__(scope, f"{leaf_construct_id}-EFS", **kwargs)
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html

@@ -6,21 +6,22 @@ from aws_cdk import (
     Tags,
     aws_ec2 as ec2,
 )
+from constructs import Construct
 
-from ContainerManager.base_stack import ContainerManagerBaseStack
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class SecurityGroupsNestedStack(NestedStack):
     def __init__(
             self,
-            leaf_stack,
+            scope: Construct,
             leaf_construct_id: str,
-            base_stack: ContainerManagerBaseStack,
+            vpc: ec2.Vpc,
+            sg_vpc_traffic: ec2.SecurityGroup,
             docker_ports_config: list,
             **kwargs,
         ):
-        super().__init__(leaf_stack, f"{leaf_construct_id}-SecurityGroups", **kwargs)
+        super().__init__(scope, f"{leaf_construct_id}-SecurityGroups", **kwargs)
         ## Security Group for container traffic:
         # TODO: Since someone could theoretically break into the container,
         #        lock down traffic leaving it too.
@@ -31,7 +32,7 @@ class SecurityGroupsNestedStack(NestedStack):
         self.sg_container_traffic = ec2.SecurityGroup(
             self,
             "sg-container-traffic",
-            vpc=base_stack.vpc,
+            vpc=vpc,
             description=f"({leaf_construct_id}) Traffic that can go into the Container",
         )
         # Create a name of `<StackName>/sg-container-traffic` to find it easier:
@@ -43,7 +44,7 @@ class SecurityGroupsNestedStack(NestedStack):
         self.sg_efs_traffic = ec2.SecurityGroup(
             self,
             "sg-efs-traffic",
-            vpc=base_stack.vpc,
+            vpc=vpc,
             description=f"({leaf_construct_id}) Traffic that can go into the EFS instance",
             # description=f"Traffic that can go into the {container.container_name} EFS instance",
         )
@@ -69,7 +70,7 @@ class SecurityGroupsNestedStack(NestedStack):
             protocol, port = list(port_info.items())[0]
 
             ### Open up the same ports on the "firewall" vpc:
-            base_stack.sg_vpc_traffic.connections.allow_from(
+            sg_vpc_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),
                 ## Dynamically use tcp or udp from:
                 # This will create something like: ec2.Port.tcp(25565)
@@ -79,7 +80,7 @@ class SecurityGroupsNestedStack(NestedStack):
             )
             self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
-                # base_stack.sg_vpc_traffic,
+                # sg_vpc_traffic,
                 getattr(ec2.Port, protocol.lower())(port),
                 description="Game port to open traffic IN from",
             )

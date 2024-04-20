@@ -5,13 +5,15 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_logs as logs,
 )
+from constructs import Construct
+
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class ContainerNestedStack(NestedStack):
     def __init__(
             self,
-            leaf_stack,
+            scope: Construct,
             leaf_construct_id: str,
             container_name_id: str,
             docker_image: str,
@@ -19,7 +21,7 @@ class ContainerNestedStack(NestedStack):
             docker_ports_config: list,
             **kwargs
         ):
-        super().__init__(leaf_stack, f"{leaf_construct_id}-Container", **kwargs)
+        super().__init__(scope, f"{leaf_construct_id}-Container", **kwargs)
 
         ## The details of a task definition run on an EC2 cluster.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html

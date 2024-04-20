@@ -19,6 +19,7 @@ guard-%:
 .PHONY := cdk-deploy
 cdk-deploy:
 	echo "Deploying Stack..." && \
+	echo "Config File: $(config-file)" && \
 	cdk deploy \
 		--require-approval never \
 		--no-previous-parameters \
@@ -28,11 +29,13 @@ cdk-deploy:
 .PHONY := cdk-synth
 cdk-synth:
 	echo "Synthesizing Stack..." && \
+	echo "Config File: $(config-file)" && \
 	cdk synth --context config-file="$(config-file)"
 
 .PHONY := cdk-destroy-all
 cdk-destroy-all:
 	echo "Destroying Stack..." && \
+	echo "Config File: $(config-file)" && \
 	cdk destroy \
 		--force \
 		--all \

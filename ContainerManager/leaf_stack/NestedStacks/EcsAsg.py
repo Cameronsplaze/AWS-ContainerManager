@@ -7,11 +7,13 @@ from aws_cdk import (
     aws_iam as iam,
     aws_sns as sns,
 )
+from constructs import Construct
+
 
 class EcsAsgNestedStack(NestedStack):
     def __init__(
             self,
-            leaf_stack,
+            scope: Construct,
             leaf_construct_id: str,
             vpc: ec2.Vpc,
             task_definition: ecs.Ec2TaskDefinition,
@@ -21,7 +23,7 @@ class EcsAsgNestedStack(NestedStack):
             leaf_stack_sns_topic: sns.Topic,
             **kwargs,
         ):
-        super().__init__(leaf_stack, f"{leaf_construct_id}-EcsAsg", **kwargs)
+        super().__init__(scope, f"{leaf_construct_id}-EcsAsg", **kwargs)
 
 
         ## Cluster for all the games
@@ -56,6 +58,18 @@ class EcsAsgNestedStack(NestedStack):
         self.ec2_user_data = ec2.UserData.for_linux()
         # self.ec2_user_data.add_commands()
 
+        ## For enabling SSH access:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
+        self.ssh_key_pair = ec2.KeyPair(
+            self,
+            "ssh-key-pair",
+            key_pair_name=f"{leaf_construct_id}-key-pair",
+            ### To import a Public Key:
+            # TODO: Maybe use get_param to optionally import this?
+            # public_key_material="ssh-rsa ABCD...",
+            public_key_material=None,
+        )
+
         ## Contains the configuration information to launch an instance, and stores launch parameters
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
         self.launch_template = ec2.LaunchTemplate(
@@ -68,6 +82,7 @@ class EcsAsgNestedStack(NestedStack):
             security_group=sg_container_traffic,
             user_data=self.ec2_user_data,
             role=self.ec2_role,
+            key_pair=self.ssh_key_pair,
         )
 
 
