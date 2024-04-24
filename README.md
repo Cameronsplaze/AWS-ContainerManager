@@ -140,6 +140,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - Configure and streamline the [ECS Cotnaienr Agent](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html). It says you can/should use the [instance user data](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/bootstrap_container_instance.html) to bootstrap it at instance launch time. The list of available config options [is here](https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables).
   - Since this takes place on the instance, things like `ECS_IMAGE_PULL_BEHAVIOR` won't help us. (You loose the cache the second the instance spins down anyways). If this is true, you might have to look into ECR cache storage instead.
+    - ECR has a new `Pull through Cache` setting and [cdk construct](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecr.CfnPullThroughCacheRule.html) that might help here. If you use Docker or Github though, you're required to setup auth for it. So make this an optional parameter if this path works out, but definitely test manually if you even see a speedup doing this.
   - Set `ECS_DISABLE_IMAGE_CLEANUP=false`, since the instances are short-lived anyways.
   - Look into if security flags help us, like: `ECS_DISABLE_PRIVILEGED`, `ECS_SELINUX_CAPABLE`, and `ECS_APPARMOR_CAPABLE`.
     - `ECS_DISABLE_PRIVILEGED` is very recommended to set in the hardening guide.
