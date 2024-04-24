@@ -115,12 +115,11 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 2, Optimize and Cleanup
 
-- Container stack is getting complicated. Look into if [NestedStacks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html) are worth it? To separate each "chunk" into it's own file. (`./ContainerManager/EFS.py`, etc). As you move each chunk, look into optimizing it:
+- Minor optimizations:
   - Look closely at the security groups. Especially the container one. Lock them all down to specifically declare both in AND out traffic.
-
   - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
-
   - Go through Cloudwatch log Groups, make sure everything has a retention policy by default, and removal policy DESTROY.
+  - Maybe the NestedStack's context_id appends the LeafStacks prefix automatically, and that's why the name is so long? Try having a very short `NestedStack.context_id` and look at what the name looks like then.
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
@@ -132,27 +131,19 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, because different instance IP's.
 
-- Let `cdk deploy` take a path to a config file. Stores a lot of what's in [vars.env.example](./vars.env.example), on a per-stack basis. Add another way to pass env-vars in through CLI too though, not just file. 1) For passwords. 2) For `EULA=TRUE`, in case we can't have that in the example.
-  - Maybe the stack prefix the same as domain prefix? (`minecraft-java.conf` -> config: `id:minecraft` -> `minecraft.example.com`, you can choose not to have the `*-java`. Stack name would be `minecraft-ContainerManager-Stack`). Have the leaf stack be in an `if`, that only runs if you supply a file. If they just want to update the base stack then, it just won't see the leaf. This still doesn't let you use the same config on multiple stacks though.
-    - Maybe pass domain as another arg? `--config <path> --id minecraft`? Then use `id` for both the domain and stack name? You can also store a default in the config file.
-
-    ```python
-    # Pseudo-code, maybe something like this will work?
-    base_stack = BaseStack(app, "BaseStack", env=env)
-    if cdk.args.config_file:
-      config = yaml.safe_loads(dk.args.config_file) # Custom loader here instead?
-      id_name = cdk.args.id or config.get("id") or raise ValueError("Need to pass id in config or as arg")
-      leaf_stack = LeafStack(app, f"{id_name}-LeafStack", env=env config=config, id_name=id_name, base_stack=base_stack)
-    ```
-
-    - For loading the config, wrap around `yaml.safe_loads`. Looks like there's a package that supports env vars already [here](https://github.com/mkaranasou/pyaml_env). There's probably others too. Check if this is apart of the yaml standard. Double check how `docker compose` does it too, they'll probably have good syntax too.
-
-- Look at creating/deleting stacks again. Rn there's no way to delete the leaf stack, and not the base stack. Think about how to pass in CLI args to help here.
+- Look at creating/deleting stacks again. Rn there's no way to delete the leaf stack, and not the base stack. Think about how to pass in CLI args to help here. (Maybe if you supply a config path, DON'T delete the base stack ever? And you need two make commands, one for leaf and one for base?)
 
 ## Phase 4, Get ready for Production!
 
 - Add a way to connect with FileZilla to upload files. (Don't go through s3 bucket, you'll pay for extra data storage that way.). Make FTP server optional in config, so you can turn it on when first setting up, then deploy again to disable it.
   - Can data at rest be encrypted if you want filezilla to work? Get it working without encryption first, then test.
+
+- Configure and streamline the [ECS Cotnaienr Agent](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html). It says you can/should use the [instance user data](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/bootstrap_container_instance.html) to bootstrap it at instance launch time. The list of available config options [is here](https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables).
+  - Since this takes place on the instance, things like `ECS_IMAGE_PULL_BEHAVIOR` won't help us. (You loose the cache the second the instance spins down anyways). If this is true, you might have to look into ECR cache storage instead.
+  - Set `ECS_DISABLE_IMAGE_CLEANUP=false`, since the instances are short-lived anyways.
+  - Look into if security flags help us, like: `ECS_DISABLE_PRIVILEGED`, `ECS_SELINUX_CAPABLE`, and `ECS_APPARMOR_CAPABLE`.
+    - `ECS_DISABLE_PRIVILEGED` is very recommended to set in the hardening guide.
+    - For the other two, you can add props here: [TaskDefinition.add_container](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinitionOptions.html#dockersecurityoptions), and more info [here](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html#ECS-Type-ContainerDefinition-dockerSecurityOptions).
 
 - Go through Console and see if everything looks like you want. Check for warnings.
   - For example, EC2 instances say to force IMDSv2 is recommended
