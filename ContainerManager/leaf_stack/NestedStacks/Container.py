@@ -10,7 +10,7 @@ from constructs import Construct
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
-class ContainerNestedStack(NestedStack):
+class Container(NestedStack):
     def __init__(
             self,
             scope: Construct,
@@ -21,7 +21,8 @@ class ContainerNestedStack(NestedStack):
             docker_ports_config: list,
             **kwargs
         ):
-        super().__init__(scope, f"{leaf_construct_id}-Container", **kwargs)
+        # super().__init__(scope, f"{leaf_construct_id}-Container", **kwargs)
+        super().__init__(scope, "ContainerNestedStack", **kwargs)
 
         ## The details of a task definition run on an EC2 cluster.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html

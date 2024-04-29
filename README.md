@@ -135,27 +135,37 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ## Phase 4, Get ready for Production!
 
-- Add a way to connect with FileZilla to upload files. (Don't go through s3 bucket, you'll pay for extra data storage that way.). Make FTP server optional in config, so you can turn it on when first setting up, then deploy again to disable it.
-  - Can data at rest be encrypted if you want filezilla to work? Get it working without encryption first, then test.
-
 - Configure and streamline the [ECS Cotnaienr Agent](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html). It says you can/should use the [instance user data](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/bootstrap_container_instance.html) to bootstrap it at instance launch time. The list of available config options [is here](https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables).
-  - Since this takes place on the instance, things like `ECS_IMAGE_PULL_BEHAVIOR` won't help us. (You loose the cache the second the instance spins down anyways). If this is true, you might have to look into ECR cache storage instead.
+  - Since this takes place on the instance, things like `ECS_IMAGE_PULL_BEHAVIOR` won't help us. (You loose the cache the second the instance spins down anyways). If this is true, you might have to look into ECR cache storage instead. (I think I want to get the scripts to time startup together before this though. Make sure the extra complexity is worth it.)
     - ECR has a new `Pull through Cache` setting and [cdk construct](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecr.CfnPullThroughCacheRule.html) that might help here. If you use Docker or Github though, you're required to setup auth for it. So make this an optional parameter if this path works out, but definitely test manually if you even see a speedup doing this. ([Blog post here](https://aws.amazon.com/blogs/aws/announcing-pull-through-cache-repositories-for-amazon-elastic-container-registry/))
-  - Set `ECS_DISABLE_IMAGE_CLEANUP=false`, since the instances are short-lived anyways.
-  - Look into if security flags help us, like: `ECS_DISABLE_PRIVILEGED`, `ECS_SELINUX_CAPABLE`, and `ECS_APPARMOR_CAPABLE`.
-    - `ECS_DISABLE_PRIVILEGED` is very recommended to set in the hardening guide.
-    - For the other two, you can add props here: [TaskDefinition.add_container](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinitionOptions.html#dockersecurityoptions), and more info [here](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html#ECS-Type-ContainerDefinition-dockerSecurityOptions).
 
 - Go through Console and see if everything looks like you want. Check for warnings.
   - For example, EC2 instances say to force IMDSv2 is recommended
   - Make names look nice. I.e Lambda are long and repetitive, not descriptive.
 
-- Go though cost optimization for everything. There's probably some low-hanging fruit
-  - For EFS. See if the stack works in a single AZ, and if EFS detects that sets [one_zone](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#onezone) automatically.
 
 ### Phase 5, Add tests
 
 - Good chance to figure out how CDK wants you to design tests. There's a pre-defined folder from `cdk init` in the repo too.
+
+### SSH Notes
+
+TODO - make more automatic somehow
+
+- Get SSH private key from System Manager Param Storage
+- Add it to agent:
+
+  ```bash
+  nano ~/.ssh/container_minecraft
+  chmod 600 ~/.ssh/container_minecraft
+  ssh-add ~/.ssh/container_minecraft
+  ```
+
+- SSH into the instance:
+
+  ```bash
+  ssh ec2-user@<GAME_URL>
+  ```
 
 ### Long term TODO
 

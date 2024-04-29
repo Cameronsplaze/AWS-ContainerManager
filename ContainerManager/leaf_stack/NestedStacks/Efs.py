@@ -12,7 +12,7 @@ from constructs import Construct
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
-class EfsNestedStack(NestedStack):
+class Efs(NestedStack):
     def __init__(
             self,
             scope: Construct,
@@ -24,7 +24,8 @@ class EfsNestedStack(NestedStack):
             sg_efs_traffic: ec2.SecurityGroup,
             **kwargs,
         ):
-        super().__init__(scope, f"{leaf_construct_id}-EFS", **kwargs)
+        # super().__init__(scope, f"{leaf_construct_id}-EFS", **kwargs)
+        super().__init__(scope, "EfsNestedStack", **kwargs)
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
@@ -39,7 +40,22 @@ class EfsNestedStack(NestedStack):
             allow_anonymous_access=False,
         )
         ## Tell the EFS side that the task can access it:
-        self.efs_file_system.grant_root_access(task_definition.task_role)
+        self.efs_file_system.grant_read_write(task_definition.task_role)
+        ## (NOTE: There's another grant_root_access in EcsAsg.py ec2-role.
+        #         I just didn't see a way to move it here without moving the role.)
+
+        ### Settings for ALL access points:
+        ## Create ACL:
+        # (From the docs, if the `path` above does not exist, you must specify this)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
+        ap_acl = efs.Acl(owner_gid="1001", owner_uid="1001", permissions="700")
+
+        ### Create a access point for the host:
+        ## Creating an access point:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
+        ## What it returns:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
+        self.host_access_point = self.efs_file_system.add_access_point("efs-access-point-host", create_acl=ap_acl, path="/")
 
         ### Create mounts and attach them to the container:
         for volume_info in volumes_config:
@@ -48,32 +64,8 @@ class EfsNestedStack(NestedStack):
             ## Create a unique name, take out non-alpha characters from the path:
             #   (Will be something like: `Minecraft-data`)
             volume_id = f"{container.container_name}-{''.join(filter(str.isalnum, volume_path))}"
-            ## Creating an access point:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-            ## What it returns:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-            access_point = self.efs_file_system.add_access_point(
-                f"efs-access-point-{volume_id}",
-                # The task data is the only thing inside EFS:
-                path=volume_path,
-                ### One of these cause the chown/chmod in the minecraft container to fail. But I'm not sure I need
-                ### them? Only one container has access to one EFS, we don't need user permissions *inside* it I think...
-                ### TODO: Look into this a bit more later.
-                # # user/group: ec2-user
-                # posix_user=efs.PosixUser(
-                #     uid="1001",
-                #     gid="1001",
-                # ),
-                # TMP root
-                # posix_user=efs.PosixUser(
-                #     uid="1000",
-                #     gid="1000",
-                # ),
-                ### Create ACL:
-                # (From the docs, if the `path` above does not exist, you must specify this)
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-                create_acl=efs.Acl(owner_gid="1000", owner_uid="1000", permissions="750"),
-            )
+            # Another access point, for the container (each volume gets it's own):
+            access_point = self.efs_file_system.add_access_point(f"efs-access-point-{volume_id}", create_acl=ap_acl, path=volume_path)
             volume_name = f"efs-volume-{volume_id}"
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
             task_definition.add_volume(

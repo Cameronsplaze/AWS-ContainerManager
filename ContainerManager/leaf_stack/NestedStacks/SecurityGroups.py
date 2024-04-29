@@ -11,7 +11,7 @@ from constructs import Construct
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
-class SecurityGroupsNestedStack(NestedStack):
+class SecurityGroups(NestedStack):
     def __init__(
             self,
             scope: Construct,
@@ -21,7 +21,9 @@ class SecurityGroupsNestedStack(NestedStack):
             docker_ports_config: list,
             **kwargs,
         ):
-        super().__init__(scope, f"{leaf_construct_id}-SecurityGroups", **kwargs)
+        # super().__init__(scope, f"{leaf_construct_id}-SecurityGroups", **kwargs)
+        super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
+
         ## Security Group for container traffic:
         # TODO: Since someone could theoretically break into the container,
         #        lock down traffic leaving it too.
@@ -37,7 +39,12 @@ class SecurityGroupsNestedStack(NestedStack):
         )
         # Create a name of `<StackName>/sg-container-traffic` to find it easier:
         Tags.of(self.sg_container_traffic).add("Name", f"{leaf_construct_id}/sg-container-traffic")
-
+        ## Allow SSH traffic:
+        self.sg_container_traffic.connections.allow_from(
+            ec2.Peer.any_ipv4(),
+            ec2.Port.tcp(22),
+            description="Allow SSH traffic IN",
+        )
 
         ## Security Group for EFS instance's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
@@ -52,6 +59,8 @@ class SecurityGroupsNestedStack(NestedStack):
         Tags.of(self.sg_efs_traffic).add("Name", f"{leaf_construct_id}/sg-efs-traffic")
 
         ## Now allow the two groups to talk to each other:
+        # TODO: Maybe you don't need BOTH of these? look into and test...
+        #       from: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#connecting
         self.sg_efs_traffic.connections.allow_from(
             self.sg_container_traffic,
             port_range=ec2.Port.tcp(2049),

@@ -1,16 +1,21 @@
 
 from aws_cdk import (
     NestedStack,
+    Tags,
+    Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
-    aws_autoscaling as autoscaling,
     aws_iam as iam,
     aws_sns as sns,
+    aws_efs as efs,
+    aws_autoscaling as autoscaling,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cloudwatch_actions,
 )
 from constructs import Construct
 
 
-class EcsAsgNestedStack(NestedStack):
+class EcsAsg(NestedStack):
     def __init__(
             self,
             scope: Construct,
@@ -19,11 +24,15 @@ class EcsAsgNestedStack(NestedStack):
             task_definition: ecs.Ec2TaskDefinition,
             instance_type: str,
             sg_container_traffic: ec2.SecurityGroup,
+            ssh_key_pair: ec2.KeyPair,
             base_stack_sns_topic: sns.Topic,
             leaf_stack_sns_topic: sns.Topic,
+            efs_file_system: efs.FileSystem,
+            host_access_point: efs.AccessPoint,
             **kwargs,
         ):
-        super().__init__(scope, f"{leaf_construct_id}-EcsAsg", **kwargs)
+        # super().__init__(scope, f"{leaf_construct_id}-EcsAsg", **kwargs)
+        super().__init__(scope, "EcsAsgNestedStack", **kwargs)
 
 
         ## Cluster for all the games
@@ -45,6 +54,8 @@ class EcsAsgNestedStack(NestedStack):
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             description="This instance's permissions, the host of the container",
         )
+        ## Give it root access to the EFS:
+        efs_file_system.grant_root_access(self.ec2_role)
 
         ## Let the instance register itself to a ecs cluster:
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
@@ -54,21 +65,36 @@ class EcsAsgNestedStack(NestedStack):
         # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedEC2InstanceDefaultPolicy.html
         self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedEC2InstanceDefaultPolicy"))
 
-        ## For Running Commands (on container creation I think? Keeping just in case we need it later)
-        self.ec2_user_data = ec2.UserData.for_linux()
-        # self.ec2_user_data.add_commands()
+        ### For Running Commands on container when it starts up:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
+        self.ec2_user_data = ec2.UserData.for_linux() # (Can also set to python, etc. Default bash)
 
-        ## For enabling SSH access:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
-        self.ssh_key_pair = ec2.KeyPair(
-            self,
-            "ssh-key-pair",
-            key_pair_name=f"{leaf_construct_id}-key-pair",
-            ### To import a Public Key:
-            # TODO: Maybe use get_param to optionally import this?
-            # public_key_material="ssh-rsa ABCD...",
-            public_key_material=None,
+        ## Mount the EFS volume:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
+        #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
+        efs_mount_point = "/mnt/efs"
+        self.ec2_user_data.add_commands(
+            f'mkdir -p "{efs_mount_point}"',
+            # NOTE: The docs didn't have 'iam', but you get permission denied without it:
+            #      (You can also mount efs directly by removing the accesspoint flag)
+            # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
+            f'echo "{efs_file_system.file_system_id}:/ {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+            'mount -a -t efs,nfs4 defaults',
         )
+
+        ## Add ECS Agent Config Variables:
+        # (Full list at: https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables)
+        # (ECS Agent config information: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html)
+        self.ec2_user_data.add_commands(
+            ## Security Flags:
+            'echo "ECS_DISABLE_PRIVILEGED=true" >> /etc/ecs/ecs.config',
+            ## TODO: Look into these two, if they actually make the host more secure:
+            # 'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
+            # 'echo "ECS_APPARMOR_CAPABLE=true" >> /etc/ecs/ecs.config',
+            ## Isn't ever on long enough to worry about cleanup anyways:
+            'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
+        )
+
 
         ## Contains the configuration information to launch an instance, and stores launch parameters
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
@@ -77,12 +103,13 @@ class EcsAsgNestedStack(NestedStack):
             "ASG-LaunchTemplate",
             instance_type=ec2.InstanceType(instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
-            machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
+            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(),
             # Lets Specific traffic to/from the instance:
             security_group=sg_container_traffic,
             user_data=self.ec2_user_data,
             role=self.ec2_role,
-            key_pair=self.ssh_key_pair,
+            key_pair=ssh_key_pair,
         )
 
 
@@ -106,7 +133,42 @@ class EcsAsgNestedStack(NestedStack):
                 autoscaling.NotificationConfiguration(topic=base_stack_sns_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
                 # Let users of this specific stack know the same thing:
                 autoscaling.NotificationConfiguration(topic=leaf_stack_sns_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
-            ]
+            ],
+            # Make it push number of instances to cloudwatch, so you can warn user if it's up too long:
+            group_metrics=[autoscaling.GroupMetrics(
+                autoscaling.GroupMetric.IN_SERVICE_INSTANCES,
+            )],
+        )
+
+        ## Grab the IN_SERVICE_INSTANCES metric and load into cdk:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        self.metric_asg_num_instances = cloudwatch.Metric(
+            metric_name="GroupInServiceInstances",
+            namespace="AWS/AutoScaling",
+            dimensions_map={
+                "AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name,
+            },
+            period=Duration.minutes(1),
+        )
+
+        ## And the alarm to flag if the instance is up too long:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        self.alarm_asg_num_instances = self.metric_asg_num_instances.create_alarm(
+            self,
+            "Alarm-Instance-left-up",
+            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
+            alarm_description="To warn if the instance is up too long",
+            evaluation_periods=Duration.hours(6).to_minutes(), # TODO: maybe move this to a config?
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
+        )
+        ## Actually email admin if this is triggered:
+        #   (No need to add the other sns_topic too, only admin would ever care about this.)
+        #### TODO: Make the alarm message a good format
+        #          (Maybe this? https://stackoverflow.com/questions/53487067/customize-alarm-message-from-aws-cloudwatch#53500349)
+        self.alarm_asg_num_instances.add_alarm_action(
+            cloudwatch_actions.SnsAction(base_stack_sns_topic)
         )
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.

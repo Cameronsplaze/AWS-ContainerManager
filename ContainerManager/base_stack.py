@@ -53,6 +53,24 @@ class ContainerManagerBaseStack(Stack):
             # - Let containers update if you run `yum update` or `apt-get update`
             description="Allow HTTPS traffic OUT",
         )
+        ## Allow SSH traffic:
+        self.sg_vpc_traffic.connections.allow_from(
+            ec2.Peer.any_ipv4(),
+            ec2.Port.tcp(22),
+            description="Allow SSH traffic IN",
+        )
+        ## For enabling SSH access:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
+        self.ssh_key_pair = ec2.KeyPair(
+            self,
+            "ssh-key-pair",
+            key_pair_name=f"{construct_id}-key-pair",
+            ### To import a Public Key:
+            # TODO: Maybe use get_param to optionally import this?
+            # public_key_material="ssh-rsa ABCD...",
+            # And/Or maybe set an optional one in each leaf-stack? If set, overrides this?
+            public_key_material=None,
+        )
 
         ########################
         ### SNS Notify STUFF ###

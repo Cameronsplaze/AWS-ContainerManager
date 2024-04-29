@@ -1,5 +1,6 @@
 
 import json
+import re
 
 from aws_cdk import (
     Stack,
@@ -22,12 +23,23 @@ from ContainerManager.leaf_stack.domain_info import DomainStack
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
 ## Import Nested Stacks:
-from ContainerManager.leaf_stack.NestedStacks.Efs import EfsNestedStack
-from ContainerManager.leaf_stack.NestedStacks.Container import ContainerNestedStack
-from ContainerManager.leaf_stack.NestedStacks.SecurityGroups import SecurityGroupsNestedStack
-from ContainerManager.leaf_stack.NestedStacks.EcsAsg import EcsAsgNestedStack
+from ContainerManager.leaf_stack import NestedStacks
+
 
 class ContainerManagerStack(Stack):
+
+    ## This makes the stack names of NestedStacks MUCH more readable:
+    # (From: https://github.com/aws/aws-cdk/issues/18053 and https://github.com/aws/aws-cdk/issues/19099)
+    def get_logical_id(self, element):
+        if "NestedStackResource" in element.node.id:
+            match = re.search(r'([a-zA-Z0-9]+)\.NestedStackResource', element.node.id)
+            if match:
+                # Returns "EfsNestedStack" instead of "EfsNestedStackEfsNestedStackResource..."
+                return match.group(1)
+            else:
+                # Fail fast. If the logical_id ever changes on a existing stack, you replace everything and might loose data.
+                raise RuntimeError(f"Could not find 'NestedStackResource' in {element.node.id}. Did a CDK update finally fix NestedStack names?")
+        return super().get_logical_id(element)
 
     def __init__(
             self,
@@ -61,7 +73,7 @@ class ContainerManagerStack(Stack):
 
 
         ### All the info for the Security Group Stuff
-        sg_nested_stack = SecurityGroupsNestedStack(
+        sg_nested_stack = NestedStacks.SecurityGroups(
             self,
             construct_id,
             description=f"Security Group Logic for {construct_id}",
@@ -73,7 +85,7 @@ class ContainerManagerStack(Stack):
         self.sg_container_traffic = sg_nested_stack.sg_container_traffic
 
         ### All the info for the Container Stuff
-        container_nested_stack = ContainerNestedStack(
+        container_nested_stack = NestedStacks.Container(
             self,
             construct_id,
             description=f"Container Logic for {construct_id}",
@@ -87,7 +99,7 @@ class ContainerManagerStack(Stack):
         self.task_definition = container_nested_stack.task_definition
 
         ### All the info for EFS Stuff
-        efs_nested_stack = EfsNestedStack(
+        efs_nested_stack = NestedStacks.Efs(
             self,
             construct_id,
             description=f"EFS Logic for {construct_id}",
@@ -97,9 +109,11 @@ class ContainerManagerStack(Stack):
             volumes_config=config["Container"].get("Volumes", []),
             sg_efs_traffic=self.sg_efs_traffic,
         )
+        self.efs_file_system = efs_nested_stack.efs_file_system
+        self.host_access_point = efs_nested_stack.host_access_point
 
         ### All the info for the ECS and ASG Stuff
-        ecs_asg_nested_stack = EcsAsgNestedStack(
+        ecs_asg_nested_stack = NestedStacks.EcsAsg(
             self,
             construct_id,
             description=f"Ec2Service Logic for {construct_id}",
@@ -107,8 +121,11 @@ class ContainerManagerStack(Stack):
             task_definition=self.task_definition,
             instance_type=config["InstanceType"],
             sg_container_traffic=self.sg_container_traffic,
+            ssh_key_pair=base_stack.ssh_key_pair,
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
+            efs_file_system=self.efs_file_system,
+            host_access_point=self.host_access_point,
         )
         self.ecs_cluster = ecs_asg_nested_stack.ecs_cluster
         self.ec2_service = ecs_asg_nested_stack.ec2_service
