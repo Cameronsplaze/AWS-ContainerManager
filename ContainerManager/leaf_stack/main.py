@@ -190,12 +190,15 @@ class ContainerManagerStack(Stack):
         )
         ## Trigger if 0 people are connected for too long:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html#createwbralarmscope-id-props
+        # Total Duration = Number of Periods * Period length... so
+        # Number of Periods = Total Duration / Period length
+        evaluation_periods = int(config.get("MinutesWithoutPlayers", 5) / self.metric_num_connections.period.to_minutes())
         self.alarm_num_connections = self.metric_num_connections.create_alarm(
             self,
             "Alarm-NumConnections",
             alarm_name=f"{construct_id}-Alarm-NumConnections",
             alarm_description="Trigger if 0 people are connected for too long",
-            evaluation_periods=config.get("MinutesWithoutPlayers", 5),
+            evaluation_periods=evaluation_periods,
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,

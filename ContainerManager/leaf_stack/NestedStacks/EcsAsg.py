@@ -153,12 +153,16 @@ class EcsAsg(NestedStack):
 
         ## And the alarm to flag if the instance is up too long:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        duration_before_alarm = Duration.hours(6).to_minutes(), # TODO: maybe move this to a config?
         self.alarm_asg_num_instances = self.metric_asg_num_instances.create_alarm(
             self,
             "Alarm-Instance-left-up",
             alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
             alarm_description="To warn if the instance is up too long",
-            evaluation_periods=Duration.hours(6).to_minutes(), # TODO: maybe move this to a config?
+            ### This way if the period changes, this will stay the same duration:
+            # Total Duration = Number of Periods * Period length... so
+            # Number of Periods = Total Duration / Period length
+            evaluation_periods=int(duration_before_alarm / self.metric_asg_num_instances.period.to_minutes()),
             threshold=1,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
