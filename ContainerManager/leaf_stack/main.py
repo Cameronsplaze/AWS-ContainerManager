@@ -298,7 +298,8 @@ class ContainerManagerStack(Stack):
             "Alarm-Watchdog-Errors",
             alarm_name=f"{construct_id}-Alarm-Watchdog-Errors",
             alarm_description="Trigger if the Lambda Watchdog fails too many times",
-            # Must be in alarm this long consecutively to trigger:
+            # Must be in alarm this long consecutively to trigger. 3 strikes you're out:
+            #      (Duration doesn't matter here, no need to divide by metric period. We ALWAYS want 3)
             evaluation_periods=3,
             # What counts as an alarm (ANY error here):
             threshold=1,
