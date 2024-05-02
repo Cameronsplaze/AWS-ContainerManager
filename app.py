@@ -26,6 +26,7 @@ us_east_1_env = cdk.Environment(
 base_config = load_base_config("./base-stack-config.yaml")
 base_stack = ContainerManagerBaseStack(
     app,
+    # NOTE: IF THIS EVER CHANGES, also update the 'base_stack_name' var in the Makefile.
     "ContainerManager-BaseStack",
     description="The base VPC for all other ContainerManage stacks to use.",
     cross_region_references=True,
