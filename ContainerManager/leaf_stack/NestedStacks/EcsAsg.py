@@ -1,13 +1,14 @@
 
 from aws_cdk import (
     NestedStack,
-    Tags,
     Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
     aws_sns as sns,
     aws_efs as efs,
+    aws_events as events,
+    aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
@@ -17,24 +18,26 @@ from constructs import Construct
 
 class EcsAsg(NestedStack):
     def __init__(
-            self,
-            scope: Construct,
-            leaf_construct_id: str,
-            vpc: ec2.Vpc,
-            task_definition: ecs.Ec2TaskDefinition,
-            instance_type: str,
-            sg_container_traffic: ec2.SecurityGroup,
-            ssh_key_pair: ec2.KeyPair,
-            base_stack_sns_topic: sns.Topic,
-            leaf_stack_sns_topic: sns.Topic,
-            efs_file_system: efs.FileSystem,
-            host_access_point: efs.AccessPoint,
-            **kwargs,
-        ):
+        self,
+        scope: Construct,
+        leaf_construct_id: str,
+        container_name_id: str,
+        container_url: str,
+        vpc: ec2.Vpc,
+        ssh_key_pair: ec2.KeyPair,
+        base_stack_sns_topic: sns.Topic,
+        leaf_stack_sns_topic: sns.Topic,
+        task_definition: ecs.Ec2TaskDefinition,
+        instance_type: str,
+        sg_container_traffic: ec2.SecurityGroup,
+        efs_file_system: efs.FileSystem,
+        host_access_point: efs.AccessPoint,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
 
 
-        ## Cluster for all the games
+        ## Cluster for the the container
         # This has to stay in this stack. A cluster represents a single "instance type"
         # sort of. This is the only way to tie the ASG to the ECS Service, one-to-one.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html
@@ -46,7 +49,7 @@ class EcsAsg(NestedStack):
         )
 
 
-        ## Permissions for inside the instance:
+        ## Permissions for inside the instance/host of the container:
         self.ec2_role = iam.Role(
             self,
             "ec2-execution-role",
@@ -139,41 +142,6 @@ class EcsAsg(NestedStack):
             )],
         )
 
-        ## Grab the IN_SERVICE_INSTANCES metric and load into cdk:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        self.metric_asg_num_instances = cloudwatch.Metric(
-            metric_name="GroupInServiceInstances",
-            namespace="AWS/AutoScaling",
-            dimensions_map={
-                "AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name,
-            },
-            period=Duration.minutes(1),
-        )
-
-        ## And the alarm to flag if the instance is up too long:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        duration_before_alarm = Duration.hours(6).to_minutes() # TODO: maybe move this to a config?
-        self.alarm_asg_num_instances = self.metric_asg_num_instances.create_alarm(
-            self,
-            "Alarm-Instance-left-up",
-            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
-            alarm_description="To warn if the instance is up too long",
-            ### This way if the period changes, this will stay the same duration:
-            # Total Duration = Number of Periods * Period length... so
-            # Number of Periods = Total Duration / Period length
-            evaluation_periods=int(duration_before_alarm / self.metric_asg_num_instances.period.to_minutes()),
-            threshold=1,
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
-        )
-        ## Actually email admin if this is triggered:
-        #   (No need to add the other sns_topic too, only admin would ever care about this.)
-        #### TODO: Make the alarm message a good format
-        #          (Maybe this? https://stackoverflow.com/questions/53487067/customize-alarm-message-from-aws-cloudwatch#53500349)
-        self.alarm_asg_num_instances.add_alarm_action(
-            cloudwatch_actions.SnsAction(base_stack_sns_topic)
-        )
-
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
         # Can ensure that instances are not prematurely terminated while there are still tasks running on them.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AsgCapacityProvider.html
@@ -205,3 +173,113 @@ class EcsAsg(NestedStack):
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
         )
+
+        ## Scale down ASG if this is ever triggered:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
+        # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
+        self.scale_down_asg_action = autoscaling.StepScalingAction(self,
+            "scale-down-asg-action",
+            auto_scaling_group=self.auto_scaling_group,
+            adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
+        )
+        self.scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
+
+        ##########################
+        ### Notification Stuff ###
+        ##########################
+        ## Grab the IN_SERVICE_INSTANCES metric and load into cdk:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        self.metric_asg_num_instances = cloudwatch.Metric(
+            metric_name="GroupInServiceInstances",
+            namespace="AWS/AutoScaling",
+            dimensions_map={
+                "AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name,
+            },
+            period=Duration.minutes(1),
+        )
+
+        ## And the alarm to flag if the instance is up too long:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        # duration_before_alarm = Duration.hours(6).to_minutes() # TODO: maybe move this to a config?
+        duration_before_alarm = Duration.minutes(5).to_minutes() # Just for testing
+        self.alarm_asg_num_instances = self.metric_asg_num_instances.create_alarm(
+            self,
+            "Alarm-Instance-left-up",
+            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
+            alarm_description="To warn if the instance is up too long",
+            ### This way if the period changes, this will stay the same duration:
+            # Total Duration = Number of Periods * Period length... so
+            # Number of Periods = Total Duration / Period length
+            evaluation_periods=int(duration_before_alarm / self.metric_asg_num_instances.period.to_minutes()),
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
+        )
+        ## Actually email admin if this is triggered:
+        #   (No need to add the other sns_topic too, only admin would ever care about this.)
+        #### TODO: Make the alarm message a good format
+        #          (Maybe this? https://stackoverflow.com/questions/53487067/customize-alarm-message-from-aws-cloudwatch#53500349)
+        self.alarm_asg_num_instances.add_alarm_action(
+            cloudwatch_actions.SnsAction(base_stack_sns_topic)
+        )
+
+        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        message = events.RuleTargetInput.from_text("\n".join([
+            f"Container for '{container_name_id}' has started!",
+            f"Connect to it at: '{container_url}'.",
+        ]))
+        self.rule_notify_up = events.Rule(
+            self,
+            "rule-notify-up",
+            rule_name=f"{container_name_id}-rule-notify-up",
+            description="Let user know when system finishes spinning UP",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.ecs"],
+                detail_type=["ECS Task State Change"],
+                detail={
+                    "clusterArn": [self.ecs_cluster.cluster_arn],
+                    # You only care if the TASK starts, or the INSTANCE stops:
+                    "lastStatus": ["RUNNING"],
+                    "desiredStatus": ["RUNNING"],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                events_targets.SnsTopic(
+                    base_stack_sns_topic,
+                    message=message,
+                ),
+                events_targets.SnsTopic(
+                    leaf_stack_sns_topic,
+                    message=message,
+                ),
+            ],
+        )
+
+        ## Same thing, but notify user when task spins down finally:
+        ##   (Can't combine with above target, since we care about different 'detail_type'.
+        ##    Don't want to spam the user sadly.)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        message = events.RuleTargetInput.from_text(f"Container for '{container_name_id}' has stopped.")
+        self.rule_notify_down = events.Rule(
+            self,
+            "rule-notify-down",
+            rule_name=f"{container_name_id}-rule-notify-down",
+            description="Let user know when system finishes spinning down",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.autoscaling"],
+                detail_type=["EC2 Instance-terminate Lifecycle Action"],
+                detail={
+                    "AutoScalingGroupName": [self.auto_scaling_group.auto_scaling_group_name],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                events_targets.SnsTopic(base_stack_sns_topic, message=message),
+                events_targets.SnsTopic(leaf_stack_sns_topic, message=message),
+            ],
+        )
+

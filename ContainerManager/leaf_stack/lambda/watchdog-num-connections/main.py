@@ -54,7 +54,6 @@ def get_instance_connections(instance_id: str) -> int:
         Comment=f"Check Connections on {instance_id}",
         DocumentName="AWS-RunShellScript",
         Parameters={
-            # TODO: Maybe add docker connections, to host connections? Don't kill the container if someone ssh-ed in.
             'commands': [
                 ## The best way I could find to get the container ID:
                 # https://stackoverflow.com/questions/44550138/naming-docker-containers-on-start-ecs#44551679
@@ -64,8 +63,12 @@ def get_instance_connections(instance_id: str) -> int:
                 ## Run netstat from outside the container, so it doesn't have to be installed inside:
                 # https://stackoverflow.com/questions/40350456/docker-any-way-to-list-open-sockets-inside-a-running-docker-container
                 'docker_pid=$(docker inspect -f "{{.State.Pid}}" $container_id)',
-                'nsenter --target $docker_pid --net netstat | grep ESTABLISHED | wc -l',
-            ]
+                'num_docker_conn=$(nsenter --target $docker_pid --net netstat | grep ESTABLISHED | wc -l)',
+                ## Also stay up if someone is SSH-ed in:
+                'num_ssh_conn=$(netstat -tan | grep ":22" | grep ESTABLISHED | wc -l)',
+                ## Now "return" the info as json:
+                'jq --null-input \'$ARGS.named\' --argjson num_docker_conn "$num_docker_conn" --argjson num_ssh_conn "$num_ssh_conn"',
+            ],
         }
     )
     command_id = response['Command']['CommandId']
@@ -92,9 +95,15 @@ def get_instance_connections(instance_id: str) -> int:
         InstanceId=instance_id,
     )
 
-    num_connections = output['StandardOutputContent']
-    print(f"Number of Connections: {num_connections}")
-    return int(num_connections)
+    try:
+        num_connections = json.loads(output['StandardOutputContent'])
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Could not parse output from command: {output['StandardOutputContent']}") from e
+
+    # Log the Json for cloudwatch:
+    print(json.dumps(num_connections, default=str))
+    # Return the number of connections:
+    return sum(num_connections.values())
 
 def get_acg_instance_id() -> str:
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]

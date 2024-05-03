@@ -12,7 +12,7 @@ from aws_cdk import (
 from constructs import Construct
 
 from ContainerManager.leaf_stack.main import ContainerManagerStack
-from ContainerManager.leaf_stack.domain_info import DomainStack
+from ContainerManager.leaf_stack.domain_stack import DomainStack
 
 
 class LinkTogetherStack(Stack):
@@ -31,15 +31,15 @@ class LinkTogetherStack(Stack):
             timeout=Duration.seconds(30),
             log_retention=logs.RetentionDays.ONE_WEEK,
             environment={
-                "ASG_NAME": manager_stack.auto_scaling_group.auto_scaling_group_name,
+                "ASG_NAME": manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name,
                 "MANAGER_STACK_REGION": manager_stack.region,
                 ## Metric info to let the system know someone is trying to connect, and don't spin down:
-                "METRIC_NAMESPACE": manager_stack.metric_namespace,
-                "METRIC_NAME": manager_stack.metric_num_connections.metric_name,
+                "METRIC_NAMESPACE": manager_stack.watchdog_nested_stack.metric_namespace,
+                "METRIC_NAME": manager_stack.watchdog_nested_stack.metric_num_connections.metric_name,
                 # Convert METRIC_UNIT from an Enum, to a string that boto3 expects. (Words must have first
                 #   letter capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
-                "METRIC_UNIT": manager_stack.metric_unit.value.title(),
-                "METRIC_DIMENSIONS": json.dumps(manager_stack.metric_dimension_map),
+                "METRIC_UNIT": manager_stack.watchdog_nested_stack.metric_unit.value.title(),
+                "METRIC_DIMENSIONS": json.dumps(manager_stack.watchdog_nested_stack.metric_dimension_map),
 
             },
         )
@@ -50,7 +50,7 @@ class LinkTogetherStack(Stack):
                 actions=[
                     "autoscaling:UpdateAutoScalingGroup",
                 ],
-                resources=[manager_stack.auto_scaling_group.auto_scaling_group_arn],
+                resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
             )
         )
         # Give it permissions to push to the metric:
@@ -61,7 +61,7 @@ class LinkTogetherStack(Stack):
                 resources=["*"],
                 conditions={
                     "StringEquals": {
-                        "cloudwatch:namespace": manager_stack.metric_namespace,
+                        "cloudwatch:namespace": manager_stack.watchdog_nested_stack.metric_namespace,
                     }
                 }
             )

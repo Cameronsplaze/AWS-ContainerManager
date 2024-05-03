@@ -12,15 +12,15 @@ from constructs import Construct
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class Container(NestedStack):
     def __init__(
-            self,
-            scope: Construct,
-            leaf_construct_id: str,
-            container_name_id: str,
-            docker_image: str,
-            docker_environment: dict,
-            docker_ports_config: list,
-            **kwargs
-        ):
+        self,
+        scope: Construct,
+        leaf_construct_id: str,
+        container_name_id: str,
+        docker_image: str,
+        docker_environment: dict,
+        docker_ports_config: list,
+        **kwargs
+    ) -> None:
         super().__init__(scope, "ContainerNestedStack", **kwargs)
 
         ## The details of a task definition run on an EC2 cluster.

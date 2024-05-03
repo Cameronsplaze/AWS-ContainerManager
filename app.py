@@ -5,8 +5,8 @@ import aws_cdk as cdk
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.main import ContainerManagerStack
-from ContainerManager.leaf_stack.domain_info import DomainStack
-from ContainerManager.leaf_stack.link_together import LinkTogetherStack
+from ContainerManager.leaf_stack.domain_stack import DomainStack
+from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 app = cdk.App()
 

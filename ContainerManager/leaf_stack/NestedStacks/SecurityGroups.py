@@ -13,14 +13,14 @@ from constructs import Construct
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class SecurityGroups(NestedStack):
     def __init__(
-            self,
-            scope: Construct,
-            leaf_construct_id: str,
-            vpc: ec2.Vpc,
-            sg_vpc_traffic: ec2.SecurityGroup,
-            docker_ports_config: list,
-            **kwargs,
-        ):
+        self,
+        scope: Construct,
+        leaf_construct_id: str,
+        vpc: ec2.Vpc,
+        sg_vpc_traffic: ec2.SecurityGroup,
+        docker_ports_config: list,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
 
         ## Security Group for container traffic:

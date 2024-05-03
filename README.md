@@ -160,6 +160,14 @@ TODO - make more automatic somehow
 
   ```bash
   ssh ec2-user@<GAME_URL>
+  # Or sometimes:
+  ssh -i ~/.ssh/container-manager ec2-user@<GAME_URL>
+  ```
+
+- If you have to remove the known host:
+
+  ```bash
+  ssh-keygen -R <GAME_URL>
   ```
 
 ### Long term TODO

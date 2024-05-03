@@ -14,17 +14,17 @@ from constructs import Construct
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class Efs(NestedStack):
     def __init__(
-            self,
-            scope: Construct,
-            leaf_construct_id: str,
-            vpc: ec2.Vpc,
-            task_definition: ecs.Ec2TaskDefinition,
-            container: ecs.ContainerDefinition,
-            volumes_config: list,
-            volume_info_config: dict,
-            sg_efs_traffic: ec2.SecurityGroup,
-            **kwargs,
-        ):
+        self,
+        scope: Construct,
+        leaf_construct_id: str,
+        vpc: ec2.Vpc,
+        task_definition: ecs.Ec2TaskDefinition,
+        container: ecs.ContainerDefinition,
+        volumes_config: list,
+        volume_info_config: dict,
+        sg_efs_traffic: ec2.SecurityGroup,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, "EfsNestedStack", **kwargs)
 
         ## Persistent Storage:
