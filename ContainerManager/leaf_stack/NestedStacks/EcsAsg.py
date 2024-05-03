@@ -31,7 +31,6 @@ class EcsAsg(NestedStack):
             host_access_point: efs.AccessPoint,
             **kwargs,
         ):
-        # super().__init__(scope, f"{leaf_construct_id}-EcsAsg", **kwargs)
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
 
 

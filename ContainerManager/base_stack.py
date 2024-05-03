@@ -71,6 +71,11 @@ class ContainerManagerBaseStack(Stack):
             # And/Or maybe set an optional one in each leaf-stack? If set, overrides this?
             public_key_material=None,
         )
+        ## Private key generated from the KeyPair:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html
+        # TODO: Can't get these to work. Asked about it at: https://github.com/aws/aws-cdk/discussions/30049
+        Tags.of(self.ssh_key_pair.private_key).add("ssh_key_pair_id", self.ssh_key_pair.key_pair_name)
+        Tags.of(self.ssh_key_pair.private_key).add("Stack", construct_id)
 
         ########################
         ### SNS Notify STUFF ###

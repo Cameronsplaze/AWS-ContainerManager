@@ -21,7 +21,6 @@ class Container(NestedStack):
             docker_ports_config: list,
             **kwargs
         ):
-        # super().__init__(scope, f"{leaf_construct_id}-Container", **kwargs)
         super().__init__(scope, "ContainerNestedStack", **kwargs)
 
         ## The details of a task definition run on an EC2 cluster.

@@ -24,7 +24,6 @@ class Efs(NestedStack):
             sg_efs_traffic: ec2.SecurityGroup,
             **kwargs,
         ):
-        # super().__init__(scope, f"{leaf_construct_id}-EFS", **kwargs)
         super().__init__(scope, "EfsNestedStack", **kwargs)
 
         ## Persistent Storage:
@@ -33,9 +32,7 @@ class Efs(NestedStack):
             self,
             "efs-file-system",
             vpc=vpc,
-            # TODO: Just for developing. Keep users minecraft worlds SAFE!!
-            # (note, what's the pros/cons of RemovalPolicy.RETAIN vs RemovalPolicy.SNAPSHOT?)
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.RETAIN,
             security_group=sg_efs_traffic,
             allow_anonymous_access=False,
         )

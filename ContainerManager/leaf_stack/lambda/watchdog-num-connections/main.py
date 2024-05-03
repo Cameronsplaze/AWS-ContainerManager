@@ -54,6 +54,7 @@ def get_instance_connections(instance_id: str) -> int:
         Comment=f"Check Connections on {instance_id}",
         DocumentName="AWS-RunShellScript",
         Parameters={
+            # TODO: Maybe add docker connections, to host connections? Don't kill the container if someone ssh-ed in.
             'commands': [
                 ## The best way I could find to get the container ID:
                 # https://stackoverflow.com/questions/44550138/naming-docker-containers-on-start-ecs#44551679

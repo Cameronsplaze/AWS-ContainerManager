@@ -21,7 +21,6 @@ class SecurityGroups(NestedStack):
             docker_ports_config: list,
             **kwargs,
         ):
-        # super().__init__(scope, f"{leaf_construct_id}-SecurityGroups", **kwargs)
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
 
         ## Security Group for container traffic:
@@ -61,6 +60,8 @@ class SecurityGroups(NestedStack):
         ## Now allow the two groups to talk to each other:
         # TODO: Maybe you don't need BOTH of these? look into and test...
         #       from: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#connecting
+        #       AND if you don't... try using the default security group?
+        #       (self.file_system.connections.allow_from_default_port(sg_container) or similar)
         self.sg_efs_traffic.connections.allow_from(
             self.sg_container_traffic,
             port_range=ec2.Port.tcp(2049),
