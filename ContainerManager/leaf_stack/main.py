@@ -107,6 +107,7 @@ class ContainerManagerStack(Stack):
             task_definition=self.task_definition,
             container=self.container,
             volumes_config=config["Container"].get("Volumes", []),
+            volume_info_config=config["Container"].get("VolumeInfo", {}),
             sg_efs_traffic=self.sg_efs_traffic,
         )
         self.efs_file_system = efs_nested_stack.efs_file_system

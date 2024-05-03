@@ -14,7 +14,8 @@ Container:
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
-  # VolumeInfo:
+  VolumeInfo:
+    RemovalPolicy: DESTROY
   #   UID: 1000
   #   GID: 1000
   #   Permissions: 750

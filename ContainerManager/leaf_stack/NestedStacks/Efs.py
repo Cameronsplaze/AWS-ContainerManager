@@ -21,6 +21,7 @@ class Efs(NestedStack):
             task_definition: ecs.Ec2TaskDefinition,
             container: ecs.ContainerDefinition,
             volumes_config: list,
+            volume_info_config: dict,
             sg_efs_traffic: ec2.SecurityGroup,
             **kwargs,
         ):
@@ -28,14 +29,19 @@ class Efs(NestedStack):
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
+        # TODO: When writing readme, add note on using DataSync to get info from old EFS to new one.
+        #       (Just use console. IaC shouldn't try to copy data in. It will on every re-deploy...)
+        efs_removal_policy = volume_info_config.get("RemovalPolicy", "RETAIN").upper()
         self.efs_file_system = efs.FileSystem(
             self,
             "efs-file-system",
             vpc=vpc,
-            removal_policy=RemovalPolicy.RETAIN,
+            removal_policy=getattr(RemovalPolicy, efs_removal_policy),
             security_group=sg_efs_traffic,
             allow_anonymous_access=False,
         )
+
+
         ## Tell the EFS side that the task can access it:
         self.efs_file_system.grant_read_write(task_definition.task_role)
         ## (NOTE: There's another grant_root_access in EcsAsg.py ec2-role.

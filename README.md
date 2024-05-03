@@ -119,7 +119,6 @@ My work has "Day of Innovation" every once in a while, where we can work on what
   - Look closely at the security groups. Especially the container one. Lock them all down to specifically declare both in AND out traffic.
   - Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. (Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4)
   - Go through Cloudwatch log Groups, make sure everything has a retention policy by default, and removal policy DESTROY.
-  - Maybe the NestedStack's context_id appends the LeafStacks prefix automatically, and that's why the name is so long? Try having a very short `NestedStack.context_id` and look at what the name looks like then.
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
@@ -128,10 +127,6 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 ### Phase 3, Split apart to run multiple games
 
 - Make sure they're locked down from each other too.
-
-- See how to run multiple of the **same** game. (vanilla and modded MC server). Will use the same ports on VPC maybe? Is changing ports required? Might just work as-is, because different instance IP's.
-
-- Look at creating/deleting stacks again. Rn there's no way to delete the leaf stack, and not the base stack. Think about how to pass in CLI args to help here. (Maybe if you supply a config path, DON'T delete the base stack ever? And you need two make commands, one for leaf and one for base?)
 
 ## Phase 4, Get ready for Production!
 
