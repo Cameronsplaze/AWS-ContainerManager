@@ -1,11 +1,9 @@
 
-import json
+
 import re
 
 from aws_cdk import (
     Stack,
-    aws_events as events,
-    aws_events_targets as events_targets,
     aws_sns as sns,
 )
 from constructs import Construct
@@ -117,7 +115,7 @@ class ContainerManagerStack(Stack):
             host_access_point=self.efs_nested_stack.host_access_point,
         )
 
-
+        ### All the info for the Watchdog Stuff
         self.watchdog_nested_stack = NestedStacks.Watchdog(
             self,
             construct_id,
@@ -129,7 +127,7 @@ class ContainerManagerStack(Stack):
             scale_down_asg_action=self.ecs_asg_nested_stack.scale_down_asg_action,
         )
 
-
+        ### All the info for the Asg StateChange Hook Stuff
         self.asg_state_change_hook_nested_stack = NestedStacks.AsgStateChangeHook(
             self,
             construct_id,

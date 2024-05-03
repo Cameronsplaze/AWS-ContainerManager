@@ -219,6 +219,7 @@ class EcsAsg(NestedStack):
         #   (No need to add the other sns_topic too, only admin would ever care about this.)
         #### TODO: Make the alarm message a good format
         #          (Maybe this? https://stackoverflow.com/questions/53487067/customize-alarm-message-from-aws-cloudwatch#53500349)
+        #           And/Or just have it spin down the ASG, be a "forced" timeout after 6 hours (put bool in config?)
         self.alarm_asg_num_instances.add_alarm_action(
             cloudwatch_actions.SnsAction(base_stack_sns_topic)
         )
