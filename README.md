@@ -151,9 +151,9 @@ TODO - make more automatic somehow
 - Add it to agent:
 
   ```bash
-  nano ~/.ssh/container_minecraft
-  chmod 600 ~/.ssh/container_minecraft
-  ssh-add ~/.ssh/container_minecraft
+  nano ~/.ssh/container-manager
+  chmod 600 ~/.ssh/container-manager
+  ssh-add ~/.ssh/container-manager
   ```
 
 - SSH into the instance:
