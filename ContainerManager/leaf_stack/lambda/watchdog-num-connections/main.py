@@ -98,7 +98,7 @@ def get_instance_connections(instance_id: str) -> int:
     try:
         num_connections = json.loads(output['StandardOutputContent'])
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Could not parse output from command: {output['StandardOutputContent']}") from e
+        raise RuntimeError(f"Could not parse output from command: '{output['StandardOutputContent']}'") from e
 
     # Log the Json for cloudwatch:
     print(json.dumps(num_connections, default=str))
