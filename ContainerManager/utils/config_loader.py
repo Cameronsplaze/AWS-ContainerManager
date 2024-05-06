@@ -59,6 +59,11 @@ def load_leaf_config(path: str) -> dict:
     check_missing(config["Container"], required_container_vars)
     parse_docker_ports(config["Container"]["Ports"])
 
+    ## Make the environment variables strings:
+    environment = config["Container"].get("Environment", {})
+    environment = {key: str(val) for key, val in environment.items()}
+    config["Container"]["Environment"] = environment
+
     return config
 
 # There's also an argument for moving `sns_subscriptions` to this file, and anything else

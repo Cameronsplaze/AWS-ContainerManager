@@ -63,6 +63,7 @@ def get_instance_connections(instance_id: str) -> int:
                 ## Run netstat from outside the container, so it doesn't have to be installed inside:
                 # https://stackoverflow.com/questions/40350456/docker-any-way-to-list-open-sockets-inside-a-running-docker-container
                 'docker_pid=$(docker inspect -f "{{.State.Pid}}" $container_id)',
+                # NOTE: If you end up having to grep for ports, also add `netstat --numeric` so it shows numbers instead of names.:
                 'num_docker_conn=$(nsenter --target $docker_pid --net netstat | grep ESTABLISHED | wc -l)',
                 ## Also stay up if someone is SSH-ed in:
                 'num_ssh_conn=$(netstat -tan | grep ":22" | grep ESTABLISHED | wc -l)',
