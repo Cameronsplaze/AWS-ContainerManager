@@ -12,10 +12,8 @@ Container:
     SERVER_NAME: "Christian Minecraft Server"
     WORLD_NAME: "Valhalla"
     SERVER_PASS: !ENV ${VALHEIM_PASS}
-    # DON'T USE '-crossplay' inside SERVER_ARGS! It sets up a proxy server, so you
-    #      can't see if anyone is connected/disconnected. That means we can never spin
-    #      down the server, and it will cost you a lot of money.
     # SERVER_ARGS: "-crossplay"
+    SERVER_ARGS: "-modifier resources most"
     SERVER_PUBLIC: False
     # Since we're in the cloud, and this is only up when someone is connected:
     UPDATE_IF_IDLE: False
@@ -24,8 +22,8 @@ Container:
     # Set user and group ID to match the host:
     # PUID: 1001
     # PGID: 1001
-  VolumeInfo:
-    RemovalPolicy: DESTROY
+  # VolumeInfo:
+  #   RemovalPolicy: DESTROY
   Volumes:
     # Holds server config info
     - Path: /config

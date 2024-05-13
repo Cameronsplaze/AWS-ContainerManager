@@ -69,6 +69,7 @@ class ContainerManagerStack(Stack):
             construct_id,
             description=f"Security Group Logic for {construct_id}",
             vpc=base_stack.vpc,
+            container_name_id=container_name_id,
             sg_vpc_traffic=base_stack.sg_vpc_traffic,
             docker_ports_config=config["Container"].get("Ports", []),
         )

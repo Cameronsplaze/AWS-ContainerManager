@@ -17,6 +17,7 @@ class SecurityGroups(NestedStack):
         scope: Construct,
         leaf_construct_id: str,
         vpc: ec2.Vpc,
+        container_name_id: str,
         sg_vpc_traffic: ec2.SecurityGroup,
         docker_ports_config: list,
         **kwargs,
@@ -34,7 +35,7 @@ class SecurityGroups(NestedStack):
             self,
             "sg-container-traffic",
             vpc=vpc,
-            description=f"({leaf_construct_id}) Traffic that can go into the Container",
+            description=f"({container_name_id}) Traffic that can go into the Container",
         )
         # Create a name of `<StackName>/sg-container-traffic` to find it easier:
         Tags.of(self.sg_container_traffic).add("Name", f"{leaf_construct_id}/sg-container-traffic")
@@ -51,7 +52,7 @@ class SecurityGroups(NestedStack):
             self,
             "sg-efs-traffic",
             vpc=vpc,
-            description=f"({leaf_construct_id}) Traffic that can go into the EFS instance",
+            description=f"({container_name_id}) Traffic that can go into the EFS instance",
             # description=f"Traffic that can go into the {container.container_name} EFS instance",
         )
         # Create a name of `<StackName>/sg-efs-traffic` to find it easier:
@@ -86,11 +87,11 @@ class SecurityGroups(NestedStack):
                 # This will create something like: ec2.Port.tcp(25565)
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Port.html
                 getattr(ec2.Port, protocol.lower())(port),
-                description="Game port to allow traffic IN from",
+                description=f"({container_name_id}) Game port to allow traffic IN from",
             )
             self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
                 # sg_vpc_traffic,
                 getattr(ec2.Port, protocol.lower())(port),
-                description="Game port to open traffic IN from",
+                description=f"({container_name_id}) Game port to allow traffic IN from",
             )

@@ -164,11 +164,27 @@ TODO - make more automatic somehow
   ssh -i ~/.ssh/container-manager ec2-user@<GAME_URL>
   ```
 
-- If you have to remove the known host:
+- IP will change with each startup. If you have to remove the known host:
 
   ```bash
   ssh-keygen -R <GAME_URL>
   ```
+
+  **OR** add this to  your local `~/.ssh/config`:
+
+  ```txt
+  # This is for ALL games on your domain:
+  Host *.<DOMAIN_NAME>
+      CheckHostIP no
+  ```
+
+- If using filezilla:
+
+  - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
+  - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.
+  - Files are stored in `/mnt/efs/<Volumes>`.
+
+TODO: With Valheim, the `/opt/valheim` directory gives `permission denied` when trying to copy out.
 
 ### Long term TODO
 
