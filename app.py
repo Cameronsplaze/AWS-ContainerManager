@@ -64,14 +64,14 @@ if file_path:
         container_name_id=container_name_id,
         config=leaf_config,
     )
-    LinkTogetherStack(
-        app,
-        f"ContainerManager-{container_name_id}-LinkTogetherStack",
-        description="To avoid a circular dependency, and connect the ContainerManagerStack and DomainStack together.",
-        cross_region_references=True,
-        env=us_east_1_env,
-        domain_stack=domain_stack,
-        manager_stack=manager_stack,
-    )
+    # LinkTogetherStack(
+    #     app,
+    #     f"ContainerManager-{container_name_id}-LinkTogetherStack",
+    #     description="To avoid a circular dependency, and connect the ContainerManagerStack and DomainStack together.",
+    #     cross_region_references=True,
+    #     env=us_east_1_env,
+    #     domain_stack=domain_stack,
+    #     manager_stack=manager_stack,
+    # )
 
 app.synth()

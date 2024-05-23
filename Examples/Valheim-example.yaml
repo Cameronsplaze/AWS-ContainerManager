@@ -1,0 +1,31 @@
+
+InstanceType: m5.large
+MinutesWithoutPlayers: 5
+
+Container:
+  # Docs here: https://github.com/lloesche/valheim-server-docker
+  Image: lloesche/valheim-server
+  Ports:
+    - UDP: 2456
+    - UDP: 2457
+  Environment:
+    SERVER_NAME: "Christian Minecraft Server"
+    WORLD_NAME: "Valhalla"
+    SERVER_PASS: !ENV ${VALHEIM_PASS}
+    # SERVER_ARGS: "-crossplay"
+    SERVER_ARGS: "-modifier resources most"
+    # SERVER_PUBLIC: False
+    # Since we're in the cloud, and this is only up when someone is connected:
+    UPDATE_IF_IDLE: False
+    RESTART_IF_IDLE: False
+    BACKUPS: False
+    # Set user and group ID to match the host:
+    # PUID: 1001
+    # PGID: 1001
+  VolumeInfo:
+    RemovalPolicy: DESTROY
+  Volumes:
+    # Holds server config info
+    - Path: /config
+    # Holds server download file
+    - Path: /opt/valheim

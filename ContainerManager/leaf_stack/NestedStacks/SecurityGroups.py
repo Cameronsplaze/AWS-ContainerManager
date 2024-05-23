@@ -18,7 +18,7 @@ class SecurityGroups(NestedStack):
         leaf_construct_id: str,
         vpc: ec2.Vpc,
         container_name_id: str,
-        sg_vpc_traffic: ec2.SecurityGroup,
+        # sg_vpc_traffic: ec2.SecurityGroup,
         docker_ports_config: list,
         **kwargs,
     ) -> None:
@@ -28,7 +28,7 @@ class SecurityGroups(NestedStack):
         # TODO: Since someone could theoretically break into the container,
         #        lock down traffic leaving it too.
         #        (Should be the same as VPC sg BEFORE any stacks are added. Maybe have a base SG that both use?)
-        
+
         ## Security Group for Container's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_container_traffic = ec2.SecurityGroup(
@@ -42,9 +42,30 @@ class SecurityGroups(NestedStack):
         ## Allow SSH traffic:
         self.sg_container_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(22),
+            # Same as TCP 22:
+            ec2.Port.SSH,
             description="Allow SSH traffic IN",
         )
+
+
+
+
+
+
+
+
+        ###### TODO: REMOVE THIS! JUST FOR DEBUGGING!!!!
+        self.sg_container_traffic.connections.allow_from(
+            ec2.Peer.any_ipv4(),
+            ec2.Port.all_traffic(),
+            description="Allow ALL TRAFFIC IN",
+        )
+
+
+
+
+
+
 
         ## Security Group for EFS instance's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
@@ -80,15 +101,15 @@ class SecurityGroups(NestedStack):
         for port_info in docker_ports_config:
             protocol, port = list(port_info.items())[0]
 
-            ### Open up the same ports on the "firewall" vpc:
-            sg_vpc_traffic.connections.allow_from(
-                ec2.Peer.any_ipv4(),
-                ## Dynamically use tcp or udp from:
-                # This will create something like: ec2.Port.tcp(25565)
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Port.html
-                getattr(ec2.Port, protocol.lower())(port),
-                description=f"({container_name_id}) Game port to allow traffic IN from",
-            )
+            # ### Open up the same ports on the "firewall" vpc:
+            # sg_vpc_traffic.connections.allow_from(
+            #     ec2.Peer.any_ipv4(),
+            #     ## Dynamically use tcp or udp from:
+            #     # This will create something like: ec2.Port.tcp(25565)
+            #     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Port.html
+            #     getattr(ec2.Port, protocol.lower())(port),
+            #     description=f"({container_name_id}) Game port to allow traffic IN from",
+            # )
             self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
                 # sg_vpc_traffic,

@@ -23,6 +23,10 @@ def load_base_config(path: str) -> dict:
 ## LEAF CONFIG LOGIC ##
 #######################
 
+# TODO: Re-write config so 'Volume' has it's own block, outside of 'Container'. Let's you make key's inside it more specific too.
+# TODO 2: Re-write all of this, maybe create ec2.port objects instead of passing the dicts around all over the place.
+#         (And maybe do with other dicts here too)
+
 def parse_docker_ports(docker_ports_config: list) -> None:
     for port_info in docker_ports_config:
         ### Each port takes the format of {Protocol: Port}:
