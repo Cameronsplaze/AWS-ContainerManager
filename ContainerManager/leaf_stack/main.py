@@ -80,9 +80,7 @@ class ContainerManagerStack(Stack):
             construct_id,
             description=f"Container Logic for {construct_id}",
             container_name_id=container_name_id,
-            docker_image=config["Container"]["Image"],
-            docker_environment=config["Container"].get("Environment", {}),
-            docker_ports_config=config["Container"].get("Ports", []),
+            container_config=config["Container"],
         )
 
         ### All the info for EFS Stuff
@@ -93,8 +91,7 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
-            volumes_config=config["Container"].get("Volumes", []),
-            volume_info_config=config["Container"].get("VolumeInfo", {}),
+            volume_config=config["Volume"],
             sg_efs_traffic=self.sg_nested_stack.sg_efs_traffic,
         )
 

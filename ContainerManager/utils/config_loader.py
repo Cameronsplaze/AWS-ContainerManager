@@ -23,8 +23,7 @@ def load_base_config(path: str) -> dict:
 ## LEAF CONFIG LOGIC ##
 #######################
 
-# TODO: Re-write config so 'Volume' has it's own block, outside of 'Container'. Let's you make key's inside it more specific too.
-# TODO 2: Re-write all of this, maybe create ec2.port objects instead of passing the dicts around all over the place.
+# TODO: Re-write all of this, maybe create ec2.port objects instead of passing the dicts around all over the place.
 #         (And maybe do with other dicts here too)
 
 def parse_docker_ports(docker_ports_config: list) -> None:
@@ -67,7 +66,17 @@ def load_leaf_config(path: str) -> dict:
     environment = {key: str(val) for key, val in environment.items()}
     config["Container"]["Environment"] = environment
 
-    ## Process the Watchdog config now:
+    ######################
+    ### VOLUMES CONFIG ###
+    ######################
+    volume = config.get("Volume", {})
+    if "RemovalPolicy" in volume:
+        volume["RemovalPolicy"] = volume["RemovalPolicy"].upper()
+    config["Volume"] = volume
+
+    #######################
+    ### WATCHDOG CONFIG ###
+    #######################
     watchdog = config.get("Watchdog", {})
     if "MinutesWithoutPlayers" not in watchdog:
         watchdog["MinutesWithoutPlayers"] = 5
@@ -98,8 +107,8 @@ def load_leaf_config(path: str) -> dict:
             watchdog["Threshold"] = 0
         elif watchdog["Type"] == "UDP":
             # TODO: Keep an eye on this and adjust as we get info from each game.
-            #           - Valheim: Packet count mainly bounces between 0 and 3, but sometimes hits 10-15
-            watchdog["Threshold"] = 16
+            #           - Valheim: No players ~0-15 packets. W/ 1 player ~5k packets
+            watchdog["Threshold"] = 32
 
     config["Watchdog"] = watchdog
 

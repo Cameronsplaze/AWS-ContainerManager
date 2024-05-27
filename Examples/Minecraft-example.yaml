@@ -13,16 +13,18 @@ Container:
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
-  VolumeInfo:
-    RemovalPolicy: DESTROY
-  #   UID: 1000
-  #   GID: 1000
-  #   Permissions: 750
-  #   OneZone: True
-  Volumes:
+
+Volume:
+  RemovalPolicy: DESTROY
+  Paths:
     - Path: /data
     # - Path: /testing
     #   ReadOnly: True
+
+# # Config options for how to monitor for players:
+# Watchdog:
+#   MinutesWithoutPlayers: 5
+#   Type: "TCP"
 
 AlertSubscription:
   - Email: Does@Not.Exist

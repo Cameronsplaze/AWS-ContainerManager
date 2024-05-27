@@ -20,8 +20,7 @@ class Efs(NestedStack):
         vpc: ec2.Vpc,
         task_definition: ecs.Ec2TaskDefinition,
         container: ecs.ContainerDefinition,
-        volumes_config: list,
-        volume_info_config: dict,
+        volume_config: dict,
         sg_efs_traffic: ec2.SecurityGroup,
         **kwargs,
     ) -> None:
@@ -31,7 +30,7 @@ class Efs(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
         # TODO: When writing readme, add note on using DataSync to get info from old EFS to new one.
         #       (Just use console. IaC shouldn't try to copy data in. It will on every re-deploy...)
-        efs_removal_policy = volume_info_config.get("RemovalPolicy", "RETAIN").upper()
+        efs_removal_policy = volume_config.get("RemovalPolicy", "RETAIN").upper()
         self.efs_file_system = efs.FileSystem(
             self,
             "efs-file-system",
@@ -61,18 +60,17 @@ class Efs(NestedStack):
         self.host_access_point = self.efs_file_system.add_access_point("efs-access-point-host", create_acl=ap_acl, path="/")
 
         ### Create mounts and attach them to the container:
-        for volume_info in volumes_config:
+        for volume_info in volume_config.get("Paths", []):
             volume_path = volume_info["Path"]
             read_only = volume_info.get("ReadOnly", False)
-            ## Create a unique name, take out non-alpha characters from the path:
-            #   (Will be something like: `Minecraft-data`)
-            volume_id = f"{container.container_name}-{''.join(filter(str.isalnum, volume_path))}"
+            ## Create a UNIQUE name, ID of game + (modified) path:
+            #   (Will be something like: `Minecraft-data` or `Valheim-opt-valheim`)
+            volume_id = f"{container.container_name}{volume_path.replace('/','-')}"
             # Another access point, for the container (each volume gets it's own):
-            access_point = self.efs_file_system.add_access_point(f"efs-access-point-{volume_id}", create_acl=ap_acl, path=volume_path)
-            volume_name = f"efs-volume-{volume_id}"
+            access_point = self.efs_file_system.add_access_point(volume_id, create_acl=ap_acl, path=volume_path)
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
             task_definition.add_volume(
-                name=volume_name,
+                name=volume_id,
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
                 efs_volume_configuration=ecs.EfsVolumeConfiguration(
                     file_system_id=self.efs_file_system.file_system_id,
@@ -87,7 +85,7 @@ class Efs(NestedStack):
             container.add_mount_points(
                 ecs.MountPoint(
                     container_path=volume_path,
-                    source_volume=volume_name,
+                    source_volume=volume_id,
                     read_only=read_only,
                 )
             )

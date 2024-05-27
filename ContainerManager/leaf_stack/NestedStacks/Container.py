@@ -16,9 +16,7 @@ class Container(NestedStack):
         scope: Construct,
         leaf_construct_id: str,
         container_name_id: str,
-        docker_image: str,
-        docker_environment: dict,
-        docker_ports_config: list,
+        container_config: dict,
         **kwargs
     ) -> None:
         super().__init__(scope, "ContainerNestedStack", **kwargs)
@@ -35,7 +33,7 @@ class Container(NestedStack):
 
         # Loop over each port and figure out what it wants:
         port_mappings = []
-        for port_info in docker_ports_config:
+        for port_info in container_config.get("Ports", []):
             protocol, port = list(port_info.items())[0]
 
 
@@ -66,14 +64,14 @@ class Container(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
             container_name_id.title(),
-            image=ecs.ContainerImage.from_registry(docker_image),
+            image=ecs.ContainerImage.from_registry(container_config["Image"]),
             port_mappings=port_mappings,
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
             ## Add environment variables into the container here:
-            environment=docker_environment,
+            environment=container_config.get("Environment", {}),
             ## Logging, straight from:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
             logging=ecs.LogDrivers.aws_logs(

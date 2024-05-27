@@ -1,7 +1,6 @@
 
 InstanceType: m5.large
 
-
 Container:
   # Docs here: https://github.com/lloesche/valheim-server-docker
   Image: lloesche/valheim-server
@@ -21,19 +20,17 @@ Container:
     # Set user and group ID to match the host:
     # PUID: 1001
     # PGID: 1001
-  VolumeInfo:
-    RemovalPolicy: DESTROY
-  Volumes:
+
+Volume:
+  RemovalPolicy: DESTROY
+  Paths:
     # Holds server config info
     - Path: /config
     # Holds server download file
     - Path: /opt/valheim
 
-# TODO:
-# Volume:
-
-# Config options for how to monitor for players:
-Watchdog:
-  MinutesWithoutPlayers: 5
-  Threshold: 16
-  Type: "UDP"
+# # Config options for how to monitor for players:
+# Watchdog:
+#   MinutesWithoutPlayers: 5
+#   Threshold: 16
+#   Type: "UDP"
