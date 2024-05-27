@@ -160,8 +160,6 @@ class EcsAsg(NestedStack):
         ])
 
         ## This creates a service using the EC2 launch type on an ECS cluster
-        # TODO: If you edit this in the console, there's a way to add "placement template - one per host" to it. Can't find the CDK equivalent rn.
-        #        (This might be it: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ecs/PlacementConstraint.html#aws_cdk.aws_ecs.PlacementConstraint.distinct_instances)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
         self.ec2_service = ecs.Ec2Service(
             self,
@@ -172,6 +170,10 @@ class EcsAsg(NestedStack):
             circuit_breaker={
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
+            ### Puts each task in a particular group, on a different instance:
+            ### (Not sure if we want this. Only will ever have one instance, and adds complexity)
+            # placement_constraints=[ecs.PlacementConstraint.distinct_instances()],
+            # placement_strategies=[ecs.PlacementStrategy.spread_across_instances()],
         )
 
         ## Scale down ASG if this is ever triggered:

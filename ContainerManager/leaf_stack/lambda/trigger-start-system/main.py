@@ -11,6 +11,7 @@ required_vars = [
     # For not letting the system spin down if someone is trying to connect:
     "METRIC_NAMESPACE",
     "METRIC_NAME",
+    "METRIC_THRESHOLD",
     "METRIC_UNIT",
     "METRIC_DIMENSIONS",
 ]
@@ -42,7 +43,8 @@ def lambda_handler(event, context):
             'MetricName': os.environ["METRIC_NAME"],
             'Dimensions': dimension_map,
             'Unit': os.environ["METRIC_UNIT"],
-            'Value': 1,
+            # One greater than the threshold, to make sure the alarm doesn't error:
+            'Value': 1+int(os.environ["METRIC_THRESHOLD"]),
         }],
     )
 

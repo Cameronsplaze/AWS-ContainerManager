@@ -1,6 +1,6 @@
 
 InstanceType: m5.large
-MinutesWithoutPlayers: 5
+
 
 Container:
   # Docs here: https://github.com/lloesche/valheim-server-docker
@@ -9,12 +9,11 @@ Container:
     - UDP: 2456
     - UDP: 2457
   Environment:
-    SERVER_NAME: "Christian Minecraft Server"
-    WORLD_NAME: "Valhalla"
+    SERVER_NAME: "Example World"
+    WORLD_NAME: "Example"
     SERVER_PASS: !ENV ${VALHEIM_PASS}
     # SERVER_ARGS: "-crossplay"
-    SERVER_ARGS: "-modifier resources most"
-    # SERVER_PUBLIC: False
+    SERVER_PUBLIC: False
     # Since we're in the cloud, and this is only up when someone is connected:
     UPDATE_IF_IDLE: False
     RESTART_IF_IDLE: False
@@ -29,3 +28,12 @@ Container:
     - Path: /config
     # Holds server download file
     - Path: /opt/valheim
+
+# TODO:
+# Volume:
+
+# Config options for how to monitor for players:
+Watchdog:
+  MinutesWithoutPlayers: 5
+  Threshold: 16
+  Type: "UDP"

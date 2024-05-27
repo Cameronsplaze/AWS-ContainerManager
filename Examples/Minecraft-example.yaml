@@ -1,6 +1,5 @@
 
 InstanceType: m5.large
-MinutesWithoutPlayers: 5
 
 Container:
   # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/

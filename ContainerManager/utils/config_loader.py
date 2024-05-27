@@ -46,7 +46,6 @@ def parse_docker_ports(docker_ports_config: list) -> None:
 
 required_leaf_vars = [
     "InstanceType",
-    "MinutesWithoutPlayers",
     "Container",
 ]
 def load_leaf_config(path: str) -> dict:
@@ -67,6 +66,42 @@ def load_leaf_config(path: str) -> dict:
     environment = config["Container"].get("Environment", {})
     environment = {key: str(val) for key, val in environment.items()}
     config["Container"]["Environment"] = environment
+
+    ## Process the Watchdog config now:
+    watchdog = config.get("Watchdog", {})
+    if "MinutesWithoutPlayers" not in watchdog:
+        watchdog["MinutesWithoutPlayers"] = 5
+    assert watchdog["MinutesWithoutPlayers"] >= 2, "MinutesWithoutPlayers must be at least 2."
+
+    if "Type" not in watchdog:
+        using_tcp = any([list(x.keys())[0] == "TCP" for x in config["Container"]["Ports"]])
+        using_udp = any([list(x.keys())[0] == "UDP" for x in config["Container"]["Ports"]])
+        if using_tcp:
+            watchdog["Type"] = "TCP"
+        elif using_udp:
+            watchdog["Type"] = "UDP"
+        else:
+            raise ValueError("Watchdog type not specified, and could not be inferred from container ports. (Add Watchdog.Type)")
+
+    if watchdog["Type"] == "TCP":
+        if "TcpPort" not in watchdog:
+            if len(config["Container"]["Ports"]) != 1:
+                raise ValueError("Cannot infer TCP port from multiple ports. (Add Watchdog.TcpPort)")
+            watchdog["TcpPort"] = list(config["Container"]["Ports"][0].values())[0]
+
+    elif watchdog["Type"] == "UDP":
+        pass
+
+    # Default changes depending on protocol used:
+    if "Threshold" not in watchdog:
+        if watchdog["Type"] == "TCP":
+            watchdog["Threshold"] = 0
+        elif watchdog["Type"] == "UDP":
+            # TODO: Keep an eye on this and adjust as we get info from each game.
+            #           - Valheim: Packet count mainly bounces between 0 and 3, but sometimes hits 10-15
+            watchdog["Threshold"] = 16
+
+    config["Watchdog"] = watchdog
 
     return config
 
