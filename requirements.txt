@@ -1,5 +1,4 @@
-aws-cdk-lib==2.142.1
-boto3==1.34.109
+aws-cdk-lib==2.143.0
+boto3==1.34.113
 constructs>=10.0.0,<11.0.0
 pyaml-env==1.2.1
-python-a2s==1.3.0
