@@ -50,6 +50,7 @@ class Efs(NestedStack):
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
+        # TODO: Had to change to 777 to copy in backup files. Shouldn't have to...
         ap_acl = efs.Acl(owner_gid="1001", owner_uid="1001", permissions="700")
 
         ### Create a access point for the host:
