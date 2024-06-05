@@ -102,16 +102,15 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 - [2023-10-31 Slides](https://docs.google.com/presentation/d/17rSn7BLDSqF9PRpLHx2mn6WqB7h9m-5fe1JQlgahM58/edit#slide=id.g35ed75ccf_015)
 - [2024-02-27 Slides](https://docs.google.com/presentation/d/1XzeM2Bv9nNqtd9tSKaQG3HhUcs1HVuLG5fIK6v1Jodo/edit?usp=sharing)
 
-## TODO (In order)
+----
+
+## TODO (In order (not really...))
 
 ### Phase 1, MVP
 
 - Finish the prototype for the Leaf Stack:
   - In case the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
-    - If the time limit is 12 hours, see if there's a way to get it to email you EVERY 12 hours.
-
-- Possible optimization: [EventBridge on ASG can spin up/down ECS Tasks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.EcsTask.html). This might spin up the ECS task faster than the lambda doing it. This will mean you'll have to take out the "multiple instance safeguard" in the lambda, but now that we're using the right hook, that might not get hit anyways. (OR since you'll have to create two event bridges anyways, maybe only have the "ON" event bridge trigger ECS Task, and the "OFF" still go through lambda? We don't care about spin-down time, only spin-up anyways...)
-
+    - It's there, but email isn't being sent for some reason. Need to debug.
 
 ### Phase 2, Optimize and Cleanup
 
@@ -122,11 +121,10 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
 
-- Look into container to Caching `ECS_IMAGE_PULL_BEHAVIOR: prefer-cached` [details here](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/pull-behavior.html#ec2-pull-behavior).
-
 ### Phase 3, Split apart to run multiple games
 
 - Make sure they're locked down from each other too.
+- Switch lambda instances to use [aws powertools](https://docs.powertools.aws.dev/lambda/python/latest/). It maybe not installed by default, might have to poke at installing through requirements.txt or lambda layer (not sure which is faster yet).
 
 ## Phase 4, Get ready for Production!
 
@@ -143,7 +141,9 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - Good chance to figure out how CDK wants you to design tests. There's a pre-defined folder from `cdk init` in the repo too.
 
-### SSH Notes
+----
+
+## SSH Notes
 
 TODO - make more automatic somehow
 
