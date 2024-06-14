@@ -125,6 +125,7 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 - Make sure they're locked down from each other too.
 - Switch lambda instances to use [aws powertools](https://docs.powertools.aws.dev/lambda/python/latest/). It maybe not installed by default, might have to poke at installing through requirements.txt or lambda layer (not sure which is faster yet).
+- SSH: Close port 22 on the EC2. Switch to [one of these](https://repost.aws/questions/QUnV4R9EoeSdW0GT3cKBUR7w/what-is-the-difference-between-ec2-instance-connect-and-session-manager-ssh-connections). They let you still ssh, but keep the port closed. Research which one is better for us.
 
 ## Phase 4, Get ready for Production!
 
