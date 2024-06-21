@@ -141,6 +141,9 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 ### Phase 5, Add tests
 
 - Good chance to figure out how CDK wants you to design tests. There's a pre-defined folder from `cdk init` in the repo too.
+- Add Tags to stack/application, might help with analyzing costs and such.
+  - Add `awsApplication` tag, see if it creates a [myApplication](https://aws.amazon.com/blogs/aws/new-myapplications-in-the-aws-management-console-simplifies-managing-your-application-resources/) automatically.
+  - Add Generic stack tags, to help recognize the stack in the console.
 
 ----
 
