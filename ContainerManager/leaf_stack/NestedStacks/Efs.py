@@ -35,9 +35,13 @@ class Efs(NestedStack):
             self,
             "efs-file-system",
             vpc=vpc,
+            # Becomes something like `aws_cdk.RemovalPolicy.RETAIN`:`
             removal_policy=getattr(RemovalPolicy, efs_removal_policy),
             security_group=sg_efs_traffic,
             allow_anonymous_access=False,
+            ## No need to set, only in one AZ/Subnet already. If user increases that
+            ## number, they probably *want* more backups. There's no other reason to:
+            # one_zone=True,
         )
 
 
@@ -50,8 +54,7 @@ class Efs(NestedStack):
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-        # TODO: Had to change to 777 to copy in backup files. Shouldn't have to...
-        ap_acl = efs.Acl(owner_gid="1001", owner_uid="1001", permissions="700")
+        ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
 
         ### Create a access point for the host:
         ## Creating an access point:
