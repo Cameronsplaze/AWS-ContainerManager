@@ -26,10 +26,13 @@ guard-%:
 .PHONY := _cdk-deploy-helper
 _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Deploying Stack..."
+	echo "Starting at: `date +'%H:%M%P (%Ss)'`"
+	echo ""
 	cdk deploy "$(stack-regix)" \
 		--require-approval never \
 		--no-previous-parameters \
 		--context config-file="$(config-file)"
+	echo "Finished at: `date +'%H:%M%P (%Ss)'`"
 
 # Edit the base stack:
 .PHONY := cdk-deploy-base
@@ -49,9 +52,12 @@ cdk-deploy-leaf: guard-config-file
 .PHONY := _cdk-destroy-helper
 _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Destroying Stack..."
+	echo "Starting at: `date +'%H:%M%P (%Ss)'`"
+	echo ""
 	cdk destroy "$(stack-regix)" \
 		--force \
 		--context config-file="$(config-file)"
+	echo "Finished at: `date +'%H:%M%P (%Ss)'`"
 
 # Destroy the base stack
 .PHONY := cdk-destroy-base
