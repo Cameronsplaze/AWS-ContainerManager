@@ -17,9 +17,6 @@ Container:
     UPDATE_IF_IDLE: False
     RESTART_IF_IDLE: False
     BACKUPS: False
-    # Set user and group ID to match the host:
-    # PUID: 1001
-    # PGID: 1001
 
 Volume:
   RemovalPolicy: DESTROY
