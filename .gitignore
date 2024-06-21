@@ -137,3 +137,6 @@ cdk.context.json
 
 # Secret files
 vars.env
+
+# Personal Server Configs:
+ServerConfigs/
