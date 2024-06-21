@@ -111,7 +111,6 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 - Finish the prototype for the Leaf Stack:
   - In case the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
     - It's there, but email isn't being sent for some reason. Need to debug.
-- Rip out adjustable TTL, just always have it set to 1.
 
 ### Phase 2, Optimize and Cleanup
 

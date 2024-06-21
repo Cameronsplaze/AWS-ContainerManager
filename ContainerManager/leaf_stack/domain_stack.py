@@ -20,8 +20,9 @@ class DomainStack(Stack):
         ## The instance isn't up, use the "unknown" ip address:
         # https://www.lifewire.com/four-zero-ip-address-818384
         self.unavailable_ip = "0.0.0.0"
-        # Never set TTL to 0, it's not defined in the standard
-        self.unavailable_ttl = 1
+        ## Never set TTL to 0, it's not defined in the standard
+        # (Since the container is constantly changing, update DNS asap)
+        self.dns_ttl = 1
         self.record_type = route53.RecordType.A
         self.sub_domain_name = f"{container_name_id}.{base_stack.root_hosted_zone.zone_name}".lower()
 
@@ -70,7 +71,7 @@ class DomainStack(Stack):
             record_name=self.sub_domain_name,
             record_type=self.record_type,
             target=route53.RecordTarget.from_values(self.unavailable_ip),
-            ttl=Duration.seconds(self.unavailable_ttl),
+            ttl=Duration.seconds(self.dns_ttl),
         )
         self.dns_record.apply_removal_policy(RemovalPolicy.DESTROY)
         # Make sure the record is removed BEFORE you try to remove the zone

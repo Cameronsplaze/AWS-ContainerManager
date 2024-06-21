@@ -36,7 +36,7 @@ class AsgStateChangeHook(NestedStack):
         self.lambda_asg_state_change_hook = aws_lambda.Function(
             self,
             "lambda-asg-StateChange-hook",
-            description=f"{container_name_id}-ASG-StateChange: Triggered by ec2 state changes. Starts the management logic",
+            description=f"{container_name_id}-ASG-StateChange: Triggered by ec2 state changes. Starts/Stops the management logic",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -46,7 +46,7 @@ class AsgStateChangeHook(NestedStack):
                 "HOSTED_ZONE_ID": domain_stack.sub_hosted_zone.hosted_zone_id,
                 "DOMAIN_NAME": domain_stack.sub_domain_name,
                 "UNAVAILABLE_IP": domain_stack.unavailable_ip,
-                "UNAVAILABLE_TTL": str(domain_stack.unavailable_ttl),
+                "DNS_TTL": str(domain_stack.dns_ttl),
                 "RECORD_TYPE": domain_stack.record_type.value,
                 "WATCH_INSTANCE_RULE": rule_watchdog_trigger.rule_name,
                 "ECS_CLUSTER_NAME": ecs_cluster.cluster_name,
