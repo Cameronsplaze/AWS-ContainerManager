@@ -11,12 +11,16 @@ Container:
     SERVER_NAME: "Example World"
     WORLD_NAME: "Example"
     SERVER_PASS: !ENV ${VALHEIM_PASS}
-    # SERVER_ARGS: "-crossplay"
+    # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
+    SERVER_ARGS: "-modifier resources most -modifier portals casual"
     SERVER_PUBLIC: False
-    # Since we're in the cloud, and this is only up when someone is connected:
+    # Since we're in the cloud, and server is only up when someone is connected,
+    # we can't do stuff "when idle". Instead download update, and server will pick
+    # it up on next launch:
     UPDATE_IF_IDLE: False
-    RESTART_IF_IDLE: False
+    RESTART_CRON: ""
     BACKUPS: False
+
 
 Volume:
   RemovalPolicy: DESTROY
@@ -26,8 +30,9 @@ Volume:
     # Holds server download file
     - Path: /opt/valheim
 
-# # Config options for how to monitor for players:
+## Config options for how to monitor for players:
+##   (Currently the default anyways...) 
 # Watchdog:
 #   MinutesWithoutPlayers: 5
-#   Threshold: 16
+#   Threshold: 32
 #   Type: "UDP"
