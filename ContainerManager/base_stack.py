@@ -6,9 +6,9 @@ from aws_cdk import (
     Tags,
     RemovalPolicy,
     aws_ec2 as ec2,
-    aws_logs as logs,
     aws_route53 as route53,
     aws_sns as sns,
+    aws_servicecatalogappregistry as appregistry,
 )
 
 # from .utils.get_param import get_param
@@ -88,7 +88,6 @@ class ContainerManagerBaseStack(Stack):
         self.ssh_key_pair = ec2.KeyPair(
             self,
             "ssh-key-pair",
-            key_pair_name=f"{construct_id}-key-pair",
             ### To import a Public Key:
             # TODO: Maybe use get_param to optionally import this?
             # public_key_material="ssh-rsa ABCD...",
