@@ -81,8 +81,11 @@ cdk-synth:
 		echo "No Config File";
 		echo "    (Pass in with 'make cdk-synth config-file=<config>' to synth that stack too!)";
 	fi
+	# Take all non-var input, remove the 'cdk-synth' beginning, and pass the rest to cdk synth as stack-names
+	#    (Can do stuff like `make cdk-synth --config-file=./my-config.yaml stack2` to ONLY synth stack2)
+	stacks=`echo "$(MAKECMDGOALS)" | sed -e "s/$@//g" | xargs`
 	echo "Synthesizing Stack..."
-	cdk synth --context config-file="$(config-file)"
+	cdk synth --context config-file="$(config-file)" $${stacks}
 
 
 ###################
