@@ -66,7 +66,6 @@ if file_path:
         cross_region_references=True,
         env=main_env,
         base_stack=base_stack,
-        application_id=application_id,
         domain_stack=domain_stack,
         container_name_id=container_name_id,
         config=leaf_config,

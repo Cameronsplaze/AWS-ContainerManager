@@ -4,9 +4,7 @@ import re
 
 from aws_cdk import (
     Stack,
-    Tags,
     aws_sns as sns,
-    aws_servicecatalogappregistry as appregistry,
 )
 from constructs import Construct
 
@@ -39,43 +37,12 @@ class ContainerManagerStack(Stack):
             scope: Construct,
             construct_id: str,
             base_stack: ContainerManagerBaseStack,
-            application_id: str,
             domain_stack: DomainStack,
             container_name_id: str,
             config: dict,
             **kwargs
         ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        ###########################
-        ### MyApplication STUFF ###
-        ###########################
-        # For cost tracking and other things:
-        # This CAN be used on multiple stacks at once, but all the stacks have to be
-        #     in the same region.
-        # https://aws.amazon.com/blogs/aws/new-myapplications-in-the-aws-management-console-simplifies-managing-your-application-resources/
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_servicecatalogappregistry.CfnApplication.html
-        self.my_application = appregistry.CfnApplication(
-            self,
-            "CfnApplication",
-            name=application_id,
-            description=f"Core logic for managing {container_name_id} automatically",
-        )
-
-        ## We can't add the tag??? Creates a circular dependency :/
-        Tags.of(self).add(self.my_application.attr_application_tag_key, self.my_application.attr_application_tag_value)
-
-        ## Add the Stack to myApplication:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_servicecatalogappregistry.CfnResourceAssociation.html
-        stack_resource_association = appregistry.CfnResourceAssociation(
-            self,
-            "CfnResourceAssociation",
-            application=self.my_application.name,
-            resource=self.stack_id,
-            resource_type="CFN_STACK",
-        )
-        # I think this is only required because these are Cfn objects?:
-        stack_resource_association.add_dependency(self.my_application)
 
     
         ###############################
