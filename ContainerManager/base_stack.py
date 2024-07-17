@@ -8,7 +8,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_route53 as route53,
     aws_sns as sns,
-    aws_servicecatalogappregistry as appregistry,
+    aws_iam as iam,
 )
 
 # from .utils.get_param import get_param
@@ -16,7 +16,15 @@ from .utils.sns_subscriptions import add_sns_subscriptions
 
 class ContainerManagerBaseStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, config: dict, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        config: dict,
+        application_id_tag_name: str,
+        application_id_tag_value: str,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         #################
@@ -110,6 +118,23 @@ class ContainerManagerBaseStack(Stack):
             self,
             "sns-notify-topic",
             display_name=f"{construct_id}-sns-notify-topic",
+        )
+        # Give CloudWatch Alarms permissions to publish to the SNS Topic:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html#addwbrtowbrresourcewbrpolicystatement
+        self.sns_notify_topic.add_to_resource_policy(
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.PolicyStatement.html
+            iam.PolicyStatement(
+                actions=["sns:Publish"],
+                effect=iam.Effect.ALLOW,
+                resources=[self.sns_notify_topic.topic_arn],
+                principals=[iam.ServicePrincipal("cloudwatch.amazonaws.com")],
+                conditions={
+                    "StringEquals": {
+                        f"aws:ResourceTag/{application_id_tag_name}": application_id_tag_value,
+                        "aws:ResourceAccount": self.account,
+                    },
+                },
+            )
         )
         subscriptions = config.get("AlertSubscription", [])
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
