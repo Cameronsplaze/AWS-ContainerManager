@@ -204,7 +204,7 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
         # duration_before_alarm = Duration.hours(6).to_minutes() # TODO: maybe move this to a config?
         duration_before_alarm = Duration.minutes(5).to_minutes() # Just for testing
-        self.alarm_asg_num_instances = self.metric_asg_num_instances.create_alarm(
+        self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
             self,
             "Alarm-Instance-left-up",
             alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
@@ -222,7 +222,7 @@ class EcsAsg(NestedStack):
         #### TODO: Make the alarm message a good format
         #          (Maybe this? https://stackoverflow.com/questions/53487067/customize-alarm-message-from-aws-cloudwatch#53500349)
         #           And/Or just have it spin down the ASG, be a "forced" timeout after 6 hours (put bool in config?)
-        self.alarm_asg_num_instances.add_alarm_action(
+        self.alarm_asg_instance_left_up.add_alarm_action(
             cloudwatch_actions.SnsAction(base_stack_sns_topic)
         )
 
