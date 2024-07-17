@@ -52,7 +52,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 ### Phase 1, MVP
 
 - In case the instance is left on without a cron lambda (left on too long), add an alarm that triggers the BaseStack to email you. I don't see how this can ever trigger, but it'll let me sleep at night.
-  - It's there, but email isn't being sent for some reason. Need to debug.
+  - It's there, but email isn't being sent for some reason. Need to debug. Confirmed even with Email-json added, it's not being sent. Might add a dead-letter queue and see what that looks like next.
+- EFS Backups! Make them automatic, and how to download them if possible for local storage.
 
 ### Phase 2, Optimize and Cleanup
 
@@ -114,6 +115,13 @@ TODO - make more automatic somehow
 
   ```txt
   # This is for ALL games on your domain:
+
+  Host *.<DOMAIN_NAME>
+          StrictHostKeyChecking no
+          UserKnownHostsFile=/dev/null
+
+  # NOTE: THIS ONE MIGHT BE BETTER! I just couldn't get it working on
+  #       mine. It might have to do with what ssh client you're using.
   Host *.<DOMAIN_NAME>
       CheckHostIP no
   ```
