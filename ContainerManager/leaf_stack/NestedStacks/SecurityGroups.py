@@ -47,26 +47,6 @@ class SecurityGroups(NestedStack):
             description="Allow SSH traffic IN",
         )
 
-
-
-
-
-
-
-
-        ###### TODO: REMOVE THIS! JUST FOR DEBUGGING!!!!
-        self.sg_container_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.all_traffic(),
-            description="Allow ALL TRAFFIC IN",
-        )
-
-
-
-
-
-
-
         ## Security Group for EFS instance's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_efs_traffic = ec2.SecurityGroup(
