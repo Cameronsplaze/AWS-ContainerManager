@@ -24,11 +24,6 @@ class SecurityGroups(NestedStack):
     ) -> None:
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
 
-        ## Security Group for container traffic:
-        # TODO: Since someone could theoretically break into the container,
-        #        lock down traffic leaving it too.
-        #        (Should be the same as VPC sg BEFORE any stacks are added. Maybe have a base SG that both use?)
-
         ## Security Group for Container's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_container_traffic = ec2.SecurityGroup(
@@ -81,15 +76,6 @@ class SecurityGroups(NestedStack):
         for port_info in docker_ports_config:
             protocol, port = list(port_info.items())[0]
 
-            # ### Open up the same ports on the "firewall" vpc:
-            # sg_vpc_traffic.connections.allow_from(
-            #     ec2.Peer.any_ipv4(),
-            #     ## Dynamically use tcp or udp from:
-            #     # This will create something like: ec2.Port.tcp(25565)
-            #     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Port.html
-            #     getattr(ec2.Port, protocol.lower())(port),
-            #     description=f"({container_name_id}) Game port to allow traffic IN from",
-            # )
             self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
                 # sg_vpc_traffic,

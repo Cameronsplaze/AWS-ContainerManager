@@ -31,16 +31,6 @@ class ContainerManagerBaseStack(Stack):
         ### VPC STUFF ###
         #################
 
-        # ### Create a VPC log group:
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
-        # self.log_group_vpc = logs.LogGroup(
-        #     self,
-        #     "log-group-vpc",
-        #     log_group_name=f"/{construct_id}/vpc",
-        #     retention=logs.RetentionDays.ONE_WEEK,
-        #     removal_policy=RemovalPolicy.DESTROY,
-        # )
-
         ### Create a Public VPC to run instances in:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Vpc.html
         self.vpc = ec2.Vpc(
@@ -55,42 +45,7 @@ class ContainerManagerBaseStack(Stack):
                 )
             ],
         )
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.FlowLogOptions.html
-        # self.vpc.add_flow_log("vpc-flow-log-reject",
-        #     destination=ec2.FlowLogDestination.to_cloud_watch_logs(
-        #         log_group=self.log_group_vpc,
-        #     ),
-        #     traffic_type=ec2.FlowLogTrafficType.REJECT,
-        #     # traffic_type=ec2.FlowLogTrafficType.ALL,
-        # )
 
-        ## VPC Security Group - Traffic in/out the VPC itself:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
-        # TODO: I don't think this is actually being used? It's not attached to the VPC anywhere,
-        #       and no objects use it down the line. Maybe it's supposed to be the vpc_default_security_group?
-        #         - https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Vpc.html#vpcdefaultsecuritygroup
-        # self.sg_vpc_traffic = ec2.SecurityGroup(
-        #     self,
-        #     "sg-vpc-traffic",
-        #     description="Traffic for the VPC itself",
-        #     vpc=self.vpc,
-        #     # allow_all_outbound=False
-        # )
-        # Tags.of(self.sg_vpc_traffic).add("Name", f"{construct_id}/sg-vpc-traffic")
-        # self.sg_vpc_traffic.connections.allow_to(
-        #     ec2.Peer.any_ipv4(),
-        #     ec2.Port.tcp(443),
-        #     # - Let ECS talk with EC2 to register instances (Maybe only required for private ecs)
-        #     # - Let any container curl out to the internet to download stuff
-        #     # - Let containers update if you run `yum update` or `apt-get update`
-        #     description="Allow HTTPS traffic OUT",
-        # )
-        # ## Allow SSH traffic:
-        # self.sg_vpc_traffic.connections.allow_from(
-        #     ec2.Peer.any_ipv4(),
-        #     ec2.Port.tcp(22),
-        #     description="Allow SSH traffic IN",
-        # )
         ## For enabling SSH access:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
         self.ssh_key_pair = ec2.KeyPair(
