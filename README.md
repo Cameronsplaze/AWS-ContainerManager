@@ -18,18 +18,18 @@ python3 -m pip install -r requirements.txt -r requirements-dev.txt
 # Setup the env vars
 cp vars.env.example vars.env
 nano vars.env # Use the text editor that's better than vim >:)
-source vars.env
-# Deploy the stack
-make cdk-deploy
 ```
 
-### Every time after setup
+### Deploy the Stack
+
+There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/should use the same base stack. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
 
 ```bash
 source .venv/bin/activate
 source vars.env
+make cdk-deploy-base
 # And after you make any changes:
-make cdk-deploy
+make cdk-deploy-leaf config-file=./Examples/Valheim-example.yaml
 ```
 
 ## Devel Stuff
