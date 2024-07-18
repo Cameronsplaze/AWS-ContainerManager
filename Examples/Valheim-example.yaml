@@ -24,6 +24,7 @@ Container:
 
 Volume:
   RemovalPolicy: DESTROY
+  EnableBackups: False
   Paths:
     # Holds server config info
     - Path: /config

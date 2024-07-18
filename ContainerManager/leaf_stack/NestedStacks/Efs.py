@@ -39,6 +39,7 @@ class Efs(NestedStack):
             removal_policy=getattr(RemovalPolicy, efs_removal_policy),
             security_group=sg_efs_traffic,
             allow_anonymous_access=False,
+            enable_automatic_backups=volume_config["EnableBackups"],
             ## No need to set, only in one AZ/Subnet already. If user increases that
             ## number, they probably *want* more backups. There's no other reason to:
             # one_zone=True,

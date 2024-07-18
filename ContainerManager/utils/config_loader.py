@@ -72,6 +72,8 @@ def load_leaf_config(path: str) -> dict:
     volume = config.get("Volume", {})
     if "RemovalPolicy" in volume:
         volume["RemovalPolicy"] = volume["RemovalPolicy"].upper()
+    volume["EnableBackups"] = volume.get("EnableBackups", True)
+
     config["Volume"] = volume
 
     #######################
