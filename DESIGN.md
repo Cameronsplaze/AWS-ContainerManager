@@ -213,3 +213,15 @@ One option is the new `Pull through Cache` setting and [cdk construct](https://d
 Look at if [aws powertools](https://docs.powertools.aws.dev/lambda/python/latest/) is worth it, and what features it gives us.
 
 It maybe not installed by default, might have to poke at installing through requirements.txt or lambda layer (not sure which is faster yet).
+
+### Make SSH keys easy to find in the console
+
+No tags, or names get populated to the keys. I have one that's shared between them since idk how you're supposed to tell them apart anyways. Eventually I'd like the option of each container having a unique one, but this blocks that. I've asked about this [here](https://github.com/aws/aws-cdk/discussions/30049) with no luck yet.
+
+I swear I've tried the [params here](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html#construct-props) too, but it's been a while. Maybe they only take place on creation, not replace? Also there's a key-pair listed in `ec2 key-pair`, but it's actually *stored* in ssm param manager. Maybe those flags only affect one, and I checked the wrong one? It's been a bit, and this isn't MVP, so I'm planning on coming back another time.
+
+### Switch from IPv4 to IPv6
+
+Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. 
+
+Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4. It won't change *much* cost since IPv4 has a free tier we're not breaching yet.
