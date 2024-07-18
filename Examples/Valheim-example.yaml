@@ -18,7 +18,9 @@ Container:
     # we can't do stuff "when idle". Instead download update, and server will pick
     # it up on next launch:
     UPDATE_IF_IDLE: False
+    RESTART_IF_IDLE: False
     RESTART_CRON: ""
+    # Backups happen in EFS already, no need to do it here too:
     BACKUPS: False
 
 
