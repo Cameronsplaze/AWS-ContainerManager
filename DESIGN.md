@@ -225,3 +225,7 @@ I swear I've tried the [params here](https://docs.aws.amazon.com/cdk/api/v2/docs
 Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. 
 
 Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4. It won't change *much* cost since IPv4 has a free tier we're not breaching yet.
+
+### Only backup select paths in EFS
+
+With Valheim for example, one path contains all the game data you want safe, and the other is the server file that you don't care about. It's only in persistent storage so you don't have to re-download it every launch. Is there a way to only backup the first dir? It might mean that each **path** has to be it's own EFS. If that's the case, we'd also have to update the EC2 instance to mount each one. Is it worth it? I like everything in one EFS since it keeps the console clean. Probably costs less too. You can also see all the paths in one EFS very easily.
