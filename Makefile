@@ -3,11 +3,8 @@ SHELL:=/bin/bash
 .ONESHELL:
 MAKEFLAGS += --no-print-directory
 # Default action:
-.DEFAULT_GOAL := cdk-deploy
+.DEFAULT_GOAL := cdk-synth
 
-### Variables:
-# NOTE: IF base_stack_name EVER CHANGES: Also update it in 'ContainerManager.app.base_stack'
-base_stack_name := "ContainerManager-BaseStack"
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
 guard-%:
@@ -37,13 +34,15 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 # Edit the base stack:
 .PHONY := cdk-deploy-base
 cdk-deploy-base:
-	$(MAKE) _cdk-deploy-helper stack-regix="$(base_stack_name)" config-file=""
+	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
+	$(MAKE) _cdk-deploy-helper stack-regix="$${base_stack_name}" config-file=""
 
 # Edit everything BUT the base stack (within the config-file scope):
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-deploy-helper stack-regix="!$(base_stack_name)" config-file="$(config-file)"
+	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
+	$(MAKE) _cdk-deploy-helper stack-regix="!$${base_stack_name}" config-file="$(config-file)"
 
 
 
@@ -62,17 +61,28 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 # Destroy the base stack
 .PHONY := cdk-destroy-base
 cdk-destroy-base:
-	$(MAKE) _cdk-destroy-helper stack-regix="$(base_stack_name)" config-file=""
+	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
+	$(MAKE) _cdk-destroy-helper stack-regix="$${base_stack_name}" config-file=""
 
 # Destroy the leaf stack inside the config-file
 .PHONY := cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-destroy-helper stack-regix="!$(base_stack_name)" config-file="$(config-file)"
+	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
+	$(MAKE) _cdk-destroy-helper stack-regix="!$${base_stack_name}" config-file="$(config-file)"
 
 
 #################
 #### SYNTH STUFF:
+## Take all non-var input, remove the 'cdk-synth' beginning, and pass the rest to cdk synth as stack-names
+##    (Can do stuff like `make cdk-synth --config-file=./my-config.yaml stack2` to ONLY synth stack2)
+# If the first argument is "cdk-synth"...
+ifeq (cdk-synth,$(firstword $(MAKECMDGOALS)))
+  # use the rest as arguments for "cdk-synth"
+  STACKS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  # ...and turn them into do-nothing targets
+  $(eval $(STACKS):;@:)
+endif
 .PHONY := cdk-synth
 cdk-synth:
 	if [[ -n "$(config-file)" ]]; then \
@@ -81,11 +91,9 @@ cdk-synth:
 		echo "No Config File";
 		echo "    (Pass in with 'make cdk-synth config-file=<config>' to synth that stack too!)";
 	fi
-	# Take all non-var input, remove the 'cdk-synth' beginning, and pass the rest to cdk synth as stack-names
-	#    (Can do stuff like `make cdk-synth --config-file=./my-config.yaml stack2` to ONLY synth stack2)
-	stacks=`echo "$(MAKECMDGOALS)" | sed -e "s/$@//g" | xargs`
 	echo "Synthesizing Stack..."
-	cdk synth --context config-file="$(config-file)" $${stacks}
+	echo ""
+	cdk synth --context config-file="$(config-file)" $(STACKS)
 
 
 ###################
