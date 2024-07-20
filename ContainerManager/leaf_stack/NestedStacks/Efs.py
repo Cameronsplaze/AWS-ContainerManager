@@ -28,8 +28,6 @@ class Efs(NestedStack):
 
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
-        # TODO: When writing readme, add note on using DataSync to get info from old EFS to new one.
-        #       (Just use console. IaC shouldn't try to copy data in. It will on every re-deploy...)
         efs_removal_policy = volume_config.get("RemovalPolicy", "RETAIN").upper()
         self.efs_file_system = efs.FileSystem(
             self,

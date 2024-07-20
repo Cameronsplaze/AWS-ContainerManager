@@ -90,9 +90,8 @@ class EcsAsg(NestedStack):
         self.ec2_user_data.add_commands(
             ## Security Flags:
             'echo "ECS_DISABLE_PRIVILEGED=true" >> /etc/ecs/ecs.config',
-            ## TODO: Look into these two, if they actually make the host more secure:
-            # 'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
-            # 'echo "ECS_APPARMOR_CAPABLE=true" >> /etc/ecs/ecs.config',
+            'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
+            'echo "ECS_APPARMOR_CAPABLE=true" >> /etc/ecs/ecs.config',
             ## Isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
         )
@@ -117,8 +116,6 @@ class EcsAsg(NestedStack):
 
         ## A Fleet represents a managed set of EC2 instances:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
-        # TODO: Looking in the console "Activity" tab, there's a way to send SNS if instance fails to start/stop.
-        #       look into pushing that SNS to at least the base stack's topic.
         self.auto_scaling_group = autoscaling.AutoScalingGroup(
             self,
             "ASG",
