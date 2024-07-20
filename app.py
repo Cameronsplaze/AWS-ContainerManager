@@ -2,10 +2,12 @@
 import os
 
 from aws_cdk import (
-    Environment,
+    Aspects,
     App,
+    Environment,
     Tags,
 )
+import cdk_nag
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.main import ContainerManagerStack
@@ -15,6 +17,7 @@ from ContainerManager.utils.config_loader import load_base_config, load_leaf_con
 
 application_id = "ContainerManager"
 application_id_tag_name = "ApplicationID"
+# https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
 app = App()
 Tags.of(app).add(application_id_tag_name, application_id)
 
@@ -102,3 +105,5 @@ if file_path:
         Tags.of(link_together_stack).add(key, val)
 
 app.synth()
+# Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
+# Aspects.of(app).add(cdk_nag.HIPAASecurityChecks(verbose=True))

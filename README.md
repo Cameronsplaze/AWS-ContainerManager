@@ -71,8 +71,8 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ### Phase 4, Add tests
 
-- Add a `__main__` block to all the lambdas so you can call them directly. (Maybe add a script to go out and figure out the env vars for you?). Add argparse to figure out the event/context. Plus timing to see how long each piece takes. (import what it needs in `__main__` too, to keep lambda optimized). This should help with optimizing each piece, and unit testing.
-- Good chance to figure out how CDK wants you to design tests. There's a pre-defined folder from `cdk init` in the repo too.
+- Using pytest. Will also expand this to get timings of how long each part of the stack takes to spin up/down when someone connects.
+  - [cdk-nag](https://github.com/cdklabs/cdk-nag) can flag some stuff
 - Add Tags to stack/application, might help with analyzing costs and such.
   - Add Generic stack tags, to help recognize the stack in the console.
 
