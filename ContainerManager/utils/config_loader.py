@@ -87,7 +87,9 @@ def load_leaf_config(path: str) -> dict:
     if "Type" not in watchdog:
         using_tcp = any([list(x.keys())[0] == "TCP" for x in config["Container"]["Ports"]])
         using_udp = any([list(x.keys())[0] == "UDP" for x in config["Container"]["Ports"]])
-        if using_tcp:
+        if using_tcp and using_udp:
+            raise ValueError("Watchdog type not specified, and could not be inferred from container ports. (Add Watchdog.Type)")
+        elif using_tcp:
             watchdog["Type"] = "TCP"
         elif using_udp:
             watchdog["Type"] = "UDP"
