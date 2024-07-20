@@ -60,13 +60,14 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 ## Phase 3, Get ready for Production!
 
-- Configure and streamline the [ECS Cotnaienr Agent](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html). It says you can/should use the [instance user data](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/bootstrap_container_instance.html) to bootstrap it at instance launch time. The list of available config options [is here](https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables).
-  - (Agent is already added, but make sure all the flags we want are set and working.)
-
 - Go through Console and see if everything looks like you want. Check for warnings.
   - For example, EC2 instances say to force IMDSv2 is recommended
   - Make names look nice. I.e Lambda are long and repetitive, not descriptive.
 
+- Write up guide on moving files into EFS if a stack already existed
+  - Check if you can import EFS into the stack, I don't think you can.
+  - Check Data Sync, it keeps you in network. (Move from the previous stacks EFS into the new stack)
+  - Just use SFTP with Filezilla or something. Most expensive but easiest.
 
 ### Phase 4, Add tests
 

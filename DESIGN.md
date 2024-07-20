@@ -222,10 +222,53 @@ I swear I've tried the [params here](https://docs.aws.amazon.com/cdk/api/v2/docs
 
 ### Switch from IPv4 to IPv6
 
-Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6. 
+Switch external instance ip from ipv4 to ipv6. Will have to also switch dns record from A to AAAA. May also have security group updates to support ipv6.
 
 Switching because ipv6 is cheep/free, and aws is starting to charge for ipv4. It won't change *much* cost since IPv4 has a free tier we're not breaching yet.
 
 ### Only backup select paths in EFS
 
-With Valheim for example, one path contains all the game data you want safe, and the other is the server file that you don't care about. It's only in persistent storage so you don't have to re-download it every launch. Is there a way to only backup the first dir? It might mean that each **path** has to be it's own EFS. If that's the case, we'd also have to update the EC2 instance to mount each one. Is it worth it? I like everything in one EFS since it keeps the console clean. Probably costs less too. You can also see all the paths in one EFS very easily.
+With Valheim for example, one path contains all the game data you want safe, and the other is the server file that you don't care about. It's only in persistent storage so you don't have to re-download it every launch. Is there a way to only backup the first dir? It might mean that each **path** has to be it's own EFS. If that's the case, we'd also have to update the EC2 instance to mount each one. Is it worth it? I like everything in one EFS since it keeps the console clean. Probably costs less too. You can also see all the paths in one EFS very easily. (Could also just do up to two EFS's maybe. One for backups-enabled and one for not. Although this would mean if someone switched the flag and re-deployed, the new dir would be blank.)
+
+### Rewrite Config Section
+
+Just got something out the door. Now that I know what it should cover, rewrite that area with more linting/casting of objects.
+
+### Shutdown the system when you delete the stack
+
+Right now, if you delete the stack when an instance is up, it'll fail. It fails because the Route53 record is modified, and thus CDK doesn't reconize it's apart of the stack and refuses to delete the "custom resource". There's a couple ways to fix this:
+
+<details>
+
+<summary>Code</summary>
+
+1) Have the makefile spin down the ASG before deleting the stack. It's easiest, but feels hacky.
+
+    - Originally I did this with `aws cli` commands in the makefile like so:
+
+      ```bash
+      cdk-destroy-leaf: guard-config-file
+      echo "Config File: $(config-file)"
+      base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
+      # Get the container ID from the config file:
+      container_id=`python3 -c "import app; print(app.get_container_id('$(config-file)'))"`
+      # Get the ASG Name from the Container ID:
+      asg_name=$$(aws autoscaling describe-auto-scaling-groups \
+        --filters "Name=tag:ContainerNameID,Values=Valheim-example" \
+        --query 'AutoScalingGroups[0].AutoScalingGroupName' \
+        --output text)
+      # Set the desired capacity to 0:
+      aws autoscaling set-desired-capacity \
+        --auto-scaling-group-name $${asg_name} \
+        --desired-capacity 0 \
+        --honor-cooldown
+      ```
+
+      But there's no way to wait for the desired-capacity to finish that I can find. The other option is to move the logic into a python script, and use boto3 calls. This is tempting, but the file would have to live in the root of the project, and the makefile would probably have to use env-vars to pass in the config path to the script. Hence the hackyness of this idea.
+
+2) Use CDK CustomResources to either delete the Route53 record, or spin down the ASG, if a delete is called on the entire stack. (Not sure if spinning down the ASG is possible, but deleting Route53 records definitely is). This does leave yet another lambda in the account per leaf stack, but is a lot more automatic than the other solution.
+
+    - CDK Custom Delete Example [here](https://medium.com/cyberark-engineering/advanced-custom-resources-with-aws-cdk-1e024d4fb2fa)
+    - AWS Docs [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-custom-resources.html) (Not the greatest)
+
+</details>
