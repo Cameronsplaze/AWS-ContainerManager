@@ -89,7 +89,7 @@ class Watchdog(NestedStack):
         evaluation_periods = int(watchdog_config["MinutesWithoutPlayers"] / self.metric_total_activity.period.to_minutes())
         self.alarm_container_activity = self.metric_total_activity.create_alarm(
             self,
-            "Alarm-ContainerActivity",
+            "AlarmContainerActivity",
             alarm_name=f"{leaf_construct_id}-Alarm-ContainerActivity",
             alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
@@ -107,7 +107,7 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         self.lambda_watchdog_container_activity = aws_lambda.Function(
             self,
-            "lambda-watchdog-container-activity",
+            "WatchdogContainerActivity",
             description=f"{container_name_id}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/watchdog-container-activity/"),
             handler="main.lambda_handler",
@@ -193,7 +193,7 @@ class Watchdog(NestedStack):
         )
         self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
             self,
-            "Alarm-Watchdog-Errors",
+            "AlarmWatchdogErrors",
             alarm_name=f"{leaf_construct_id}-Alarm-Watchdog-Errors",
             alarm_description="Trigger if the Lambda Watchdog fails too many times",
             # Must be in alarm this long consecutively to trigger. 3 strikes you're out:
@@ -215,7 +215,7 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         self.rule_watchdog_trigger = events.Rule(
             self,
-            "rule-watchdog-trigger",
+            "RuleWatchdogTrigger",
             rule_name=f"{container_name_id}-rule-watchdog-trigger",
             description="Trigger Watchdog Lambda every minute, to see how many are using the container",
             schedule=events.Schedule.rate(Duration.minutes(1)),

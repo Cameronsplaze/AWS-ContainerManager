@@ -87,7 +87,8 @@ flowchart TD
 
 ```
 
-- Put all EFS stuff in 1 stack
-- Put all Notify User stuff in one stack
-- Look at params, make anything they reference directly in a stack
-  - I.e domain_name, unavailable_ip, and ttl are used in two places.
+## When rewriting docs
+
+- Make sure to list different `./base-stack-config.yaml` details here.
+
+

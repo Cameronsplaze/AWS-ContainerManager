@@ -55,7 +55,7 @@ class ContainerManagerStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
         self.sns_notify_topic = sns.Topic(
             self,
-            "sns-notify-topic",
+            "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
         subscriptions = config.get("AlertSubscription", [])

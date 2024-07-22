@@ -28,7 +28,7 @@ class SecurityGroups(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_container_traffic = ec2.SecurityGroup(
             self,
-            "sg-container-traffic",
+            "SgContainerTraffic",
             vpc=vpc,
             description=f"({container_name_id}) Traffic that can go into the Container",
         )
@@ -46,7 +46,7 @@ class SecurityGroups(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
         self.sg_efs_traffic = ec2.SecurityGroup(
             self,
-            "sg-efs-traffic",
+            "SgEfsTraffic",
             vpc=vpc,
             description=f"({container_name_id}) Traffic that can go into the EFS instance",
             # description=f"Traffic that can go into the {container.container_name} EFS instance",

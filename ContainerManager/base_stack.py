@@ -35,7 +35,7 @@ class ContainerManagerBaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.Vpc.html
         self.vpc = ec2.Vpc(
             self,
-            "VPC",
+            "Vpc",
             nat_gateways=0,
             max_azs=config.get("MaxAZs", 1),
             subnet_configuration=[
@@ -50,7 +50,7 @@ class ContainerManagerBaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
         self.ssh_key_pair = ec2.KeyPair(
             self,
-            "ssh-key-pair",
+            "SshKeyPair",
             ### To import a Public Key:
             # TODO: Maybe use get_param to optionally import this?
             # public_key_material="ssh-rsa ABCD...",
@@ -60,7 +60,7 @@ class ContainerManagerBaseStack(Stack):
         ## Private key generated from the KeyPair:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html
         # TODO: Can't get these to work. Asked about it at: https://github.com/aws/aws-cdk/discussions/30049
-        Tags.of(self.ssh_key_pair.private_key).add("ssh_key_pair_id", self.ssh_key_pair.key_pair_name)
+        Tags.of(self.ssh_key_pair.private_key).add("SshKeyPairId", self.ssh_key_pair.key_pair_name)
         Tags.of(self.ssh_key_pair.private_key).add("Stack", construct_id)
 
         ########################
@@ -71,7 +71,7 @@ class ContainerManagerBaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html
         self.sns_notify_topic = sns.Topic(
             self,
-            "sns-notify-topic",
+            "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
         )
         # Give CloudWatch Alarms permissions to publish to the SNS Topic:
@@ -111,7 +111,7 @@ class ContainerManagerBaseStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
             self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
                 self,
-                "root-hosted-zone",
+                "RootHostedZone",
                 hosted_zone_id=self.root_hosted_zone_id,
                 zone_name=self.domain_name,
             )
@@ -120,7 +120,7 @@ class ContainerManagerBaseStack(Stack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
             self.root_hosted_zone = route53.PublicHostedZone(
                 self,
-                "root-hosted-zone",
+                "RootHostedZone",
                 zone_name=self.domain_name,
                 comment=f"Hosted zone for {construct_id}: {self.domain_name}",
             )

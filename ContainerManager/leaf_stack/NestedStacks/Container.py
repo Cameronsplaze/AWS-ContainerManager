@@ -25,7 +25,7 @@ class Container(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html
         self.task_definition = ecs.Ec2TaskDefinition(
             self,
-            "task-definition",
+            "TaskDefinition",
 
             # execution_role= ecs **agent** permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
@@ -50,7 +50,7 @@ class Container(NestedStack):
         ## Logs for the container:
         self.container_log_group = logs.LogGroup(
             self,
-            "container-log-group",
+            "ContainerLogGroup",
             log_group_name=f"/aws/ec2/{leaf_construct_id}/{self.__class__.__name__}/ContainerLogs",
             retention=logs.RetentionDays.ONE_WEEK,
             removal_policy=RemovalPolicy.DESTROY,

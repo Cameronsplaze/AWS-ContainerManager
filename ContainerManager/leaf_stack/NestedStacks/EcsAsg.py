@@ -43,7 +43,7 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html
         self.ecs_cluster = ecs.Cluster(
             self,
-            "ecs-cluster",
+            "EcsCluster",
             cluster_name=f"{leaf_construct_id}-ecs-cluster",
             vpc=vpc,
         )
@@ -52,9 +52,9 @@ class EcsAsg(NestedStack):
         ## Permissions for inside the instance/host of the container:
         self.ec2_role = iam.Role(
             self,
-            "ec2-execution-role",
+            "Ec2ExecutionRole",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
-            description="This instance's permissions, the host of the container",
+            description="The instance's permissions (HOST of the container)",
         )
         ## Give it root access to the EFS:
         efs_file_system.grant_root_access(self.ec2_role)
@@ -101,7 +101,7 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
         self.launch_template = ec2.LaunchTemplate(
             self,
-            "ASG-LaunchTemplate",
+            "LaunchTemplate",
             instance_type=ec2.InstanceType(instance_type),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
@@ -111,6 +111,9 @@ class EcsAsg(NestedStack):
             user_data=self.ec2_user_data,
             role=self.ec2_role,
             key_pair=ssh_key_pair,
+            ## Console recommends to enable IMDSv2:
+            http_tokens=ec2.LaunchTemplateHttpTokens.REQUIRED,
+            require_imdsv2=True,
         )
 
 
@@ -118,7 +121,7 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.AutoScalingGroup.html
         self.auto_scaling_group = autoscaling.AutoScalingGroup(
             self,
-            "ASG",
+            "Asg",
             vpc=vpc,
             launch_template=self.launch_template,
             # desired_capacity=0,
@@ -160,7 +163,7 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
         self.ec2_service = ecs.Ec2Service(
             self,
-            "ec2-service",
+            "Ec2Service",
             cluster=self.ecs_cluster,
             task_definition=task_definition,
             desired_count=0,
@@ -177,7 +180,7 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
         # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
         self.scale_down_asg_action = autoscaling.StepScalingAction(self,
-            "scale-down-asg-action",
+            "ScaleDownAsgAction",
             auto_scaling_group=self.auto_scaling_group,
             adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
         )
@@ -202,7 +205,7 @@ class EcsAsg(NestedStack):
         duration_before_alarm = Duration.hours(8).to_minutes() # TODO: maybe move this to a config?
         self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
             self,
-            "Alarm-Instance-left-up",
+            "AlarmInstanceLeftUp",
             alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
             alarm_description="To warn if the instance is up too long",
             ### This way if the period changes, this will stay the same duration:
@@ -229,7 +232,7 @@ class EcsAsg(NestedStack):
         ]))
         self.rule_notify_up = events.Rule(
             self,
-            "rule-notify-up",
+            "RuleNotifyUp",
             rule_name=f"{container_name_id}-rule-notify-up",
             description="Let user know when system finishes spinning UP",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
@@ -263,7 +266,7 @@ class EcsAsg(NestedStack):
         message = events.RuleTargetInput.from_text(f"Container for '{container_name_id}' has stopped.")
         self.rule_notify_down = events.Rule(
             self,
-            "rule-notify-down",
+            "RuleNotifyDown",
             rule_name=f"{container_name_id}-rule-notify-down",
             description="Let user know when system finishes spinning down",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html

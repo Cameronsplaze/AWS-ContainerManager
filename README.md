@@ -22,15 +22,43 @@ nano vars.env # Use the text editor that's better than vim >:)
 
 ### Deploy the Stack
 
-There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/should use the same base stack. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/should use the **same** base stack. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+
+### Base Stack
+
+The config options are in `./base-stack-config.yaml`. Info on each option is in "ContainerManager/README.md/..." (**TODO**).
+
+If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/).
+
+For a quickstart, just run:
 
 ```bash
+# `source` if new shell
 source .venv/bin/activate
 source vars.env
+# Actually deploy:
 make cdk-deploy-base
-# And after you make any changes:
-make cdk-deploy-leaf config-file=./Examples/Valheim-example.yaml
 ```
+
+### Leaf Stack
+
+The config examples are in `./Examples/*-example.yaml`. Info on each config option is in "./Examples/README.md/..." (**TODO**). For a quickstart, just run:
+
+```bash
+# `source` if new shell
+source .venv/bin/activate
+source vars.env
+# Edit the config to what you want:
+cp ./Examples/Valheim-example.yaml ./Valheim.yaml
+nano ./Valheim.yaml
+# Actually deploy:
+make cdk-deploy-leaf config-file=./Valheim.yaml
+```
+
+And your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `Valheim.<DOMAIN_NAME>` in this case. No ".yaml")
+
+> [!NOTE]
+> It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
 
 ## Devel Stuff
 
@@ -61,8 +89,6 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 ## Phase 3, Get ready for Production!
 
 - Go through Console and see if everything looks like you want. Check for warnings.
-  - For example, EC2 instances say to force IMDSv2 is recommended
-  - Make names look nice. I.e Lambda are long and repetitive, not descriptive.
 
 - Write up guide on moving files into EFS if a stack already existed
   - Check if you can import EFS into the stack, I don't think you can.

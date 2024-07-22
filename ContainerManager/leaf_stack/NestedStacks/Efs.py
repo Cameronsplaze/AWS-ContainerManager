@@ -31,7 +31,7 @@ class Efs(NestedStack):
         efs_removal_policy = volume_config.get("RemovalPolicy", "RETAIN").upper()
         self.efs_file_system = efs.FileSystem(
             self,
-            "efs-file-system",
+            "Efs",
             vpc=vpc,
             # Becomes something like `aws_cdk.RemovalPolicy.RETAIN`:`
             removal_policy=getattr(RemovalPolicy, efs_removal_policy),

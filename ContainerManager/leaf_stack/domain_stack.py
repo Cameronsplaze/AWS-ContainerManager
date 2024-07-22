@@ -36,7 +36,7 @@ class DomainStack(Stack):
         ## Log group for the Route53 DNS logs:
         self.route53_query_log_group = logs.LogGroup(
             self,
-            "route53-query-log-group",
+            "QueryLogGroup",
             log_group_name=f"/aws/route53/{construct_id}-query-logs",
             # Only need logs to trigger the lambda, don't need long-term:
             retention=logs.RetentionDays.ONE_DAY,
@@ -51,7 +51,7 @@ class DomainStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
         self.sub_hosted_zone = route53.PublicHostedZone(
             self,
-            "sub-hosted-zone",
+            "SubHostedZone",
             zone_name=self.sub_domain_name,
             query_logs_log_group_arn=self.route53_query_log_group.log_group_arn,
             comment=f"Hosted zone for {construct_id}: {self.sub_domain_name}",

@@ -31,8 +31,8 @@ class LinkTogetherStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         self.lambda_start_system = aws_lambda.Function(
             self,
-            "lambda-start-system",
-            description=f"{container_name_id}-lambda-start-system: Turn system on, when someone connects.",
+            "StartSystem",
+            description=f"{container_name_id}-lambda-start-system: Spin up ASG when someone connects.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/trigger-start-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -42,11 +42,10 @@ class LinkTogetherStack(Stack):
                 "ASG_NAME": manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name,
                 "MANAGER_STACK_REGION": manager_stack.region,
                 ## Metric info to let the system know someone is trying to connect, and don't spin down:
-                # TODO: Set the metric math statistic to TRUE instead.
                 "METRIC_NAMESPACE": manager_stack.watchdog_nested_stack.metric_namespace,
                 "METRIC_NAME": manager_stack.watchdog_nested_stack.metric_activity_count.metric_name,
                 "METRIC_THRESHOLD": str(manager_stack.watchdog_nested_stack.threshold),
-                # Convert METRIC_UNIT from an Enum, to a string that boto3 expects. (Words must have first
+                ## Convert METRIC_UNIT from an Enum, to a string that boto3 expects. (Words must have first
                 #   letter capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
                 "METRIC_UNIT": manager_stack.watchdog_nested_stack.metric_unit.value.title(),
                 "METRIC_DIMENSIONS": json.dumps(manager_stack.watchdog_nested_stack.metric_dimension_map),
@@ -81,7 +80,7 @@ class LinkTogetherStack(Stack):
         # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
         self.subscription_filter = logs.SubscriptionFilter(
             self,
-            "subscription-filter",
+            "SubscriptionFilter",
             log_group=domain_stack.route53_query_log_group,
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
             filter_pattern=logs.FilterPattern.any_term(domain_stack.sub_domain_name),
