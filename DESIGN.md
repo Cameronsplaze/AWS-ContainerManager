@@ -2,6 +2,8 @@
 
 This document describes past and future design choices I've made / will make eventually. If you're looking for the current architecture, README's are sprinkled throughout the project detailing the part that they're in. The farther you get from the root of the project, the more specific they should be for that part.
 
+---
+
 ## Past Design Choices
 
 ### Public vs Private VPC Subnet
@@ -98,6 +100,8 @@ I went with EFS just because I don't want to manage growing / shrinking partitio
 
 </details>
 
+---
+
 ## Future Design Choices
 
 ### Adding myApplication to the stack
@@ -119,7 +123,7 @@ from ContainerManager.leaf_stack.my_application_stack import MyApplicationStack
     # ...Other stacks here...
     my_application_stack = MyApplicationStack(
         app,
-        f"{application_id}-MyApplicationStack",
+        f"{container_manager_id}-MyApplicationStack",
         description="For setting up myApplication in the AWS Console",
         cross_region_references=True,
         env=main_env,
@@ -193,6 +197,10 @@ class MyApplicationStack(Stack):
             # I think this is only required because these are Cfn objects?:
             stack_resource_association.add_dependency(self.my_application)
 ```
+
+There's also the `AppManagerCFNStackKey` tag key. I think the value is the name of the resources you want to group? Once I redeploy, I'm going to look at adding each ContaienrId as a tag, and group multiple stacks together then.
+
+awsApplication: `arn:aws:resource-groups:<region>:<accountId>:group/<ApplicationName>/<RandomHash>`
 
 </details>
 

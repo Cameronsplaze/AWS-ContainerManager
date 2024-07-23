@@ -1,8 +1,8 @@
 # GameManagement
 
-An AWS manager to run games in the CLOUD!!!
+Run Minecraft, Valheim, or any container in AWS!
 
-Spins up the EC2 instance when someone connects to it, then spins it back down when they disconnect. RN just minecraft, but plan on expanding to other containers right after.
+This CDK project spins up the container when someone connects, then spins it back down when they're done automatically. It's a great way to save money on your game servers, without opening your home network to the world.
 
 ## Quick Start
 
@@ -49,13 +49,15 @@ The config examples are in `./Examples/*-example.yaml`. Info on each config opti
 source .venv/bin/activate
 source vars.env
 # Edit the config to what you want:
-cp ./Examples/Valheim-example.yaml ./Valheim.yaml
-nano ./Valheim.yaml
+cp ./Examples/Minecraft-example.yaml ./Minecraft.yaml
+nano ./Minecraft.yaml
 # Actually deploy:
-make cdk-deploy-leaf config-file=./Valheim.yaml
+make cdk-deploy-leaf config-file=./Minecraft.yaml
 ```
 
-And your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `Valheim.<DOMAIN_NAME>` in this case. No ".yaml")
+### Connecting to the Container
+
+Your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `Minecraft.<DOMAIN_NAME>` in this case. No ".yaml")
 
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
