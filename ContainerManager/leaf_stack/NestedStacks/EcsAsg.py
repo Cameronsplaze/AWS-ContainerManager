@@ -21,7 +21,7 @@ class EcsAsg(NestedStack):
         self,
         scope: Construct,
         leaf_construct_id: str,
-        container_name_id: str,
+        container_id: str,
         container_url: str,
         vpc: ec2.Vpc,
         ssh_key_pair: ec2.KeyPair,
@@ -227,13 +227,13 @@ class EcsAsg(NestedStack):
         ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         message = events.RuleTargetInput.from_text("\n".join([
-            f"Container for '{container_name_id}' has started!",
+            f"Container for '{container_id}' has started!",
             f"Connect to it at: '{container_url}'.",
         ]))
         self.rule_notify_up = events.Rule(
             self,
             "RuleNotifyUp",
-            rule_name=f"{container_name_id}-rule-notify-up",
+            rule_name=f"{container_id}-rule-notify-up",
             description="Let user know when system finishes spinning UP",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
@@ -263,11 +263,11 @@ class EcsAsg(NestedStack):
         ##   (Can't combine with above target, since we care about different 'detail_type'.
         ##    Don't want to spam the user sadly.)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        message = events.RuleTargetInput.from_text(f"Container for '{container_name_id}' has stopped.")
+        message = events.RuleTargetInput.from_text(f"Container for '{container_id}' has stopped.")
         self.rule_notify_down = events.Rule(
             self,
             "RuleNotifyDown",
-            rule_name=f"{container_name_id}-rule-notify-down",
+            rule_name=f"{container_id}-rule-notify-down",
             description="Let user know when system finishes spinning down",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(

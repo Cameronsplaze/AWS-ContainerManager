@@ -23,7 +23,7 @@ class LinkTogetherStack(Stack):
         construct_id: str,
         domain_stack: DomainStack,
         manager_stack: ContainerManagerStack,
-        container_name_id: str,
+        container_id: str,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -32,7 +32,7 @@ class LinkTogetherStack(Stack):
         self.lambda_start_system = aws_lambda.Function(
             self,
             "StartSystem",
-            description=f"{container_name_id}-lambda-start-system: Spin up ASG when someone connects.",
+            description=f"{container_id}-lambda-start-system: Spin up ASG when someone connects.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/trigger-start-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,

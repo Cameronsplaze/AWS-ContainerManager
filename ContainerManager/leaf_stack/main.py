@@ -38,7 +38,7 @@ class ContainerManagerStack(Stack):
             construct_id: str,
             base_stack: ContainerManagerBaseStack,
             domain_stack: DomainStack,
-            container_name_id: str,
+            container_id: str,
             config: dict,
             **kwargs
         ) -> None:
@@ -67,7 +67,7 @@ class ContainerManagerStack(Stack):
             construct_id,
             description=f"Security Group Logic for {construct_id}",
             vpc=base_stack.vpc,
-            container_name_id=container_name_id,
+            container_id=container_id,
             # sg_vpc_traffic=base_stack.sg_vpc_traffic,
             docker_ports_config=config["Container"].get("Ports", []),
         )
@@ -77,7 +77,7 @@ class ContainerManagerStack(Stack):
             self,
             construct_id,
             description=f"Container Logic for {construct_id}",
-            container_name_id=container_name_id,
+            container_id=container_id,
             container_config=config["Container"],
         )
 
@@ -98,7 +98,7 @@ class ContainerManagerStack(Stack):
             self,
             construct_id,
             description=f"Ec2Service Logic for {construct_id}",
-            container_name_id=container_name_id,
+            container_id=container_id,
             container_url=domain_stack.sub_domain_name,
             vpc=base_stack.vpc,
             ssh_key_pair=base_stack.ssh_key_pair,
@@ -116,7 +116,7 @@ class ContainerManagerStack(Stack):
             self,
             construct_id,
             description=f"Watchdog Logic for {construct_id}",
-            container_name_id=container_name_id,
+            container_id=container_id,
             watchdog_config=config["Watchdog"],
             task_definition=self.container_nested_stack.task_definition,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
@@ -128,7 +128,7 @@ class ContainerManagerStack(Stack):
             self,
             construct_id,
             description=f"AsgStateChangeHook Logic for {construct_id}",
-            container_name_id=container_name_id,
+            container_id=container_id,
             domain_stack=domain_stack,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,

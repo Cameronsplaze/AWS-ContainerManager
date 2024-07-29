@@ -114,45 +114,38 @@ I'm moving longer-term ideas to [DESIGN.md](./DESIGN.md). This section is focuse
 
 TODO - make more automatic somehow
 
-- Get SSH private key from System Manager Param Storage
+- Get SSH private key from System Manager (SSM) Param Storage
 - Add it to agent:
 
   ```bash
-  nano ~/.ssh/container-manager
+  nano ~/.ssh/container-manager # Paste key from SSM
   chmod 600 ~/.ssh/container-manager
   ssh-add ~/.ssh/container-manager
   ```
 
+- Add this to your `~/.ssh/config`:
+
+  **NOTE**: The DOMAIN_NAME must be all lowercase! Otherwise it won't be case-insensitive when you `ssh` later.
+
+  ```txt
+  Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com"
+        StrictHostKeyChecking=accept-new        # Don't have to say `yes` first time connecting
+        CheckHostIP no                          # IP Changes all the time
+        UserKnownHostsFile=/dev/null            # Keep quiet that IP is changing
+        User=ec2-user                           # Default AWS User
+        IdentityFile=~/.ssh/container-manager   # The Key we just setup
+  ```
+
+  The `*.` before `<DOMAIN_NAME>` will match any sub-domain/container you spin up.
+
 - SSH into the instance:
 
   ```bash
-  ssh ec2-user@<GAME_URL>
-  # Or sometimes:
-  ssh -i ~/.ssh/container-manager ec2-user@<GAME_URL>
+  # If ~/.ssh/config is setup:
+  ssh <CONTAINER_ID>.<DOMAIN_NAME>
   ```
 
-- IP will change with each startup. If you have to remove the known host:
-
-  ```bash
-  ssh-keygen -R <GAME_URL>
-  ```
-
-  **OR** add this to  your local `~/.ssh/config`:
-
-  ```txt
-  # This is for ALL games on your domain:
-
-  Host *.<DOMAIN_NAME>
-          StrictHostKeyChecking no
-          UserKnownHostsFile=/dev/null
-
-  # NOTE: THIS ONE MIGHT BE BETTER! I just couldn't get it working on
-  #       mine. It might have to do with what ssh client you're using.
-  Host *.<DOMAIN_NAME>
-      CheckHostIP no
-  ```
-
-- If using filezilla:
+- If using FileZilla:
 
   - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
   - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.

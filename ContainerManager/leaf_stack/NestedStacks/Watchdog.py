@@ -21,7 +21,7 @@ class Watchdog(NestedStack):
         self,
         scope: Construct,
         leaf_construct_id: str,
-        container_name_id: str,
+        container_id: str,
         watchdog_config: dict,
         task_definition: ecs.Ec2TaskDefinition,
         auto_scaling_group: autoscaling.AutoScalingGroup,
@@ -33,7 +33,7 @@ class Watchdog(NestedStack):
         self.metric_namespace = leaf_construct_id
         self.metric_unit = cloudwatch.Unit.COUNT
         self.metric_dimension_map = {
-            "ContainerNameID": container_name_id,
+            "ContainerNameID": container_id,
         }
         ## Custom Metric for the number of connections
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
@@ -108,7 +108,7 @@ class Watchdog(NestedStack):
         self.lambda_watchdog_container_activity = aws_lambda.Function(
             self,
             "WatchdogContainerActivity",
-            description=f"{container_name_id}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
+            description=f"{container_id}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/watchdog-container-activity/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -216,7 +216,7 @@ class Watchdog(NestedStack):
         self.rule_watchdog_trigger = events.Rule(
             self,
             "RuleWatchdogTrigger",
-            rule_name=f"{container_name_id}-rule-watchdog-trigger",
+            rule_name=f"{container_id}-rule-watchdog-trigger",
             description="Trigger Watchdog Lambda every minute, to see how many are using the container",
             schedule=events.Schedule.rate(Duration.minutes(1)),
             targets=[

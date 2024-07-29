@@ -15,7 +15,7 @@ class Container(NestedStack):
         self,
         scope: Construct,
         leaf_construct_id: str,
-        container_name_id: str,
+        container_id: str,
         container_config: dict,
         **kwargs
     ) -> None:
@@ -63,7 +63,7 @@ class Container(NestedStack):
         ## And what it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
-            container_name_id.title(),
+            container_id.title(),
             image=ecs.ContainerImage.from_registry(container_config["Image"]),
             port_mappings=port_mappings,
             ## Hard limit. Won't ever go above this

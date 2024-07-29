@@ -20,7 +20,7 @@ class AsgStateChangeHook(NestedStack):
         self,
         scope: Construct,
         leaf_construct_id: str,
-        container_name_id: str,
+        container_id: str,
         domain_stack: DomainStack,
         ecs_cluster: ecs.Cluster,
         ec2_service: ecs.Ec2Service,
@@ -36,7 +36,7 @@ class AsgStateChangeHook(NestedStack):
         self.lambda_asg_state_change_hook = aws_lambda.Function(
             self,
             "AsgStateChangeHook",
-            description=f"{container_name_id}-ASG-StateChange: Triggered by ec2 state changes. Starts/Stops the management logic",
+            description=f"{container_id}-ASG-StateChange: Triggered by ec2 state changes. Starts/Stops the management logic",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
@@ -104,7 +104,7 @@ class AsgStateChangeHook(NestedStack):
         self.rule_asg_state_change_trigger = events.Rule(
             self,
             "AsgStateChangeTrigger",
-            rule_name=f"{container_name_id}-rule-ASG-StateChange-hook",
+            rule_name=f"{container_id}-rule-ASG-StateChange-hook",
             description="Trigger Lambda whenever the ASG state changes, to keep DNS in sync",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(

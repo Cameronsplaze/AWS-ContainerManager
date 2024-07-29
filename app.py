@@ -13,12 +13,12 @@ from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
-from ContainerManager.leaf_stack.my_application_stack import MyApplicationStack
+# from ContainerManager.leaf_stack.my_application_stack import MyApplicationStack
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
 
 application_id = "ContainerManager"
-application_id_tag_name = "ApplicationID"
+application_id_tag_name = "ApplicationId"
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
 app = App()
 Tags.of(app).add(application_id_tag_name, application_id)
@@ -58,18 +58,18 @@ base_stack = ContainerManagerBaseStack(
 file_path = app.node.try_get_context("config-file")
 if file_path:
     leaf_config = load_leaf_config(file_path)
-    container_name_id = os.path.basename(os.path.splitext(file_path)[0])
+    container_id = os.path.basename(os.path.splitext(file_path)[0])
     stack_tags = {
-        "ContainerNameId": container_name_id,
+        "ContainerId": container_id,
     }
 
     domain_stack = DomainStack(
         app,
-        f"{application_id}-{container_name_id}-DomainStack",
-        description=f"Route53 for '{container_name_id}', since it MUST be in us-east-1",
+        f"{application_id}-{container_id}-DomainStack",
+        description=f"Route53 for '{container_id}', since it MUST be in us-east-1",
         cross_region_references=True,
         env=us_east_1_env,
-        container_name_id=container_name_id,
+        container_id=container_id,
         base_stack=base_stack,
     )
     for key, val in stack_tags.items():
@@ -77,7 +77,7 @@ if file_path:
 
     manager_stack = ContainerManagerStack(
         app,
-        f"{application_id}-{container_name_id}-Stack",
+        f"{application_id}-{container_id}-Stack",
         description="For automatically managing a single container.",
         # cross_region_references lets this stack reference the domain_stacks
         # variables, since that one is ONLY in us-east-1
@@ -85,7 +85,7 @@ if file_path:
         env=main_env,
         base_stack=base_stack,
         domain_stack=domain_stack,
-        container_name_id=container_name_id,
+        container_id=container_id,
         config=leaf_config,
     )
     for key, val in stack_tags.items():
@@ -93,25 +93,25 @@ if file_path:
 
     link_together_stack = LinkTogetherStack(
         app,
-        f"{application_id}-{container_name_id}-LinkTogetherStack",
+        f"{application_id}-{container_id}-LinkTogetherStack",
         description=f"To avoid a circular dependency, and connect '{manager_stack.stack_name}' and '{domain_stack.stack_name}' together.",
         cross_region_references=True,
         env=us_east_1_env,
         domain_stack=domain_stack,
         manager_stack=manager_stack,
-        container_name_id=container_name_id,
+        container_id=container_id,
     )
     for key, val in stack_tags.items():
         Tags.of(link_together_stack).add(key, val)
 
     # my_application_stack = MyApplicationStack(
     #     app,
-    #     f"{application_id}-{container_name_id}-MyApplicationStack",
+    #     f"{application_id}-{container_id}-MyApplicationStack",
     #     description="For setting up myApplication in the AWS Console",
-    #     cross_region_references=True,
+    #     # cross_region_references=True,
     #     env=main_env,
     #     application_id=application_id,
-    #     container_name_id=container_name_id,
+    #     container_id=container_id,
     #     # ONLY stacks that use the same env:
     #     tag_stacks=[manager_stack],
     # )

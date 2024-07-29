@@ -18,7 +18,7 @@ class DomainStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        container_name_id: str,
+        container_id: str,
         base_stack: ContainerManagerBaseStack,
         **kwargs
     ) -> None:
@@ -31,7 +31,7 @@ class DomainStack(Stack):
         # (Since the container is constantly changing, update DNS asap)
         self.dns_ttl = 1
         self.record_type = route53.RecordType.A
-        self.sub_domain_name = f"{container_name_id}.{base_stack.root_hosted_zone.zone_name}".lower()
+        self.sub_domain_name = f"{container_id}.{base_stack.root_hosted_zone.zone_name}".lower()
 
         ## Log group for the Route53 DNS logs:
         self.route53_query_log_group = logs.LogGroup(
