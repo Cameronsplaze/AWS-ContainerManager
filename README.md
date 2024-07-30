@@ -72,7 +72,7 @@ How the docs work in this project, is each directory has a `README.md` that expl
 
 ### AWS Architecture
 
-See [ContainerManager/README.md](./ContainerManager/README.md) for a overview of the architecture.
+See [ContainerManager/README.md](./ContainerManager/README.md#how-the-stack-works) for a overview of the architecture.
 
 ---
 
@@ -174,7 +174,7 @@ make aws-whoami
 - Minor optimizations:
   - Go through Cloudwatch log Groups, make sure everything has a retention policy by default, and removal policy DESTROY.
 
-## Phase 3, Get ready for Production!
+### Phase 3, Get ready for Production!
 
 - Go through Console and see if everything looks like you want. Check for warnings.
 
