@@ -4,11 +4,12 @@ This is the core of the Container Manager. It's the AWS Architecture that runs t
 
 ## High-Level Architecture
 
-All the leaf stack components *combined*, form the following architecture:
+All the leaf stack components *combined*, form the architecture of managing a container. Below shows the **core** logic of just spinning up and down a container:
 
 ![picture](../../Resources/AWS-ContainerAutomationLogic.png)
-
 <!-- Original board: https://sketchboard.me/REucJJtlrBCi#/ -->
+
+**Not an all inclusive diagram**: There's more not shown, like EFS mounted to both the EC2 Task and ASG Instance, SNS Alerts, etc.
 
 ## Dependency Graph
 
