@@ -2,7 +2,7 @@
 import os
 
 from aws_cdk import (
-    Aspects,
+    # Aspects,
     App,
     Environment,
     Tags,
@@ -13,7 +13,6 @@ from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
-# from ContainerManager.leaf_stack.my_application_stack import MyApplicationStack
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
 
@@ -103,20 +102,6 @@ if file_path:
     )
     for key, val in stack_tags.items():
         Tags.of(link_together_stack).add(key, val)
-
-    # my_application_stack = MyApplicationStack(
-    #     app,
-    #     f"{application_id}-{container_id}-MyApplicationStack",
-    #     description="For setting up myApplication in the AWS Console",
-    #     # cross_region_references=True,
-    #     env=main_env,
-    #     application_id=application_id,
-    #     container_id=container_id,
-    #     # ONLY stacks that use the same env:
-    #     tag_stacks=[manager_stack],
-    # )
-    # for key, val in stack_tags.items():
-    #     Tags.of(my_application_stack).add(key, val)
 
 app.synth()
 # Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
