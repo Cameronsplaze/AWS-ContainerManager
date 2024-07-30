@@ -36,6 +36,8 @@ This is designed so you only need one base stack that you deploy first, then you
 
 ### Quick Overview
 
+Each of the links contain MUCH more detail on each component:
+
 - The [base_stack.py](./base_stack.py) is common architecture that different containers can share (i.e VPC). Multiple "Leaf Stacks" can point to the same "Base Stack".
 - The [./leaf_stack](./leaf_stack/README.md) is what runs a single container. One `leaf_stack` for one container.
 - The [./utils](./utils/README.md) are functions that don't fit in the other two. Mainly config readers/parsers rn.

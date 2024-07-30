@@ -88,6 +88,8 @@ These are config options when you deploy, for a single leaf. (The file's name be
 
     If `Type=TCP`, If how many packets sent/received is less than this, you're considered "idle". Default is `32`.
 
+    **If the default settings aren't working for the container**: In the AWS Console, you can go into CloudWatch Metrics -> Namespace: `ContainerManager-<ContainerId>-Stack` -> `ContainerNameID` -> and check `Metric-ContainerActivity-*` to see what the current activity is. Connect and Disconnect to the container to get an idea what the threshold *should* be.
+
 - `AlertSubscription`: (Optional, list)
 
   Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e "DoesNotExist@gmail.com")

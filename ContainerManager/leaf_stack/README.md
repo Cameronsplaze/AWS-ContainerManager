@@ -41,4 +41,4 @@ This manages and ties together all of the Nested Stacks. For more information, s
 
 ### Link Together Stack [link_together_stack.py]
 
-This is what actually spins the stack up when someone connects. This is it's own stack because it needs Route53 logs from the Domain Stack, so it has to be in `us-east-1`. It also needs to know the Main Stacks ASG, to spin it up when the query log is hit.
+This is what actually spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from the Domain Stack, so it HAS to be in `us-east-1`. It also needs to know the Main Stacks ASG to spin it up when the query log is hit.

@@ -1,8 +1,10 @@
-# GameManagement
+# AWS Container Manager
 
 Run Minecraft, Valheim, or any container in AWS!
 
-This CDK project spins up the container when someone connects, then spins it back down when they're done automatically. It's a great way to save money on your game servers, without opening your home network to the world.
+This CDK project spins up the container when someone connects, then spins it back *down* when they're done automatically! It's a great way to save money on your game/container servers, without opening your home network to the world.
+
+---
 
 ## Quick Start
 
@@ -26,7 +28,7 @@ There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks 
 
 ### Base Stack
 
-The config options are in `./base-stack-config.yaml`. Info on each option is in "ContainerManager/README.md/..." (**TODO**).
+The config options for the stack are in [./base-stack-config.yaml](./base-stack-config.yaml). Info on each option is in [./ContainerManager/README.md](./ContainerManager/README.md#editing-the-base-stack-config).
 
 If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/).
 
@@ -42,7 +44,7 @@ make cdk-deploy-base
 
 ### Leaf Stack
 
-The config examples are in `./Examples/*-example.yaml`. Info on each config option is in "./Examples/README.md/..." (**TODO**). For a quickstart, just run:
+The config examples are in `./Examples/*-example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
 
 ```bash
 # `source` if new shell
@@ -57,25 +59,109 @@ make cdk-deploy-leaf config-file=./Minecraft.yaml
 
 ### Connecting to the Container
 
-Your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `Minecraft.<DOMAIN_NAME>` in this case. No ".yaml")
+Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml")
 
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
+
+---
+
+## Docs and Extra Info
+
+How the docs work in this project, is each directory has a `README.md` that explains what's in that directory. The farther you get down a path, the more detailed the info gets. This `README.md` in the root of the project is a high-level overview of the project.
+
+### AWS Architecture
+
+See [ContainerManager/README.md](./ContainerManager/README.md) for a overview of the architecture.
+
+---
+
+## Accessing Files / SSH into the EC2 Instance
+
+The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP.
+
+To connect to the container:
+
+1) Get SSH private key from AWS System Manager (SSM) Param Storage
+2) Add it to agent:
+
+    ```bash
+    nano ~/.ssh/container-manager # Paste the key from SSM
+    chmod 600 ~/.ssh/container-manager
+    ssh-add ~/.ssh/container-manager
+    ```
+
+3) Add this to your `~/.ssh/config`:
+
+    **NOTE**: The DOMAIN_NAME must be all lowercase! Otherwise it won't be case-insensitive when you `ssh` later.
+
+    ```txt
+    Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com"
+          StrictHostKeyChecking=accept-new        # Don't have to say `yes` first time connecting
+          CheckHostIP no                          # IP Changes on every startup
+          UserKnownHostsFile=/dev/null            # Keep quiet that IP is changing
+          User=ec2-user                           # Default AWS User
+          IdentityFile=~/.ssh/container-manager   # The Key we just setup
+    ```
+
+4) Access the host!
+
+   - `ssh` into the instance:
+
+      ```bash
+      ssh <CONTAINER_ID>.<DOMAIN_NAME>
+      ```
+
+      And now you can use [docker](https://docs.docker.com/reference/cli/docker/container/exec/) commands if you need to jump into the container! Or view the files with
+
+      ```bash
+      ls -halt /mnt/efs
+      ```
+
+   - Use `FileZilla` to add/backup files:
+      - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
+      - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.
+
+---
 
 ## Devel Stuff
 
 See the ContainerManager's [README.md](./ContainerManager/README.md) for info on each stack component, and details in that area.
 
-### Slides
+If you make changes, and would like to `cdk synth`, there are `make` commands to help. Use:
 
-My work has "Day of Innovation" every once in a while, where we can work on whatever we want. Lately I've been choosing this project, and here's the slides from each DoI!
+```bash
+# Just lint the base stack:
+make cdk-synth
+# Lint the base stack, and a leaf stack with a config:
+make cdk-synth config-file=./Examples/<MyConfig>.yaml
+```
 
-- [2022-08-05 Slides](https://docs.google.com/presentation/d/1WiPHAqWpCft2M5jKnNh05txxDQSTm5wNUTH-mmoHbgw/edit#slide=id.g35f391192_00)
-- [2022-12-00 Slides](https://docs.google.com/presentation/d/1PcrMb1X317hyeCmxeNP-6l_UpfHqxDINtxtx3uJujPQ/edit#slide=id.g35f391192_00)
-- [2023-10-31 Slides](https://docs.google.com/presentation/d/17rSn7BLDSqF9PRpLHx2mn6WqB7h9m-5fe1JQlgahM58/edit#slide=id.g35ed75ccf_015)
-- [2024-02-27 Slides](https://docs.google.com/presentation/d/1XzeM2Bv9nNqtd9tSKaQG3HhUcs1HVuLG5fIK6v1Jodo/edit?usp=sharing)
+You can also quickly check which aws account you're configured to use, before you accidentally deploy to the wrong account:
 
-----
+```bash
+make aws-whoami
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+**Don't read past this, still re-writing everything after.**
+
+---
 
 ## TODO (In order (not really...))
 
@@ -108,45 +194,4 @@ My work has "Day of Innovation" every once in a while, where we can work on what
 
 I'm moving longer-term ideas to [DESIGN.md](./DESIGN.md). This section is focused on getting the MVP up and running.
 
-----
-
-## SSH Notes
-
-TODO - make more automatic somehow
-
-- Get SSH private key from System Manager (SSM) Param Storage
-- Add it to agent:
-
-  ```bash
-  nano ~/.ssh/container-manager # Paste key from SSM
-  chmod 600 ~/.ssh/container-manager
-  ssh-add ~/.ssh/container-manager
-  ```
-
-- Add this to your `~/.ssh/config`:
-
-  **NOTE**: The DOMAIN_NAME must be all lowercase! Otherwise it won't be case-insensitive when you `ssh` later.
-
-  ```txt
-  Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com"
-        StrictHostKeyChecking=accept-new        # Don't have to say `yes` first time connecting
-        CheckHostIP no                          # IP Changes all the time
-        UserKnownHostsFile=/dev/null            # Keep quiet that IP is changing
-        User=ec2-user                           # Default AWS User
-        IdentityFile=~/.ssh/container-manager   # The Key we just setup
-  ```
-
-  The `*.` before `<DOMAIN_NAME>` will match any sub-domain/container you spin up.
-
-- SSH into the instance:
-
-  ```bash
-  # If ~/.ssh/config is setup:
-  ssh <CONTAINER_ID>.<DOMAIN_NAME>
-  ```
-
-- If using FileZilla:
-
-  - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
-  - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.
-  - Files are stored in `/mnt/efs/<Volumes>`.
+---
