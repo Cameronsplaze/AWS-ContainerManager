@@ -72,7 +72,9 @@ How the docs work in this project, is each directory has a `README.md` that expl
 
 ### AWS Architecture
 
-See [ContainerManager/README.md](./ContainerManager/README.md#how-the-stack-works) for a overview of the architecture.
+See [./ContainerManager/README.md](./ContainerManager/README.md#how-the-stack-works) for a overview of the architecture.
+
+Or [./ContainerManager/leaf_stack/README.md](./ContainerManager/leaf_stack/README.md#high-level-architecture) for a aws architecture diagram of the core/leaf stack.
 
 ---
 
@@ -125,8 +127,6 @@ To connect to the container:
 ---
 
 ## Devel Stuff
-
-See the ContainerManager's [README.md](./ContainerManager/README.md) for info on each stack component, and details in that area.
 
 If you make changes, and would like to `cdk synth`, there are `make` commands to help. Use:
 
