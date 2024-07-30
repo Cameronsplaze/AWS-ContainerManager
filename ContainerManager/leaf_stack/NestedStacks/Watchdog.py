@@ -86,7 +86,7 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html#createwbralarmscope-id-props
         #       Total Duration = Number of Periods * Period length... so
         #       Number of Periods = Total Duration / Period length
-        evaluation_periods = int(watchdog_config["MinutesWithoutPlayers"] / self.metric_total_activity.period.to_minutes())
+        evaluation_periods = int(watchdog_config["MinutesWithoutConnections"] / self.metric_total_activity.period.to_minutes())
         self.alarm_container_activity = self.metric_total_activity.create_alarm(
             self,
             "AlarmContainerActivity",

@@ -99,9 +99,9 @@ class ContainerManagerBaseStack(Stack):
         ### Route53 STUFF ###
         #####################
         if "Domain" not in config:
-            raise ValueError("Required key 'Domain' missing from config. See TODO on writing configs")
+            raise ValueError("Required key 'Domain' missing from config. See `./ContainerManager/README.md` on writing configs")
         if "Name" not in config["Domain"]:
-            raise ValueError("Required key 'Domain.Name' missing from config. See TODO on writing configs")
+            raise ValueError("Required key 'Domain.Name' missing from config. See `./ContainerManager/README.md` on writing configs")
 
         self.domain_name = str(config["Domain"]["Name"]).lower()
         self.root_hosted_zone_id = config["Domain"].get("HostedZoneId")

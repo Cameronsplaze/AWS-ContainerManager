@@ -1,6 +1,106 @@
 # Writing your own Config Files
 
-## TODO
+## Creating Configs
+
+These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft-example.yaml` -> `minecraft-example.my-domain.com`). See any `*-example.yaml` in this directory for examples.
+
+- `InstanceType`: (Required, str)
+
+  The EC2 instance type to use. I.e `t3.micro`, `m5.large`, etc.
+
+- `Container`: (Required, dict)
+
+  - `Image`: (Required, str)
+
+    The Docker image to use. I.e `itzg/minecraft-server`, `lloesche/valheim-server`, etc.
+  
+  - `Ports`: (Required, list)
+
+    The list of ports to expose, in the form of `Type: number`. I.e:
+
+    ```yaml
+    Container:
+      Ports:
+        - TCP: 25565
+        - UDP: 1234
+        # ...
+    ```
+
+  - `Environment`: (Optional, dict)
+
+    The environment variables to pass into the container, as key-value pairs.
+
+    ```yaml
+    Container:
+      Environment:
+        EULA: "TRUE"
+        TYPE: "PAPER"
+        # ...
+    ```
+
+- `Volume`: (Optional, dict)
+
+  Config options for the EFS volume. If not provided, you won't save any data between restarts.
+
+  - `RemovalPolicy`: (Optional, str)
+
+    If you should keep the data when the stack is destroyed. Either `DESTROY` or `RETAIN`.
+
+  - `EnableBackups`: (Optional, bool)
+
+    If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups.
+
+  - `Paths`: (Optional, list)
+
+    List of dicts of what to persist INSIDE the container. One single element of the list can have:
+
+    - `Path`: (Required, str)
+
+      The path inside the container to persist. I.e `/data`, `/config`, etc.
+
+    - `ReadOnly`: (Optional, bool)
+  
+      If the path should be read-only. Default is `False`.
+
+    ```yaml
+    Volume:
+      Paths:
+        - Path: /data
+        - Path: /some/read/only/dir
+          ReadOnly: True
+    ```
+
+- `Watchdog`: (Optional, dict)
+
+  Config options for how long to wait before shutting down, and what is considered to be "idle".
+
+  - `MinutesWithoutConnections`: (Optional, int)
+
+    How many minutes without a connection before shutting down. Default is `5`.
+
+  - `Type`: (Optional unless both are used, str)
+
+    What type of connection to monitor. Either `TCP` or `UDP`. Default is whichever is open under `Container.Ports` above. Required if both are used.
+
+  - `Threshold`: (Optional, int)
+
+    If `Type=TCP`, If established connections open is this or less, you're considered "idle". Default is `0`.
+
+    If `Type=TCP`, If how many packets sent/received is less than this, you're considered "idle". Default is `32`.
+
+- `AlertSubscription`: (Optional, list)
+
+  Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e "DoesNotExist@gmail.com")
+
+    ```yaml
+    AlertSubscription:
+      - Email: DoesNotExist1@gmail.com
+      - Email: DoesNotExist2@gmail.com
+    ```
+
+    Options like `SMS` and `HTTPS` I hope to add at some point, but `Email` was the easiest to just get off the ground.
+
+    Adding it here instead of the base stack, will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
 
 ## Gotchas
 
@@ -8,4 +108,4 @@
 - **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it first spins up. Then what to do depends on the game.
   - For minecraft, it won't let anyone connect until after it finishes. It handles everything for you.
   - For Valheim, it'll let you connect, then everyone will get kicked when it finishes so it can restart (3-4min into playing). OR you can have it *not* restart, and you'll get the update after everyone disconnects for the night.
-- **Whitelist inside of the Configs**: All the containers I've tested so far provide some form of this. You can use it, but it means you have to re-deploy this project every time you make a change. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
+- **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of this. You can use it, but it means you have to re-deploy this project every time you make a change. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)

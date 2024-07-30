@@ -1,94 +1,68 @@
-# How the Stack Works
+# Container Manager
 
-## Overview
+## Editing the Base Stack Config
+
+These are config options for when you deploy the base stack, to fine-tune it to your needs. Make sure to update the [./base-stack-config.yaml](../base-stack-config.yaml) file in the root of this repo as that's the file the config-loader will look for.
+
+- `MaxAZs`: (Default: `1`, int)
+
+  The number of AZ's to use in the VPC. Two means high-availability, BUT your EFS storage costs will double.
+
+- `Domain`: (Required, dict)
+
+  - `Name`: (Required, str)
+    The root domain name for all the leaf_stack's.
+
+  - `HostedZoneId`: (Optional - kinda, str)
+    The Route53 Hosted Zone ID for the domain of the domain name above. If not provided, it will be created. (Though you'll probably have to manually update the NS records in your registrar or something. I haven't tested this path yet. If you buy a AWS Domain, it'll come with a HostedZoneID anyways).
+
+- `AlertSubscription`: (Optional, list)
+
+  Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e "DoesNotExist@gmail.com")
+
+    ```yaml
+    AlertSubscription:
+      - Email: DoesNotExist1@gmail.com
+      - Email: DoesNotExist2@gmail.com
+    ```
+
+    Options like `SMS` and `HTTPS` I hope to add at some point, but `Email` was the easiest to just get off the ground.
+
+    Only have someone subscribed to this, **OR** the leaf stack, **NOT BOTH**.
+
+## How the Stack Works
+
+This is designed so you only need one base stack that you deploy first, then you can deploy any number of leaf stacks on it. This lets you modify one leaf/container stack, without affecting the rest, and still have shared resources to reduce cost/complexity where appropriate.
+
+### Quick Overview
 
 - The [base_stack.py](./base_stack.py) is common architecture that different containers can share (i.e VPC). Multiple "Leaf Stacks" can point to the same "Base Stack".
-- The "Leaf Stack" is a single container. This links to the base stack, and is in-charge of a single container. Inside of the leaf stack:
-  - The [domain_info.py](./leaf_stack/domain_info.py) stack has to be it's own stack because route53 logs must live in us-east-1.
-  - The [main.py](./leaf_stack/main.py) stack can be in any region you want, and is the core logic.
-  - the [link_together.py](./leaf_stack/link_together.py) stack is to avoid a circular dependency between the first two. When it sees a connection in the logs of the `domain_info` stack, it updates the ASG in the `main` stack to spin up the container.
-
-## Diagrams
-
-- Mermaid Docs: <https://mermaid.js.org/syntax/flowchart.html>
-
-TODO: Update Mermaid Chart...
-      It is VERY out of date now, but I want to figure out the config logic first.
+- The [./leaf_stack](./leaf_stack/README.md) is what runs a single container. One `leaf_stack` for one container.
+- The [./utils](./utils/README.md) are functions that don't fit in the other two. Mainly config readers/parsers rn.
 
 ```mermaid
-flowchart TD
-    ECS-C[ECS Cluster]
-    LT[Launch Template]
-    ASG[AutoScaling Group]
-    ASG-CP[ASG Capacity Provider]
+flowchart LR
+    %% ID's
+    base_stack[base_stack.py]
+    leaf_stack_m["Leaf Stack (Minecraft)"]
+    leaf_stack_v["Leaf Stack (Valheim)"]
+    leaf_stack_p["Leaf Stack (Palworld)"]
+    utils["./utils"]
 
-    EFS-N[EFS Name: param]
-    EFS[EFS]
-    EFS-AP[EFS Access Point]
-    EC2-TD[EC2 Task Definition]
-
-    EC2-C[EC2 Container]
-    EC2-S[EC2 Service]
-
-    DOMAIN[Domain Name: param]
-    UN-IP[Unavailable IP: param]
-    DNS-R[DNS Record]
-
-    M-DM[Metric DimensionMap: param]
-    M-NC[Metric Num Connections]
-    A-NC[Alarm Num Connections]
-    L-NC[Lambda Num Connections]
-    R-NC[Rule Num Connections Trigger]
-
-    L-SS[Lambda SwitchSystem]
-    L-SCH[Lambda StateChange Hook]
-    R-SCT[Rule StateChange Trigger]
-    M-NCE[Metric Num Connections Error]
-    A-NCE[Alarm Num Connections Error]
-
-    ASG ---> LT
-    ASG-CP ---> ASG
-    ASG-CP <-.Weak Dep.-> ECS-C
-
-    EFS ---> EFS-AP
-    EC2-TD <-.Weak Dep.-> EFS-N
-    EC2-TD <-.Weak Dep.-> EFS
-    EC2-TD <-.Weak Dep.-> EFS-AP
-
-    EC2-TD ---> EC2-C
-    EC2-C <-.Weak Dep.-> EFS-N
-    EC2-S ---> ECS-C
-    EC2-S ---> EC2-TD
-
-    DNS-R ---> DOMAIN
-    DNS-R ---> UN-IP
-
-    M-NC ---> M-DM
-    A-NC ---> M-NC
-    L-NC ---> ASG
-    L-NC ---> EC2-TD
-    L-NC ---> M-NC
-    L-NC ---> M-NC
-    L-NC ---> M-DM
-    R-NC ---> L-NC
-    A-NC <==Break Here==> L-SS
-    L-SS ---> ECS-C
-    L-SS ---> EC2-S
-    L-SS ---> ASG
-    L-SS ---> R-NC
-    L-SCH ---> DOMAIN
-    L-SCH ---> UN-IP
-    L-SCH ---> R-NC
-    R-SCT ---> ASG
-    R-SCT ---> L-SCH
-    M-NCE ---> M-NC
-    A-NCE ---> M-NCE
-    A-NCE <==Break Here==> L-SS
-
+    base_stack --> leaf_stack_m
+    base_stack --> leaf_stack_v
+    base_stack --> leaf_stack_p
 ```
 
-## When rewriting docs
+### Base Stack
 
-- Make sure to list different `./base-stack-config.yaml` details here.
+The base stack is the common architecture that different containers can share. Most notably:
 
+- **VPC**: The overall network for all the containers and EFS.
+- **SSH Key Pair**: The key pair to SSH into the EC2 instances. Keeping it here lets you get into all the leaf_stacks without having to log into AWS each time you deploy a new leaf. If you destroy and re-build the leaf, this keeps the key consistent too.
+- **SNS Notify Logic**: Designed for things admin would care about. This tells you whenever the instance spins up or down, if it runs into errors, etc.
+- **Route53**: The base domain name for all stacks to build from.
 
+### Leaf Stack
+
+See the [leaf_stack README.md](./leaf_stack/README.md) for more info.  

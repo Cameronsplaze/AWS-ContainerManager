@@ -36,6 +36,6 @@ Volume:
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 
 # Watchdog:
-#   MinutesWithoutPlayers: 5
+#   MinutesWithoutConnections: 5
 #   Threshold: 32
 #   Type: "UDP"

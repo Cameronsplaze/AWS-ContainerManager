@@ -16,7 +16,7 @@ Container:
 
 Volume:
   RemovalPolicy: DESTROY
-  # Backup: False
+  # EnableBackups: False
   Paths:
     - Path: /data
     # - Path: /testing
@@ -24,7 +24,7 @@ Volume:
 
 # # Config options for how to monitor for players:
 # Watchdog:
-#   MinutesWithoutPlayers: 5
+#   MinutesWithoutConnections: 5
 #   Type: "TCP"
 
 AlertSubscription:
