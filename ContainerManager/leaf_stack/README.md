@@ -2,7 +2,17 @@
 
 This is the core of the Container Manager. It's the AWS Architecture that runs the container, along with spinning it up/down when needed. Multiple `leaf_stack`'s can be deployed together, one for each each container.
 
+## High-Level Architecture
+
+All the leaf stack components *combined*, form the following architecture:
+
+![picture](../../Resources/AWS-ContainerAutomationLogic.png)
+
+<!-- Original board: https://sketchboard.me/REucJJtlrBCi#/ -->
+
 ## Dependency Graph
+
+How each of the leaf stack components link together:
 
 ```mermaid
 flowchart LR
