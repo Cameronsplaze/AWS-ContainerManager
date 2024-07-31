@@ -5,8 +5,25 @@ on:
   pull_request: {}
 
 jobs:
-  cdk-lint-examples:
+  setup-matrix:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.setup-matrix.outputs.example-config-files }}
+    steps:
+      - name: Setup matrix
+        id: setup-matrix
+        run: |
+          file_list=$(ls Examples/*.yaml Examples/*.yml)
+          json_list=$(echo $file_list | jq --raw-input --compact-output 'split(" ")')
+          echo "example-config-files=$json_list" >> "$GITHUB_OUTPUT"
+
+  cdk-synth-examples:
+    runs-on: ubuntu-latest
+    needs:
+      - setup-matrix
+    strategy:
+      matrix:
+        example-config: ${{fromJson(needs.setup-matrix.outputs.example-config-files)}}
     steps:
       - uses: actions/checkout@v4
 
@@ -17,4 +34,4 @@ jobs:
         run: npm install -g aws-cdk
 
       - name: Synthesize CDK Examples
-        run: make cdk-synth config-file=./Examples/Minecraft-example.yaml
+        run: make cdk-synth config-file="${{ matrix.example-config }}"
