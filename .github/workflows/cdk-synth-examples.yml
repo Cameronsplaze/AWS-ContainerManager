@@ -10,6 +10,7 @@ jobs:
     outputs:
       matrix: ${{ steps.setup-matrix.outputs.example-config-files }}
     steps:
+      - uses: actions/checkout@v4
       - name: Setup matrix
         id: setup-matrix
         run: |
