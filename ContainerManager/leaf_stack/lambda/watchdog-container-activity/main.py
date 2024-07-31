@@ -1,4 +1,10 @@
 
+"""
+Function code for watching the container for connections.
+Needs to support BOTH TCP and UDP protocols. It pushes
+the info to CloudWatch metrics.
+"""
+
 import os
 import json
 
@@ -50,7 +56,9 @@ dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]
 
 
 def lambda_handler(event, context) -> None:
+    """ Main function of the lambda. """
     print(json.dumps({"Event": event, "Context": context}, default=str))
+
     instance_id = get_acg_instance_id()
     ssm_commands = build_ssm_command_script()
     connections = get_instance_connections(instance_id, ssm_commands)
@@ -59,6 +67,7 @@ def lambda_handler(event, context) -> None:
     push_to_cloudwatch_metric(os.environ["METRIC_NAME_SSH_CONNECTIONS"], connections["num_ssh_conn"])
 
 def push_to_cloudwatch_metric(metric_name: str, value: int) -> None:
+    """ Pushes a metric to cloudwatch. """
     cloudwatch_client.put_metric_data(
         Namespace=os.environ["METRIC_NAMESPACE"],
         MetricData=[{
@@ -70,7 +79,7 @@ def push_to_cloudwatch_metric(metric_name: str, value: int) -> None:
     )
 
 def build_ssm_command_script() -> list:
-    ### Build the script that we'll run on the instance:
+    """ Builds the script that will be run on the instance. """
     ssm_command = []
     ## Set 'container_id' and 'docker_pid', so future commands can use them:
     ssm_command.extend([
@@ -109,6 +118,7 @@ def build_ssm_command_script() -> list:
     return ssm_command
 
 def get_instance_connections(instance_id: str, ssm_commands: list) -> dict:
+    """ Get the number of connections on the instance. """
     ### Run the Command:
     response = ssm_client.send_command(
         InstanceIds=[instance_id],
@@ -162,6 +172,7 @@ def get_instance_connections(instance_id: str, ssm_commands: list) -> dict:
     return connections
 
 def get_acg_instance_id() -> str:
+    """ Get the instance ID of the running instance in the ASG """
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[os.environ["ASG_NAME"]])['AutoScalingGroups'][0]
     running_instances = [x for x in asg_info['Instances'] if x['LifecycleState'] == "InService"]
     # There should only be one running instance, if there's more/less, something is wrong:

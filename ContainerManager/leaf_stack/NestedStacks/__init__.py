@@ -1,4 +1,9 @@
 
+"""
+The different components of a leaf stack, broken
+apart to keep things manageable.
+"""
+
 from .AsgStateChangeHook import AsgStateChangeHook
 from .Container import Container
 from .EcsAsg import EcsAsg

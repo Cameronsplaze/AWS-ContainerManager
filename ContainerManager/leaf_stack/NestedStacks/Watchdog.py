@@ -1,4 +1,8 @@
 
+"""
+This module contains the Watchdog NestedStack class.
+"""
+
 import json
 
 from aws_cdk import (
@@ -17,6 +21,10 @@ from aws_cdk import (
 from constructs import Construct
 
 class Watchdog(NestedStack):
+    """
+    This sets up the logic for watching the container for
+    connections, and scaling down the ASG when none are found.
+    """
     def __init__(
         self,
         scope: Construct,
@@ -39,9 +47,10 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html
         if watchdog_config["Type"] == "TCP":
-            label = "Number of Connections"
-        elif watchdog_config["Type"] == "UDP":
-            label = f"Number of packets in since last check"
+            label = "Number of Connections (TCP)"
+        else: # watchdog_config["Type"] == "UDP":
+            label = "Number of packets in since last check (UDP)"
+
         self.metric_activity_count = cloudwatch.Metric(
             metric_name=f"Metric-ContainerActivity-{watchdog_config['Type']}",
             namespace=self.metric_namespace,
@@ -58,7 +67,7 @@ class Watchdog(NestedStack):
         )
 
         self.metric_ssh_connections = cloudwatch.Metric(
-            metric_name=f"Metric-SSH-Connections",
+            metric_name="Metric-SSH-Connections",
             namespace=self.metric_namespace,
             dimensions_map=self.metric_dimension_map,
             label="Number of SSH Connections",
@@ -223,6 +232,6 @@ class Watchdog(NestedStack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 events_targets.LambdaFunction(self.lambda_watchdog_container_activity),
             ],
-            # Start disabled, self.lambda_watchdog_container_activity will enable it when instance starts up 
+            # Start disabled, self.lambda_watchdog_container_activity will enable it when instance starts up
             enabled=False,
         )

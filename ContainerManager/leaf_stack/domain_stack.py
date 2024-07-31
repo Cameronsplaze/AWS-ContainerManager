@@ -1,4 +1,8 @@
 
+"""
+This configures the Domain Stack for the ContainerManager.
+"""
+
 from aws_cdk import (
     Stack,
     Duration,
@@ -6,14 +10,15 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_iam as iam,
     aws_logs as logs,
-    aws_servicecatalogappregistry as appregistry,
 )
 from constructs import Construct
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
 
 class DomainStack(Stack):
-
+    """
+    This stack creates a subdomain for the container, and ties it to the root domain.
+    """
     def __init__(
         self,
         scope: Construct,

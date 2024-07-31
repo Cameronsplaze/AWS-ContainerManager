@@ -1,4 +1,7 @@
 
+"""
+This module contains the AsgStateChangeHook NestedStack class.
+"""
 
 from aws_cdk import (
     NestedStack,
@@ -16,10 +19,13 @@ from constructs import Construct
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 
 class AsgStateChangeHook(NestedStack):
+    """
+    Contains the infrastructure to keep the management logic
+    in sync with the ASG/Instance state.
+    """
     def __init__(
         self,
         scope: Construct,
-        leaf_construct_id: str,
         container_id: str,
         domain_stack: DomainStack,
         ecs_cluster: ecs.Cluster,

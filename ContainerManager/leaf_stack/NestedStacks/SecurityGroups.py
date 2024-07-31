@@ -1,5 +1,7 @@
 
-
+"""
+This module contains the SecurityGroups NestedStack class.
+"""
 
 from aws_cdk import (
     NestedStack,
@@ -12,6 +14,10 @@ from constructs import Construct
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class SecurityGroups(NestedStack):
+    """
+    This sets up the Security Groups for everything. Broke it
+    out to avoid circular imports.
+    """
     def __init__(
         self,
         scope: Construct,

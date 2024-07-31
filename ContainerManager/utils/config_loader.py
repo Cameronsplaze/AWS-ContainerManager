@@ -37,7 +37,7 @@ def parse_docker_ports(docker_ports_config: list) -> None:
         valid_protocols = ["TCP", "UDP"]
         if protocol.upper() not in valid_protocols:
             raise NotImplementedError(f"Protocol {protocol} is not supported. Only {valid_protocols} are supported for now.")
-        
+
         # Check if the port is valid:
         if not isinstance(port, int):
             raise ValueError(f"Port {port} should be an integer.")
@@ -80,9 +80,9 @@ def load_leaf_config(path: str) -> dict:
     ### WATCHDOG CONFIG ###
     #######################
     watchdog = config.get("Watchdog", {})
-    if "MinutesWithoutPlayers" not in watchdog:
-        watchdog["MinutesWithoutPlayers"] = 5
-    assert watchdog["MinutesWithoutPlayers"] >= 2, "MinutesWithoutPlayers must be at least 2."
+    if "MinutesWithoutConnections" not in watchdog:
+        watchdog["MinutesWithoutConnections"] = 5
+    assert watchdog["MinutesWithoutConnections"] >= 2, "MinutesWithoutConnections must be at least 2."
 
     if "Type" not in watchdog:
         using_tcp = any([list(x.keys())[0] == "TCP" for x in config["Container"]["Ports"]])

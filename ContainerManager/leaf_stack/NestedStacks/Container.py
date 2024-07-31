@@ -1,4 +1,9 @@
 
+"""
+This module contains the Container NestedStack class.
+"""
+
+
 from aws_cdk import (
     NestedStack,
     RemovalPolicy,
@@ -11,6 +16,10 @@ from constructs import Construct
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class Container(NestedStack):
+    """
+    This creates the Container Definition for other stacks to
+    use and add on to.
+    """
     def __init__(
         self,
         scope: Construct,
@@ -79,4 +88,3 @@ class Container(NestedStack):
                 log_group=self.container_log_group,
             ),
         )
-

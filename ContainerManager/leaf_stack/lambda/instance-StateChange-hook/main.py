@@ -1,4 +1,9 @@
 
+"""
+Lambda code for starting and stopping the management logic
+whenever the ASG state changes (instance starts or stops).
+"""
+
 import os
 import sys
 import json
@@ -27,6 +32,11 @@ ecs_client = boto3.client('ecs')         # Used for updating the ECS service
 ec2_client = boto3.client('ec2')         # Used for getting the new instance's IP
 
 def lambda_handler(event: dict, context: dict) -> None:
+    """
+    Main function of the lambda.
+
+    `update_system` is broken out, to guarantee the event rule is always updated.
+    """
     print(json.dumps({"Event": event, "Context": context}, default=str))
 
     ### If the ec2 instance just FINISHED coming up:
@@ -56,6 +66,7 @@ def lambda_handler(event: dict, context: dict) -> None:
 
 
 def update_system(spin_up: bool, event: dict) -> None:
+    """ Update the ECS Service and DNS. """
     # Update the ECS service first, it'll take the longest to turn on:
     update_ecs_service(desired_count=1 if spin_up else 0)
 
@@ -68,6 +79,7 @@ def update_system(spin_up: bool, event: dict) -> None:
 
 
 def get_instance_ip(instance_id: str) -> str:
+    """ Get the instance IP """
     # Since you're supplying an ID, there should always be exactly one:
     instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
     # Now you have the new ip for the instance:
@@ -75,6 +87,7 @@ def get_instance_ip(instance_id: str) -> str:
 
 
 def update_dns_zone(new_ip: str) -> None:
+    """ Update the DNS record with the new IP """
     print(f"Changing to new IP: {new_ip}")
     ### Update the record with the new IP:
     route53_client.change_resource_record_sets(
@@ -94,6 +107,7 @@ def update_dns_zone(new_ip: str) -> None:
 
 
 def update_ecs_service(desired_count: int) -> None:
+    """ Update the ECS service to desired count """
     print(f"Spinning {'up' if desired_count else 'down'} ecs service ({desired_count=})")
     ## Spin up the task on the new instance:
     ecs_client.update_service(
@@ -104,6 +118,7 @@ def update_ecs_service(desired_count: int) -> None:
 
 
 def exit_if_asg_instance_coming_up(asg_name: str) -> None:
+    """ SAFEGUARD: Exit if another instance is coming up in the ASG """
     # - There's a window where if a instance is coming up as another spins down, it could wipe the
     # ip of the new instance from route53. This is a safety check to make sure that doesn't happen.
     # - Normally initializing boto3.client is expensive, but we only
@@ -117,4 +132,3 @@ def exit_if_asg_instance_coming_up(asg_name: str) -> None:
         if instance['LifecycleState'].startswith("Pending") or  instance['LifecycleState'] == "InService":
             print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event.")
             sys.exit()
-

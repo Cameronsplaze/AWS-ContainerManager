@@ -1,4 +1,8 @@
 
+"""
+This module contains the EcsAsg NestedStack class.
+"""
+
 from aws_cdk import (
     NestedStack,
     Duration,
@@ -17,6 +21,10 @@ from constructs import Construct
 
 
 class EcsAsg(NestedStack):
+    """
+    This sets up the "hardware" of the container, and the task to
+    run on it.
+    """
     def __init__(
         self,
         scope: Construct,
@@ -283,4 +291,3 @@ class EcsAsg(NestedStack):
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message),
             ],
         )
-

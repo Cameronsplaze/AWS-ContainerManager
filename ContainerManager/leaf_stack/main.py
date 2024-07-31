@@ -1,4 +1,7 @@
 
+"""
+This is the logic for ContainerManagerStack.
+"""
 
 import re
 
@@ -18,7 +21,10 @@ from ContainerManager.leaf_stack import NestedStacks
 
 
 class ContainerManagerStack(Stack):
-
+    """
+    This stack is the core manager for the container. It is broken
+    into nested stacks for easier management of each component.
+    """
     ## This makes the stack names of NestedStacks MUCH more readable:
     # (From: https://github.com/aws/aws-cdk/issues/18053 and https://github.com/aws/aws-cdk/issues/19099)
     def get_logical_id(self, element):
@@ -27,9 +33,8 @@ class ContainerManagerStack(Stack):
             if match:
                 # Returns "EfsNestedStack" instead of "EfsNestedStackEfsNestedStackResource..."
                 return match.group(1)
-            else:
-                # Fail fast. If the logical_id ever changes on a existing stack, you replace everything and might loose data.
-                raise RuntimeError(f"Could not find 'NestedStackResource' in {element.node.id}. Did a CDK update finally fix NestedStack names?")
+            # Fail fast. If the logical_id ever changes on a existing stack, you replace everything and might loose data.
+            raise RuntimeError(f"Could not find 'NestedStackResource' in {element.node.id}. Did a CDK update finally fix NestedStack names?")
         return super().get_logical_id(element)
 
     def __init__(
@@ -64,8 +69,8 @@ class ContainerManagerStack(Stack):
         ### All the info for the Security Group Stuff
         self.sg_nested_stack = NestedStacks.SecurityGroups(
             self,
-            construct_id,
             description=f"Security Group Logic for {construct_id}",
+            leaf_construct_id=construct_id,
             vpc=base_stack.vpc,
             container_id=container_id,
             # sg_vpc_traffic=base_stack.sg_vpc_traffic,
@@ -75,8 +80,8 @@ class ContainerManagerStack(Stack):
         ### All the info for the Container Stuff
         self.container_nested_stack = NestedStacks.Container(
             self,
-            construct_id,
             description=f"Container Logic for {construct_id}",
+            leaf_construct_id=construct_id,
             container_id=container_id,
             container_config=config["Container"],
         )
@@ -84,7 +89,6 @@ class ContainerManagerStack(Stack):
         ### All the info for EFS Stuff
         self.efs_nested_stack = NestedStacks.Efs(
             self,
-            construct_id,
             description=f"EFS Logic for {construct_id}",
             vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
@@ -96,8 +100,8 @@ class ContainerManagerStack(Stack):
         ### All the info for the ECS and ASG Stuff
         self.ecs_asg_nested_stack = NestedStacks.EcsAsg(
             self,
-            construct_id,
             description=f"Ec2Service Logic for {construct_id}",
+            leaf_construct_id=construct_id,
             container_id=container_id,
             container_url=domain_stack.sub_domain_name,
             vpc=base_stack.vpc,
@@ -114,8 +118,8 @@ class ContainerManagerStack(Stack):
         ### All the info for the Watchdog Stuff
         self.watchdog_nested_stack = NestedStacks.Watchdog(
             self,
-            construct_id,
             description=f"Watchdog Logic for {construct_id}",
+            leaf_construct_id=construct_id,
             container_id=container_id,
             watchdog_config=config["Watchdog"],
             task_definition=self.container_nested_stack.task_definition,
@@ -126,7 +130,6 @@ class ContainerManagerStack(Stack):
         ### All the info for the Asg StateChange Hook Stuff
         self.asg_state_change_hook_nested_stack = NestedStacks.AsgStateChangeHook(
             self,
-            construct_id,
             description=f"AsgStateChangeHook Logic for {construct_id}",
             container_id=container_id,
             domain_stack=domain_stack,

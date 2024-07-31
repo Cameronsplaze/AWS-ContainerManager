@@ -1,4 +1,7 @@
 
+"""
+This module contains the ContainerManagerBaseStack class.
+"""
 
 from constructs import Construct
 from aws_cdk import (
@@ -15,7 +18,10 @@ from aws_cdk import (
 from .utils.sns_subscriptions import add_sns_subscriptions
 
 class ContainerManagerBaseStack(Stack):
-
+    """
+    Contains shared resources for all leaf stacks.
+    Most importantly, the VPC and SNS.
+    """
     def __init__(
         self,
         scope: Construct,
@@ -59,7 +65,8 @@ class ContainerManagerBaseStack(Stack):
         )
         ## Private key generated from the KeyPair:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html
-        # TODO: Can't get these to work. Asked about it at: https://github.com/aws/aws-cdk/discussions/30049
+        # TODO: Can't get these to work. Asked about it at:
+        #       https://github.com/aws/aws-cdk/discussions/30049
         Tags.of(self.ssh_key_pair.private_key).add("SshKeyPairId", self.ssh_key_pair.key_pair_name)
         Tags.of(self.ssh_key_pair.private_key).add("Stack", construct_id)
 

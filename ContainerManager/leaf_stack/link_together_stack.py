@@ -1,4 +1,11 @@
 
+"""
+This Links together the Main Stack, and Domain Stack.
+
+Needed since they're in different regions, and we need
+    to know about objects from both.
+"""
+
 import json
 
 from aws_cdk import (
@@ -16,7 +23,9 @@ from ContainerManager.leaf_stack.domain_stack import DomainStack
 
 
 class LinkTogetherStack(Stack):
-
+    """
+    This stacks sets up the lambda to turn the system on.
+    """
     def __init__(
         self,
         scope: Construct,

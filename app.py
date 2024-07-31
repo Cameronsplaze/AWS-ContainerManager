@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+"""
+CDK Application for managing containers in AWS
+"""
+
 import os
 
 from aws_cdk import (
@@ -16,11 +21,11 @@ from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
 
-application_id = "ContainerManager"
-application_id_tag_name = "ApplicationId"
+APPLICATION_ID = "ContainerManager"
+APPLICATION_ID_TAG_NAME = "ApplicationId"
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
 app = App()
-Tags.of(app).add(application_id_tag_name, application_id)
+Tags.of(app).add(APPLICATION_ID_TAG_NAME, APPLICATION_ID)
 
 # Lets you reference self.account and self.region in your CDK code
 # if you need to:
@@ -34,7 +39,7 @@ us_east_1_env = Environment(
 )
 
 ### These are also imported to the makefile, to guarantee things are consistent:
-base_stack_name = f"{application_id}-BaseStack"
+base_stack_name = f"{APPLICATION_ID}-BaseStack"
 # def get_container_id(path: str) -> str:
 #     "The container ID is the base filename, without any extension"
 #     return os.path.basename(os.path.splitext(path)[0])
@@ -49,8 +54,8 @@ base_stack = ContainerManagerBaseStack(
     cross_region_references=True,
     env=main_env,
     config=base_config,
-    application_id_tag_name=application_id_tag_name,
-    application_id_tag_value=application_id,
+    application_id_tag_name=APPLICATION_ID_TAG_NAME,
+    application_id_tag_value=APPLICATION_ID,
 )
 
 ### Create the application for ONE Container:
@@ -64,7 +69,7 @@ if file_path:
 
     domain_stack = DomainStack(
         app,
-        f"{application_id}-{container_id}-DomainStack",
+        f"{APPLICATION_ID}-{container_id}-DomainStack",
         description=f"Route53 for '{container_id}', since it MUST be in us-east-1",
         cross_region_references=True,
         env=us_east_1_env,
@@ -76,7 +81,7 @@ if file_path:
 
     manager_stack = ContainerManagerStack(
         app,
-        f"{application_id}-{container_id}-Stack",
+        f"{APPLICATION_ID}-{container_id}-Stack",
         description="For automatically managing a single container.",
         # cross_region_references lets this stack reference the domain_stacks
         # variables, since that one is ONLY in us-east-1
@@ -92,7 +97,7 @@ if file_path:
 
     link_together_stack = LinkTogetherStack(
         app,
-        f"{application_id}-{container_id}-LinkTogetherStack",
+        f"{APPLICATION_ID}-{container_id}-LinkTogetherStack",
         description=f"To avoid a circular dependency, and connect '{manager_stack.stack_name}' and '{domain_stack.stack_name}' together.",
         cross_region_references=True,
         env=us_east_1_env,

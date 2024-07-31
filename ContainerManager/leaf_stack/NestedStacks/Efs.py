@@ -1,4 +1,8 @@
 
+"""
+This module contains the Efs NestedStack class.
+"""
+
 from aws_cdk import (
     NestedStack,
     RemovalPolicy,
@@ -13,10 +17,12 @@ from constructs import Construct
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class Efs(NestedStack):
+    """
+    This sets up the persistent storage for the ECS container.
+    """
     def __init__(
         self,
         scope: Construct,
-        leaf_construct_id: str,
         vpc: ec2.Vpc,
         task_definition: ecs.Ec2TaskDefinition,
         container: ecs.ContainerDefinition,

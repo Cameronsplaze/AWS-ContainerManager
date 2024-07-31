@@ -1,4 +1,8 @@
 
+"""
+Lambda code for starting the system when someone tries to connect.
+"""
+
 import os
 import json
 
@@ -25,6 +29,7 @@ cloudwatch_client = boto3.client('cloudwatch', config=config)
 asg_client = boto3.client('autoscaling', config=config)
 
 def lambda_handler(event, context):
+    """ Main function of the lambda. """
     print(json.dumps({"Event": event, "Context": context}, default=str))
 
     ### Let the metric know someone is trying to connect, to stop it
