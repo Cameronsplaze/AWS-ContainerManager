@@ -19,6 +19,7 @@ runs:
         cache: 'pip' # caching pip dependencies
 
     - name: Install Python Dependencies
+      shell: bash
       run: |
         python -m pip install --upgrade pip
         # Pylint is apart of dev dependencies:
