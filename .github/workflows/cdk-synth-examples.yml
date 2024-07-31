@@ -1,0 +1,19 @@
+name: cdk-synth
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  cdk-lint-examples:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Setup Python
+        uses: ./.github/workflows/composite-setup-python
+
+      - name: Install CDK
+        run: npm install -g aws-cdk
+
+      - name: Synthesize CDK Examples
+        run: make cdk-synth config-file=./Examples/Minecraft-example.yaml
