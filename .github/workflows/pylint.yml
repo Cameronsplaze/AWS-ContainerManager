@@ -10,10 +10,11 @@ jobs:
     env:
       PYTHON_VERSION: 3.12
     steps:
+      - uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: ./.github/workflows/composite-setup-python
+      - name: Setup Python
+        uses: ./.github/workflows/composite-setup-python
 
-    - name: Analysing the code with pylint
-      run: |
-        pylint $(git ls-files '*.py')
+      - name: Analysing the code with pylint
+        run: |
+          pylint $(git ls-files '*.py')
