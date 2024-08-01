@@ -26,7 +26,7 @@ nano vars.env # Use the text editor that's better than vim >:)
 
 There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/should use the **same** base stack. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
 
-### Base Stack
+#### Base Stack
 
 The config options for the stack are in [./base-stack-config.yaml](./base-stack-config.yaml). Info on each option is in [./ContainerManager/README.md](./ContainerManager/README.md#editing-the-base-stack-config).
 
@@ -42,7 +42,7 @@ source vars.env
 make cdk-deploy-base
 ```
 
-### Leaf Stack
+#### Leaf Stack
 
 The config examples are in `./Examples/*-example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
 
@@ -63,6 +63,19 @@ Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMA
 
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
+
+### Cleanup / Destroying the Stacks
+
+You have to clean up all the leaf stacks first, then the base stack.
+
+If your config has `Volume.RemovalPolicy` set to `RETAIN`, it'll keep your data inside AWS but still remove the stack.
+
+```bash
+# Destroying one leaf:
+make cdk-destroy-leaf config-file=./Minecraft.yaml
+# Destroying the base stack
+make cdk-destroy-base
+```
 
 ---
 
