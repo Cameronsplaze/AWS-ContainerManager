@@ -1,8 +1,31 @@
 name: cdk-synth
 
 on:
-  push: {}
-  pull_request: {}
+  push:
+    paths:
+      # Any code in ContainerManager:
+      - 'ContainerManager/**'
+      - 'app.py'
+      # This action:
+      - '.github/workflows/cdk-synth-examples.yml'
+      # Example Configs:
+      - 'Examples/**'
+      - 'base-stack-config.yaml'
+      # Except any readme's / documentation:
+      - '!**README.md'
+
+  pull_request:
+    paths:
+      # Any code in ContainerManager:
+      - 'ContainerManager/**'
+      - 'app.py'
+      # This action:
+      - '.github/workflows/cdk-synth-examples.yml'
+      # Example Configs:
+      - 'Examples/**'
+      - 'base-stack-config.yaml'
+      # Except any readme's / documentation:
+      - '!**README.md'
 
 jobs:
   setup-matrix:

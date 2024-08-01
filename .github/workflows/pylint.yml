@@ -11,7 +11,9 @@ on:
       - '.github/workflows/composite-setup-python/action.yaml'
   pull_request:
     paths:
+      # Changes to any python file:
       - '**.py'
+      # Or Actions this workflow depends on (including itself):
       - '.pylintrc'
       - '.github/workflows/pylint.yml'
       - '.github/workflows/composite-setup-python/action.yaml'
