@@ -50,6 +50,7 @@ class ContainerManagerBaseStack(Stack):
                     subnet_type=ec2.SubnetType.PUBLIC,
                 )
             ],
+            restrict_default_security_group=True,
         )
 
         ## For enabling SSH access:

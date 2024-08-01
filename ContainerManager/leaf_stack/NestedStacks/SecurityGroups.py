@@ -24,7 +24,6 @@ class SecurityGroups(NestedStack):
         leaf_construct_id: str,
         vpc: ec2.Vpc,
         container_id: str,
-        # sg_vpc_traffic: ec2.SecurityGroup,
         docker_ports_config: list,
         **kwargs,
     ) -> None:
@@ -36,7 +35,9 @@ class SecurityGroups(NestedStack):
             self,
             "SgContainerTraffic",
             vpc=vpc,
-            description=f"({container_id}) Traffic that can go into the Container",
+            description=f"({container_id}): Traffic for the Container",
+            # Impossible to know container will need/want:
+            allow_all_outbound=True,
         )
         # Create a name of `<StackName>/sg-container-traffic` to find it easier:
         Tags.of(self.sg_container_traffic).add("Name", f"{leaf_construct_id}/sg-container-traffic")
@@ -54,37 +55,27 @@ class SecurityGroups(NestedStack):
             self,
             "SgEfsTraffic",
             vpc=vpc,
-            description=f"({container_id}) Traffic that can go into the EFS instance",
-            # description=f"Traffic that can go into the {container.container_name} EFS instance",
+            description=f"({container_id}): Traffic for the EFS instance",
+            # Lock down to JUST talk with the container and host:
+            allow_all_outbound=False,
         )
         # Create a name of `<StackName>/sg-efs-traffic` to find it easier:
         Tags.of(self.sg_efs_traffic).add("Name", f"{leaf_construct_id}/sg-efs-traffic")
 
-        ## Now allow the two groups to talk to each other:
-        # TODO: Maybe you don't need BOTH of these? look into and test...
-        #       from: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#connecting
-        #       AND if you don't... try using the default security group?
-        #       (self.file_system.connections.allow_from_default_port(sg_container) or similar)
+        ## Allow EFS to receive traffic from the container:
+        #   (sg's are stateful, so it can reply too)
         self.sg_efs_traffic.connections.allow_from(
             self.sg_container_traffic,
             port_range=ec2.Port.tcp(2049),
             description="Allow EFS traffic IN - from container",
         )
-        self.sg_container_traffic.connections.allow_from(
-            # Allow efs traffic from within the Group.
-            self.sg_efs_traffic,
-            port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from EFS Server",
-        )
-
 
         # Loop over each port and figure out what it wants:
         for port_info in docker_ports_config:
             protocol, port = list(port_info.items())[0]
 
             self.sg_container_traffic.connections.allow_from(
-                ec2.Peer.any_ipv4(),           # <---- TODO: Is there a way to say "from outside vpc only"? The sg_vpc_traffic doesn't do it.
-                # sg_vpc_traffic,
+                ec2.Peer.any_ipv4(),
                 getattr(ec2.Port, protocol.lower())(port),
-                description=f"({container_id}) Game port to allow traffic IN from",
+                description=f"Game port: allow {protocol.lower()} traffic IN from {port}",
             )
