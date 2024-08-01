@@ -210,7 +210,11 @@ class EcsAsg(NestedStack):
 
         ## And the alarm to flag if the instance is up too long:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        duration_before_alarm = Duration.hours(8).to_minutes() # TODO: maybe move this to a config?
+        # TODO: maybe move this to a config? Could this logic move to Watchdog too?
+        #           (briefly looking, it'd work. Would have to add `base_stack_sns_topic`, but then
+        #            could add THAT to the watchdog errors lambda too. Could optionally-add the
+        #            spin-down to this, and have that configurable in watchdog config.)  
+        duration_before_alarm = Duration.hours(8).to_minutes()
         self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
             self,
             "AlarmInstanceLeftUp",
