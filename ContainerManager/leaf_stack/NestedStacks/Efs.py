@@ -40,6 +40,9 @@ class Efs(NestedStack):
             "Efs",
             vpc=vpc,
             # Becomes something like `aws_cdk.RemovalPolicy.RETAIN`:
+            # TODO: EFS Doesn't support snapshot. Change config option to bool:
+            #       https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.RemovalPolicy.html
+            #       If `True`, set to `RETAIN_ON_UPDATE_OR_DELETE`, else `DESTROY`.
             removal_policy=getattr(RemovalPolicy, efs_removal_policy),
             security_group=sg_efs_traffic,
             allow_anonymous_access=False,
