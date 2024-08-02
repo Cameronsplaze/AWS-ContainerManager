@@ -91,7 +91,15 @@ Or [./ContainerManager/leaf_stack/README.md](./ContainerManager/leaf_stack/READM
 
 ---
 
-## Accessing Files / SSH into the EC2 Instance
+## Running Commands on the Host / Accessing Files
+
+### SSM Session Manager
+
+Core AWS docs for this are [here](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html#ssh-connections-enable).
+
+(I can't get it automated. Use the SSH method below for now. Details are [here](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/2) if you're interested!).
+
+### SSH into the Host
 
 The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP.
 
