@@ -18,7 +18,7 @@ from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
-from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
+from ContainerManager.utils.config_loader_v2 import load_base_config, load_leaf_config
 
 
 APPLICATION_ID = "ContainerManager"
@@ -38,11 +38,8 @@ us_east_1_env = Environment(
     region="us-east-1",
 )
 
-### These are also imported to the makefile, to guarantee things are consistent:
+### NOTE: IF THIS IS CHANGED: Also change it in the Makefile:
 base_stack_name = f"{APPLICATION_ID}-BaseStack"
-# def get_container_id(path: str) -> str:
-#     "The container ID is the base filename, without any extension"
-#     return os.path.basename(os.path.splitext(path)[0])
 
 
 ### Create the Base Stack for ALL applications:

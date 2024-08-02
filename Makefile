@@ -5,6 +5,8 @@ MAKEFLAGS += --no-print-directory
 # Default action:
 .DEFAULT_GOAL := cdk-synth
 
+### NOTE: IF THIS IS CHANGED: Also change it in the Makefile:
+base_stack_name := "ContainerManager-BaseStack"
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
 guard-%:
@@ -34,15 +36,13 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 # Edit the base stack:
 .PHONY := cdk-deploy-base
 cdk-deploy-base:
-	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
-	$(MAKE) _cdk-deploy-helper stack-regix="$${base_stack_name}" config-file=""
+	$(MAKE) _cdk-deploy-helper stack-regix="$(base_stack_name)" config-file=""
 
 # Edit everything BUT the base stack (within the config-file scope):
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
-	$(MAKE) _cdk-deploy-helper stack-regix="!$${base_stack_name}" config-file="$(config-file)"
+	$(MAKE) _cdk-deploy-helper stack-regix="!$(base_stack_name)" config-file="$(config-file)"
 
 
 
