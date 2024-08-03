@@ -135,7 +135,6 @@ def _parse_ec2(config: dict) -> None:
         config["Ec2"] = {}
     if "InstanceType" not in config["Ec2"]:
         raise_missing_key_error("Ec2.InstanceType")
-    print(config["Ec2"])
 
 def _parse_watchdog(config: dict) -> None:
     if "Watchdog" not in config:
@@ -178,7 +177,15 @@ def _parse_watchdog(config: dict) -> None:
 
     ### Threshold:
     if "Threshold" not in config["Watchdog"]:
-        config["Watchdog"]["Threshold"] = {}
+        if config["Watchdog"]["Type"] == "TCP":
+            config["Watchdog"]["Threshold"] = 0
+        elif config["Watchdog"]["Type"] == "UDP":
+            # TODO: Keep an eye on this and adjust as we get info from each game.
+            #           - Valheim: No players ~0-15 packets. W/ 1 player ~5k packets
+            config["Watchdog"]["Threshold"] = 32
+        else:
+            # No idea how you'll hit this, but future-proofing:
+            raise_missing_key_error("Watchdog.Threshold")
 
 
 def load_leaf_config(path: str) -> dict:
