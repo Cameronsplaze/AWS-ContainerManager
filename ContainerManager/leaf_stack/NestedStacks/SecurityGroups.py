@@ -24,7 +24,7 @@ class SecurityGroups(NestedStack):
         leaf_construct_id: str,
         vpc: ec2.Vpc,
         container_id: str,
-        config_container_ports: list,
+        container_ports_config: list,
         **kwargs,
     ) -> None:
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
@@ -71,7 +71,7 @@ class SecurityGroups(NestedStack):
         )
 
         # Loop over each port and figure out what it wants:
-        for port_mapping in config_container_ports:
+        for port_mapping in container_ports_config:
             ## Get the string "TCP" or "UDP":
             # Starts from 'Protocol.TCP'
             protocol = str(port_mapping.protocol).split(".")[1]

@@ -73,7 +73,7 @@ class ContainerManagerStack(Stack):
             leaf_construct_id=construct_id,
             vpc=base_stack.vpc,
             container_id=container_id,
-            config_container_ports=config["Container"]["Ports"],
+            container_ports_config=config["Container"]["Ports"],
         )
 
         ### All the info for the Container Stuff
@@ -108,7 +108,7 @@ class ContainerManagerStack(Stack):
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             task_definition=self.container_nested_stack.task_definition,
-            config=config["Ec2"],
+            ec2_config=config["Ec2"],
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
             efs_file_system=self.efs_nested_stack.efs_file_system,
             host_access_point=self.efs_nested_stack.host_access_point,
