@@ -18,7 +18,7 @@ from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
-from ContainerManager.utils.config_loader_v2 import load_base_config, load_leaf_config
+from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
 
 APPLICATION_ID = "ContainerManager"
