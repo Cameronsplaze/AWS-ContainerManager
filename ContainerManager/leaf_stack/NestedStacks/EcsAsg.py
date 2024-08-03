@@ -5,7 +5,6 @@ This module contains the EcsAsg NestedStack class.
 
 from aws_cdk import (
     NestedStack,
-    Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
@@ -14,8 +13,6 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
-    aws_cloudwatch as cloudwatch,
-    aws_cloudwatch_actions as cloudwatch_actions,
 )
 from constructs import Construct
 
@@ -184,57 +181,10 @@ class EcsAsg(NestedStack):
             # placement_strategies=[ecs.PlacementStrategy.spread_across_instances()],
         )
 
-        ## Scale down ASG if this is ever triggered:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
-        # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
-        self.scale_down_asg_action = autoscaling.StepScalingAction(self,
-            "ScaleDownAsgAction",
-            auto_scaling_group=self.auto_scaling_group,
-            adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
-        )
-        self.scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
 
         ##########################
         ### Notification Stuff ###
         ##########################
-        ## Grab the IN_SERVICE_INSTANCES metric and load into cdk:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        self.metric_asg_num_instances = cloudwatch.Metric(
-            metric_name="GroupInServiceInstances",
-            namespace="AWS/AutoScaling",
-            dimensions_map={
-                "AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name,
-            },
-            period=Duration.minutes(1),
-        )
-
-        ## And the alarm to flag if the instance is up too long:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        # TODO: maybe move this to a config? Could this logic move to Watchdog too?
-        #           (briefly looking, it'd work. Would have to add `base_stack_sns_topic`, but then
-        #            could add THAT to the watchdog errors lambda too. Could optionally-add the
-        #            spin-down to this, and have that configurable in watchdog config.)  
-        duration_before_alarm = Duration.hours(8).to_minutes()
-        self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
-            self,
-            "AlarmInstanceLeftUp",
-            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
-            alarm_description="To warn if the instance is up too long",
-            ### This way if the period changes, this will stay the same duration:
-            # Total Duration = Number of Periods * Period length... so
-            # Number of Periods = Total Duration / Period length
-            evaluation_periods=int(duration_before_alarm / self.metric_asg_num_instances.period.to_minutes()),
-            threshold=1,
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
-        )
-        ## Actually email admin if this is triggered:
-        #   (No need to add the other sns_topic too, only admin would ever care about this.)
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.alarm_asg_instance_left_up.add_alarm_action(
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch_actions.SnsAction.html
-            cloudwatch_actions.SnsAction(base_stack_sns_topic)
-        )
 
         ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html

@@ -35,10 +35,6 @@ def lambda_handler(event, context):
     ### Let the metric know someone is trying to connect, to stop it
     ### from alarming and spinning down the system:
     ###   (Also if the system is in alarm, this resets it so it can spin down again)
-    ## TODO: Add this to the Design docs. This is important if the container
-    ##    is auto-updating to the latest version, and you can't join until
-    ##    the update finishes. Since the container spins up based on connections,
-    ##    this is the best way I can think of to handle auto-updates.
     dimensions_input = json.loads(os.environ["METRIC_DIMENSIONS"])
     # Change it to the format boto3 cloudwatch wants:
     dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]

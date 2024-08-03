@@ -1,4 +1,9 @@
 
+"""
+A helper script that lets you use CfnParams, but also use their values in a
+pythonic-way without trying to modify tokens.
+"""
+
 import os
 
 from typing import Union

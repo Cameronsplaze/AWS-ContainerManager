@@ -11,6 +11,7 @@ from aws_cdk import (
     aws_lambda,
     aws_iam as iam,
     aws_ecs as ecs,
+    aws_sns as sns,
     aws_logs as logs,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
@@ -33,11 +34,66 @@ class Watchdog(NestedStack):
         watchdog_config: dict,
         task_definition: ecs.Ec2TaskDefinition,
         auto_scaling_group: autoscaling.AutoScalingGroup,
-        scale_down_asg_action: autoscaling.StepScalingAction,
+        base_stack_sns_topic: sns.Topic,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
 
+        ## Scale down ASG if this is ever triggered:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
+        # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
+        self.scale_down_asg_action = autoscaling.StepScalingAction(self,
+            "ScaleDownAsgAction",
+            auto_scaling_group=auto_scaling_group,
+            adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
+        )
+        self.scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
+
+        ################################
+        ## Instance Up too-long Logic ##
+        ################################
+        ## Grab the built-in IN_SERVICE_INSTANCES metric and load into cdk:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        self.metric_asg_num_instances = cloudwatch.Metric(
+            metric_name="GroupInServiceInstances",
+            namespace="AWS/AutoScaling",
+            dimensions_map={
+                "AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name,
+            },
+            period=Duration.minutes(1),
+        )
+        ## And the alarm to flag if the instance is up too long:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        duration_before_alarm = Duration.hours(watchdog_config["InstanceLeftUp"]["DurationHours"]).to_minutes()
+        self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
+            self,
+            "AlarmInstanceLeftUp",
+            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
+            alarm_description="To warn if the instance is up too long",
+            ### This way if the period changes, this will stay the same duration:
+            # Total Duration = Number of Periods * Period length... so
+            # Number of Periods = Total Duration / Period length
+            evaluation_periods=int(duration_before_alarm / self.metric_asg_num_instances.period.to_minutes()),
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
+        )
+        ## Actually email admin if this is triggered:
+        #   (No need to add the other sns_topic too, only admin would ever care about this.)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        self.alarm_asg_instance_left_up.add_alarm_action(
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch_actions.SnsAction.html
+            cloudwatch_actions.SnsAction(base_stack_sns_topic)
+        )
+        if watchdog_config["InstanceLeftUp"]["ShouldStop"]:
+            self.alarm_asg_instance_left_up.add_alarm_action(
+                cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
+            )
+
+
+        #############################
+        ## Count Connections Logic ##
+        #############################
         self.metric_namespace = leaf_construct_id
         self.metric_unit = cloudwatch.Unit.COUNT
         self.metric_dimension_map = {
@@ -109,7 +165,7 @@ class Watchdog(NestedStack):
         ## Call this if switching to ALARM:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
         self.alarm_container_activity.add_alarm_action(
-            cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
+            cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
         )
 
         ## Lambda, count the number of connections and pass to CloudWatch Alarm
@@ -217,7 +273,7 @@ class Watchdog(NestedStack):
         ## Call this if switching to ALARM:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
         self.alarm_watchdog_errors.add_alarm_action(
-            cloudwatch_actions.AutoScalingAction(scale_down_asg_action)
+            cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
         )
 
         ## EventBridge Rule to trigger lambda every minute, to see how many are using the container

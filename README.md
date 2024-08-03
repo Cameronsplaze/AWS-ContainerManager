@@ -64,6 +64,8 @@ Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMA
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
 
+If it's downloading updates, keep spamming refresh. It sees those connection attempts and resets the time before spinning down.
+
 ### Cleanup / Destroying the Stacks
 
 You have to clean up all the leaf stacks first, then the base stack.

@@ -49,7 +49,6 @@ class ContainerManagerStack(Stack):
         ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-    
         ###############################
         ## Container-specific Notify ##
         ###############################
@@ -123,7 +122,7 @@ class ContainerManagerStack(Stack):
             watchdog_config=config["Watchdog"],
             task_definition=self.container_nested_stack.task_definition,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            scale_down_asg_action=self.ecs_asg_nested_stack.scale_down_asg_action,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
         )
 
         ### All the info for the Asg StateChange Hook Stuff

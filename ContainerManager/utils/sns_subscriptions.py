@@ -1,3 +1,11 @@
+
+"""
+sns_subscriptions.py
+
+Broken into it's own file since it's used in both the base and leaf stacks,
+AND since it takes 'context', it can't be created in the 'config_loader.py' file.
+"""
+
 from aws_cdk import (
     aws_sns as sns,
 )
