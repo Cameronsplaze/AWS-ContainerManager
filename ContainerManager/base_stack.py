@@ -43,7 +43,7 @@ class ContainerManagerBaseStack(Stack):
             self,
             "Vpc",
             nat_gateways=0,
-            max_azs=config.get("MaxAZs", 1),
+            max_azs=config["Vpc"]["MaxAZs"],
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     name=f"public-{construct_id}-sn",
@@ -99,28 +99,23 @@ class ContainerManagerBaseStack(Stack):
                 },
             )
         )
-        subscriptions = config.get("AlertSubscription", [])
-        add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
+        add_sns_subscriptions(self, self.sns_notify_topic, config["AlertSubscription"])
 
 
         #####################
         ### Route53 STUFF ###
         #####################
-        if "Domain" not in config:
-            raise ValueError("Required key 'Domain' missing from config. See `./ContainerManager/README.md` on writing configs")
-        if "Name" not in config["Domain"]:
-            raise ValueError("Required key 'Domain.Name' missing from config. See `./ContainerManager/README.md` on writing configs")
-
-        self.domain_name = str(config["Domain"]["Name"]).lower()
+        # domain_name is imported to other stacks, so save it to this one:
+        self.domain_name = config["Domain"]["Name"]
         self.root_hosted_zone_id = config["Domain"].get("HostedZoneId")
 
-        if self.root_hosted_zone_id:
+        if config["Domain"]["HostedZoneId"]:
             ## Import the existing Route53 Hosted Zone:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
             self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
                 self,
                 "RootHostedZone",
-                hosted_zone_id=self.root_hosted_zone_id,
+                hosted_zone_id=config["Domain"]["HostedZoneId"],
                 zone_name=self.domain_name,
             )
         else:

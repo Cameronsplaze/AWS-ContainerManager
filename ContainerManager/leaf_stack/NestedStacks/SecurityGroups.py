@@ -24,7 +24,7 @@ class SecurityGroups(NestedStack):
         leaf_construct_id: str,
         vpc: ec2.Vpc,
         container_id: str,
-        docker_ports_config: list,
+        config_container_ports: list,
         **kwargs,
     ) -> None:
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
@@ -71,8 +71,13 @@ class SecurityGroups(NestedStack):
         )
 
         # Loop over each port and figure out what it wants:
-        for port_info in docker_ports_config:
-            protocol, port = list(port_info.items())[0]
+        for port_mapping in config_container_ports:
+            ## Get the string "TCP" or "UDP":
+            # Starts from 'Protocol.TCP'
+            protocol = str(port_mapping.protocol).split(".")[1]
+            ## Get the port. Both 'host_port' and 'container_port'
+            #   are the same.
+            port = port_mapping.host_port
 
             self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),

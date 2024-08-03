@@ -40,22 +40,6 @@ class Container(NestedStack):
             # task_role= permissions for *inside* the container
         )
 
-        # Loop over each port and figure out what it wants:
-        port_mappings = []
-        for port_info in container_config.get("Ports", []):
-            protocol, port = list(port_info.items())[0]
-
-
-            ### Create a list of mappings for the container:
-            port_mappings.append(
-                ecs.PortMapping(
-                    host_port=port,
-                    container_port=port,
-                    # This will create something like: ecs.Protocol.TCP
-                    protocol=getattr(ecs.Protocol, protocol.upper()),
-                )
-            )
-
         ## Logs for the container:
         self.container_log_group = logs.LogGroup(
             self,
@@ -74,13 +58,13 @@ class Container(NestedStack):
         self.container = self.task_definition.add_container(
             container_id.title(),
             image=ecs.ContainerImage.from_registry(container_config["Image"]),
-            port_mappings=port_mappings,
+            port_mappings=container_config["Ports"],
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
             memory_reservation_mib=4*1024,
             ## Add environment variables into the container here:
-            environment=container_config.get("Environment", {}),
+            environment=container_config["Environment"],
             ## Logging, straight from:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.LogDriver.html
             logging=ecs.LogDrivers.aws_logs(

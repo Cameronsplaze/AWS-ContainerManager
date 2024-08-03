@@ -1,5 +1,6 @@
 
-InstanceType: m5.large
+Ec2:
+  InstanceType: m5.large
 
 Container:
   # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/

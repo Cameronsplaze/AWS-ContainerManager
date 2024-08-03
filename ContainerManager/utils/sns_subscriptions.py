@@ -9,10 +9,8 @@ def add_sns_subscriptions(context, sns_topic: sns.Topic, subscriptions: dict) ->
         (Normally 'subscriptions' is the 'Alert Subscription' block from the config file)
     """
     for subscription in subscriptions:
-        if len(subscription.items()) != 1:
-            raise ValueError(f"Each subscription should have only one key-value pair. Got: {subscription.items()}")
-        sub_type, address = list(subscription.items())[0]
-        protocol = getattr(sns.SubscriptionProtocol, sub_type.upper())
+        # All of the error checking is in the config parser/loader:
+        protocol, address = list(subscription.items())[0]
         ## Email with a SNS Subscription:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
         sns.Subscription(

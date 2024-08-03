@@ -192,8 +192,7 @@ make aws-whoami
 
 ### Phase 2, Optimize and Cleanup
 
-- Minor optimizations:
-  - Go through Cloudwatch log Groups, make sure everything has a retention policy by default, and removal policy DESTROY.
+- DONE!
 
 ### Phase 3, Get ready for Production!
 
@@ -208,8 +207,6 @@ make aws-whoami
 
 - Using pytest. Will also expand this to get timings of how long each part of the stack takes to spin up/down when someone connects.
   - [cdk-nag](https://github.com/cdklabs/cdk-nag) can flag some stuff
-- Add Tags to stack/application, might help with analyzing costs and such.
-  - Add Generic stack tags, to help recognize the stack in the console.
 
 ### Continue after this
 

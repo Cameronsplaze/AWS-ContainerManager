@@ -36,7 +36,7 @@ class EcsAsg(NestedStack):
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
         task_definition: ecs.Ec2TaskDefinition,
-        instance_type: str,
+        config: dict,
         sg_container_traffic: ec2.SecurityGroup,
         efs_file_system: efs.FileSystem,
         host_access_point: efs.AccessPoint,
@@ -110,7 +110,7 @@ class EcsAsg(NestedStack):
         self.launch_template = ec2.LaunchTemplate(
             self,
             "LaunchTemplate",
-            instance_type=ec2.InstanceType(instance_type),
+            instance_type=ec2.InstanceType(config["InstanceType"]),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
             machine_image=ecs.EcsOptimizedImage.amazon_linux2023(),

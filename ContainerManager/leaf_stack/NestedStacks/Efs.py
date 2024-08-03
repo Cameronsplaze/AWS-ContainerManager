@@ -31,19 +31,17 @@ class Efs(NestedStack):
         **kwargs,
     ) -> None:
         super().__init__(scope, "EfsNestedStack", **kwargs)
-
         ## Persistent Storage:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
-        efs_removal_policy = volume_config.get("RemovalPolicy", "RETAIN").upper()
+        if volume_config["KeepOnDelete"]:
+            efs_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
+        else:
+            efs_removal_policy = RemovalPolicy.DESTROY
         self.efs_file_system = efs.FileSystem(
             self,
             "Efs",
             vpc=vpc,
-            # Becomes something like `aws_cdk.RemovalPolicy.RETAIN`:
-            # TODO: EFS Doesn't support snapshot. Change config option to bool:
-            #       https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.RemovalPolicy.html
-            #       If `True`, set to `RETAIN_ON_UPDATE_OR_DELETE`, else `DESTROY`.
-            removal_policy=getattr(RemovalPolicy, efs_removal_policy),
+            removal_policy=efs_removal_policy,
             security_group=sg_efs_traffic,
             allow_anonymous_access=False,
             enable_automatic_backups=volume_config["EnableBackups"],
@@ -73,9 +71,9 @@ class Efs(NestedStack):
         self.host_access_point = self.efs_file_system.add_access_point("efs-access-point-host", create_acl=ap_acl, path="/")
 
         ### Create mounts and attach them to the container:
-        for volume_info in volume_config.get("Paths", []):
+        for volume_info in volume_config["Paths"]:
             volume_path = volume_info["Path"]
-            read_only = volume_info.get("ReadOnly", False)
+            read_only = volume_info["ReadOnly"]
             ## Create a UNIQUE name, ID of game + (modified) path:
             #   (Will be something like: `Minecraft-data` or `Valheim-opt-valheim`)
             volume_id = f"{container.container_name}{volume_path.replace('/','-')}"
