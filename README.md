@@ -81,18 +81,6 @@ make cdk-destroy-base
 
 ---
 
-## Docs and Extra Info
-
-How the docs work in this project, is each directory has a `README.md` that explains what's in that directory. The farther you get down a path, the more detailed the info gets. This `README.md` in the root of the project is a high-level overview of the project.
-
-### AWS Architecture
-
-See [./ContainerManager/README.md](./ContainerManager/README.md#how-the-stack-works) for a overview of the architecture.
-
-Or [./ContainerManager/leaf_stack/README.md](./ContainerManager/leaf_stack/README.md#high-level-architecture) for a aws architecture diagram of the core/leaf stack.
-
----
-
 ## Running Commands on the Host / Accessing Files
 
 ### SSM Session Manager
@@ -147,9 +135,38 @@ To connect to the container:
       - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
       - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.
 
+### Moving files from Old EFS to New
+
+If you have an existing EFS left over from deleting a stack, there's no way to tell the new stack to "just use it". You have to transfer the files over.
+
+- **Using SFTP**: The easiest, but most expensive since the files leave AWS, then come back in. Follow the [ssh guide](#ssh-into-the-host) to setup a SFTP application.
+- **Using DataSync**: Probably the cheapest, but I haven't figured it out yet. If you do this a-lot, it's worth looking into.
+
+---
+
+## Docs and Extra Info
+
+How the docs work in this project, is each directory has a `README.md` that explains what's in that directory. The farther you get down a path, the more detailed the info gets. This `README.md` in the root of the project is a high-level overview of the project.
+
+### AWS Architecture
+
+See [./ContainerManager/README.md](./ContainerManager/README.md#how-the-stack-works) for a overview of the architecture.
+
+Or [./ContainerManager/leaf_stack/README.md](./ContainerManager/leaf_stack/README.md#high-level-architecture) for a aws architecture diagram of the core/leaf stack.
+
 ---
 
 ## Devel Stuff
+
+If you're looking for *why* I made some decisions over others, check out the [DESIGN.md](./DESIGN.md) file.
+
+### Development Tricks
+
+Pylint is baked into the makefile, just use this to lint everything:
+
+```bash
+make pylint
+```
 
 If you make changes, and would like to `cdk synth`, there are `make` commands to help. Use:
 
@@ -165,53 +182,3 @@ You can also quickly check which aws account you're configured to use, before yo
 ```bash
 make aws-whoami
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
----
-
-**Don't read past this, still re-writing everything after.**
-
----
-
-## TODO (In order (not really...))
-
-### Phase 1, MVP
-
-- DONE!
-
-### Phase 2, Optimize and Cleanup
-
-- DONE!
-
-### Phase 3, Get ready for Production!
-
-- Go through Console and see if everything looks like you want. Check for warnings.
-
-- Write up guide on moving files into EFS if a stack already existed
-  - Check if you can import EFS into the stack, I don't think you can.
-  - Check Data Sync, it keeps you in network. (Move from the previous stacks EFS into the new stack)
-  - Just use SFTP with Filezilla or something. Most expensive but easiest.
-
-### Phase 4, Add tests
-
-- Using pytest. Will also expand this to get timings of how long each part of the stack takes to spin up/down when someone connects.
-  - [cdk-nag](https://github.com/cdklabs/cdk-nag) can flag some stuff
-
-### Continue after this
-
-I'm moving longer-term ideas to [DESIGN.md](./DESIGN.md). This section is focused on getting the MVP up and running.
-
----
