@@ -72,8 +72,8 @@ cdk-destroy-leaf: guard-config-file
 	$(MAKE) _cdk-destroy-helper stack-regix="!$${base_stack_name}" config-file="$(config-file)"
 
 
-#################
-#### SYNTH STUFF:
+########################
+#### SYNTH / LINT STUFF:
 ## Take all non-var input, remove the 'cdk-synth' beginning, and pass the rest to cdk synth as stack-names
 ##    (Can do stuff like `make cdk-synth --config-file=./my-config.yaml stack2` to ONLY synth stack2)
 # If the first argument is "cdk-synth"...
@@ -95,6 +95,9 @@ cdk-synth:
 	echo ""
 	cdk synth --context config-file="$(config-file)" $(STACKS)
 
+.PHONY := pylint
+pylint:
+	pylint $$(git ls-files '*.py')
 
 ###################
 ## Misc Commands ##
