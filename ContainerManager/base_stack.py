@@ -7,12 +7,16 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     Tags,
+    Duration,
     RemovalPolicy,
     aws_ec2 as ec2,
     aws_route53 as route53,
     aws_sns as sns,
     aws_iam as iam,
+    aws_kms as kms,
 )
+
+from cdk_nag import NagSuppressions
 
 # from .utils.get_param import get_param
 from .utils.sns_subscriptions import add_sns_subscriptions
@@ -52,6 +56,12 @@ class ContainerManagerBaseStack(Stack):
             ],
             restrict_default_security_group=True,
         )
+        NagSuppressions.add_resource_suppressions(self.vpc, [
+            {
+                "id": "AwsSolutions-VPC7",
+                "reason": "Flow logs cost a lot, and the average user won't need them.",
+            },
+        ])
 
         ## For enabling SSH access:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
@@ -81,6 +91,13 @@ class ContainerManagerBaseStack(Stack):
             self,
             "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
+            master_key=kms.Key(
+                self,
+                "SnsNotifyTopicKey",
+                description=f"Key for sns topic '{construct_id}'",
+                rotation_period=Duration.days(365),
+            ),
+            enforce_ssl=True,
         )
         # Give CloudWatch Alarms permissions to publish to the SNS Topic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html#addwbrtowbrresourcewbrpolicystatement

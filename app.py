@@ -7,7 +7,7 @@ CDK Application for managing containers in AWS
 import os
 
 from aws_cdk import (
-    # Aspects,
+    Aspects,
     App,
     Environment,
     Tags,
@@ -25,6 +25,8 @@ APPLICATION_ID = "ContainerManager"
 APPLICATION_ID_TAG_NAME = "ApplicationId"
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
 app = App()
+### TODO: Finish going through all the cdk_nag checks:
+# Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
 Tags.of(app).add(APPLICATION_ID_TAG_NAME, APPLICATION_ID)
 
 # Lets you reference self.account and self.region in your CDK code
@@ -106,5 +108,3 @@ if file_path:
         Tags.of(link_together_stack).add(key, val)
 
 app.synth()
-# Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
-# Aspects.of(app).add(cdk_nag.HIPAASecurityChecks(verbose=True))
