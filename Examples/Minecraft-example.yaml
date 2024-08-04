@@ -16,8 +16,8 @@ Container:
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
 
 Volume:
-  RemovalPolicy: DESTROY
-  # EnableBackups: False
+  KeepOnDelete: False
+  EnableBackups: True
   Paths:
     - Path: /data
     # - Path: /testing
