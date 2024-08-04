@@ -39,7 +39,7 @@ extension-pkg-whitelist=
 fail-on=
 
 # Specify a score threshold under which the program will exit with error.
-fail-under=9.84
+fail-under=9.90
 
 # Interpret the stdin as a python script, whose filename needs to be passed as
 # the module_or_package argument.
@@ -432,8 +432,9 @@ disable=raw-checker-failed,
         use-symbolic-message-instead,
         use-implicit-booleaness-not-comparison-to-string,
         use-implicit-booleaness-not-comparison-to-zero,
-        line-too-long,
-        use-a-generator
+        line-too-long,   # I like to comment a lot...
+        use-a-generator, # list comprehensions are MUCH easier to read, and similar speed for our size of data
+        duplicate-code,  # Too namy false alarms, cdk code looks limilar all over
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
