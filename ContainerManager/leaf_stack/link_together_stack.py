@@ -11,12 +11,15 @@ import json
 from aws_cdk import (
     Stack,
     Duration,
+    RemovalPolicy,
     aws_iam as iam,
     aws_logs as logs,
     aws_logs_destinations as logs_destinations,
     aws_lambda as aws_lambda,
 )
 from constructs import Construct
+
+from cdk_nag import NagSuppressions
 
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
@@ -36,6 +39,78 @@ class LinkTogetherStack(Stack):
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        ## Log group for the lambda function:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
+        self.log_group_start_system = logs.LogGroup(
+            self,
+            "LogGroupStartSystem",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY,
+            log_group_name=f"/aws/lambda/{container_id}-lambda-start-system",
+        )
+
+        ## Policy/Role for lambda function:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Role.html
+        self.start_system_role = iam.Role(
+            self,
+            "StartSystemRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="Role for the StartSystem lambda function.",
+        )
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Policy.html
+        self.start_system_policy = iam.Policy(
+            self,
+            "StartSystemPolicy",
+            roles=[self.start_system_role],
+            statements=[
+                # Default lambda permissions:
+                iam.PolicyStatement(
+                    actions=[
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                        "logs:CreateLogGroup",
+                    ],
+                    # But only on the LogGroup:
+                    resources=[self.log_group_start_system.log_group_arn],
+                ),
+                # Give it permissions to update the ASG desired_capacity:
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "autoscaling:UpdateAutoScalingGroup",
+                    ],
+                    resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
+                ),
+                # Give it permissions to push to the metric:
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["cloudwatch:PutMetricData"],
+                    resources=["*"],
+                    conditions={
+                        "StringEquals": {
+                            "cloudwatch:namespace": manager_stack.watchdog_nested_stack.metric_namespace,
+                        }
+                    }
+                ),
+            ]
+        )
+        NagSuppressions.add_resource_suppressions(
+            self.start_system_policy, [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
+                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "CloudWatch Metrics don't have ARN's. You need '*' to push to them. We lock down permissions based on Namespace.",
+                    "appliesTo": ["Resource::*"]
+                }
+            ],
+            apply_to_children=True,
+        )
+
         ## Lambda that turns system on
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
         self.lambda_start_system = aws_lambda.Function(
@@ -46,7 +121,8 @@ class LinkTogetherStack(Stack):
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
-            log_retention=logs.RetentionDays.ONE_WEEK,
+            log_group=self.log_group_start_system,
+            role=self.start_system_role,
             environment={
                 "ASG_NAME": manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name,
                 "MANAGER_STACK_REGION": manager_stack.region,
@@ -59,29 +135,6 @@ class LinkTogetherStack(Stack):
                 "METRIC_UNIT": manager_stack.watchdog_nested_stack.metric_unit.value.title(),
                 "METRIC_DIMENSIONS": json.dumps(manager_stack.watchdog_nested_stack.metric_dimension_map),
             },
-        )
-        # Give it permissions to update the ASG desired_capacity:
-        self.lambda_start_system.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "autoscaling:UpdateAutoScalingGroup",
-                ],
-                resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
-            )
-        )
-        # Give it permissions to push to the metric:
-        self.lambda_start_system.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["cloudwatch:PutMetricData"],
-                resources=["*"],
-                conditions={
-                    "StringEquals": {
-                        "cloudwatch:namespace": manager_stack.watchdog_nested_stack.metric_namespace,
-                    }
-                }
-            )
         )
 
         ## Trigger the system when someone connects:
