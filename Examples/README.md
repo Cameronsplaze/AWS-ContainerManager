@@ -4,11 +4,13 @@
 
 These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft-example.yaml` -> `minecraft-example.my-domain.com`). See any `*-example.yaml` in this directory for examples.
 
-- `InstanceType`: (Required, str)
+- `Ec2`: (dict)
 
-  The EC2 instance type to use. I.e `t3.micro`, `m5.large`, etc.
+  - `InstanceType`: (Required, str)
 
-- `Container`: (Required, dict)
+    The EC2 instance type to use. I.e `t3.micro`, `m5.large`, etc.
+
+- `Container`: (dict)
 
   - `Image`: (Required, str)
 
@@ -38,17 +40,17 @@ These are config options when you deploy, for a single leaf. (The file's name be
         # ...
     ```
 
-- `Volume`: (Optional, dict)
+- `Volume`: (dict)
 
   Config options for the EFS volume. If not provided, you won't save any data between restarts.
 
-  - `RemovalPolicy`: (Optional, str)
+  - `KeepOnDelete`: (Optional, bool)
 
-    If you should keep the data when the stack is destroyed. Either `DESTROY` or `RETAIN`.
+    If you should keep the data when the stack is destroyed. (Default=`True`)
 
   - `EnableBackups`: (Optional, bool)
 
-    If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups.
+    If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Default=`True`)
 
   - `Paths`: (Optional, list)
 
@@ -60,7 +62,7 @@ These are config options when you deploy, for a single leaf. (The file's name be
 
     - `ReadOnly`: (Optional, bool)
   
-      If the path should be read-only. Default is `False`.
+      If the path should be read-only. (Default=`False`).
 
     ```yaml
     Volume:
@@ -70,25 +72,35 @@ These are config options when you deploy, for a single leaf. (The file's name be
           ReadOnly: True
     ```
 
-- `Watchdog`: (Optional, dict)
+- `Watchdog`: (dict)
 
   Config options for how long to wait before shutting down, and what is considered to be "idle".
 
   - `MinutesWithoutConnections`: (Optional, int)
 
-    How many minutes without a connection before shutting down. Default is `5`.
+    How many minutes without a connection before shutting down. (Default=`5`).
 
-  - `Type`: (Optional unless both are used, str)
+  - `Type`: (Optional unless both protocols are used, str)
 
     What type of connection to monitor. Either `TCP` or `UDP`. Default is whichever is open under `Container.Ports` above. Required if both are used.
 
   - `Threshold`: (Optional, int)
 
-    If `Type=TCP`, If established connections open is this or less, you're considered "idle". Default is `0`.
+    If `Type=TCP`: If established connections open is this or less, you're considered "idle". Default is `0`.
 
-    If `Type=TCP`, If how many packets sent/received is less than this, you're considered "idle". Default is `32`.
+    If `Type=UDP`: If how many packets sent/received is less than this, you're considered "idle". Default is `32`.
 
     **If the default settings aren't working for the container**: In the AWS Console, you can go into CloudWatch Metrics -> Namespace: `ContainerManager-<ContainerId>-Stack` -> `ContainerNameID` -> and check `Metric-ContainerActivity-*` to see what the current activity is. Connect and Disconnect to the container to get an idea what the threshold *should* be.
+
+- `InstanceLeftUp`: (dict)
+
+  - `DurationHours`: (Optional, int)
+
+    How many hours before alarming the instance has been running this long. (Default=`8`).
+
+  - `ShouldStop`: (Optional, bool)
+
+    If the alarm is triggered, should it stop the instance? (Default=`False`).
 
 - `AlertSubscription`: (Optional, list)
 

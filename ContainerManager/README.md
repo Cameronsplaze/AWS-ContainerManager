@@ -4,11 +4,13 @@
 
 These are config options for when you deploy the base stack, to fine-tune it to your needs. Make sure to update the [./base-stack-config.yaml](../base-stack-config.yaml) file in the root of this repo as that's the file the config-loader will look for.
 
-- `MaxAZs`: (Default: `1`, int)
+- `Vpc`: (dict)
 
-  The number of AZ's to use in the VPC. Two means high-availability, BUT your EFS storage costs will double.
+  - `MaxAZs`: (Default: `1`, int)
 
-- `Domain`: (Required, dict)
+    The number of AZ's (Availability Zones) to use in the VPC. Two means high-availability, BUT your EFS storage costs will double.
+
+- `Domain`: (dict)
 
   - `Name`: (Required, str)
     The root domain name for all the leaf_stack's.

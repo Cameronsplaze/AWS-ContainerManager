@@ -194,10 +194,6 @@ def _parse_watchdog(config: dict) -> None:
         assert isinstance(config["Watchdog"]["MinutesWithoutConnections"], int)
         assert config["Watchdog"]["MinutesWithoutConnections"] >= 2, "Watchdog.MinutesWithoutConnections must be at least 2."
 
-    if "Watchdog" not in config:
-        config["Watchdog"] = {}
-    assert isinstance(config["Watchdog"], dict)
-
     def _parse_watchdog_threshold(config: dict) -> None:
         if "Threshold" not in config["Watchdog"]:
             if config["Watchdog"]["Type"] == "TCP":
@@ -223,6 +219,10 @@ def _parse_watchdog(config: dict) -> None:
         if "ShouldStop" not in config["Watchdog"]["InstanceLeftUp"]:
             config["Watchdog"]["InstanceLeftUp"]["ShouldStop"] = False
         assert isinstance(config["Watchdog"]["InstanceLeftUp"]["ShouldStop"], bool)
+
+    if "Watchdog" not in config:
+        config["Watchdog"] = {}
+    assert isinstance(config["Watchdog"], dict)
 
     ### Type / Extras
     _parse_watchdog_type(config)
