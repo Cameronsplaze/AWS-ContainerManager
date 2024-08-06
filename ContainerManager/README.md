@@ -2,7 +2,7 @@
 
 ## Editing the Base Stack Config
 
-These are config options for when you deploy the base stack, to fine-tune it to your needs. Make sure to update the [./base-stack-config.yaml](../base-stack-config.yaml) file in the root of this repo as that's the file the config-loader will look for.
+These are config options for when you deploy the base stack, to fine-tune it to your needs. Make sure to update the [../base-stack-config.yaml](../base-stack-config.yaml) file in the root of this repo as that's the file the config-loader will look for.
 
 - `MaxAZs`: (Default: `1`, int)
 
