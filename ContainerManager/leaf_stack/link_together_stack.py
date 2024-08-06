@@ -64,7 +64,10 @@ class LinkTogetherStack(Stack):
             "StartSystemPolicy",
             roles=[self.start_system_role],
             statements=[
-                # Default lambda permissions:
+                # Default lambda permissions
+                # TODO: Change this to the log group option, test if it works:
+                #    https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html#grantwbrwritegrantee
+                #    It'd probably let you drop the CreateLogGroup too since it already exists.
                 iam.PolicyStatement(
                     actions=[
                         "logs:CreateLogStream",
