@@ -9,6 +9,15 @@ permissions:
   pull-requests: write
 
 jobs:
+
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: debug
+        run: |
+          echo "Hello, world!"
+          echo ${{ github.actor }}
+
   dependabot:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
