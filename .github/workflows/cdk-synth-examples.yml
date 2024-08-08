@@ -6,6 +6,8 @@ on:
       # Any code in ContainerManager:
       - 'ContainerManager/**'
       - 'app.py'
+      # Any requirements file:
+      - '**/requirements*.txt'
       # This action:
       - '.github/workflows/cdk-synth-examples.yml'
       # Example Configs:
@@ -19,6 +21,8 @@ on:
       # Any code in ContainerManager:
       - 'ContainerManager/**'
       - 'app.py'
+      # Any requirements file:
+      - '**/requirements*.txt'
       # This action:
       - '.github/workflows/cdk-synth-examples.yml'
       # Example Configs:
