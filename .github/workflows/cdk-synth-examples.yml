@@ -1,7 +1,7 @@
 name: cdk-synth
 
 on:
-  push:
+  pull_request:
     paths:
       # Any code in ContainerManager:
       - 'ContainerManager/**'
