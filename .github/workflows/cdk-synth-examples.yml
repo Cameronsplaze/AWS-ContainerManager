@@ -6,19 +6,8 @@ on:
       # Any code in ContainerManager:
       - 'ContainerManager/**'
       - 'app.py'
-      # This action:
-      - '.github/workflows/cdk-synth-examples.yml'
-      # Example Configs:
-      - 'Examples/**'
-      - 'base-stack-config.yaml'
-      # Except any readme's / documentation:
-      - '!**README.md'
-
-  pull_request:
-    paths:
-      # Any code in ContainerManager:
-      - 'ContainerManager/**'
-      - 'app.py'
+      # Any requirements file:
+      - '**/requirements*.txt'
       # This action:
       - '.github/workflows/cdk-synth-examples.yml'
       # Example Configs:
