@@ -1,0 +1,9 @@
+
+
+# Default if nothing else matches:
+* @Cameronsplaze
+
+# Give Dependabot access to the files *it's* monitoring
+/.github/workflows/   @dependabot[bot] @Cameronsplaze
+/requirements.txt     @dependabot[bot] @Cameronsplaze
+/requirements-dev.txt @dependabot[bot] @Cameronsplaze
