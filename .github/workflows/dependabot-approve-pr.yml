@@ -24,7 +24,18 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Approve a PR
+      ### We do an action to wait, instead of enabling
+      # "Require status checks to pass before merging" in settings
+      # because that setting requires you to maintain a list of
+      # actions to wait for. This will natually wait for everything.
+      - name: Wait for all checks to complete
+        # https://cli.github.com/manual/gh_pr_checks
+        run: gh pr checks "$PR_URL" --watch --fail-fast
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Approve the PR
         # https://cli.github.com/manual/gh_pr_review
         run: gh pr review "$PR_URL" --approve
         env:
