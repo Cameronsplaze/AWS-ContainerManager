@@ -5,8 +5,9 @@ name: Dependabot Auto-Approve PR's
 on:
     pull_request: {}
 
-permissions:
-  pull-requests: write
+permissions: "write-all"
+  ### TMP! JUST DEBUGGING! ###
+  # pull-requests: write
 
 jobs:
 
