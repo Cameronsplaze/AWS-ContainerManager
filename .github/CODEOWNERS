@@ -5,3 +5,14 @@
 
 ### Default, if nothing below changes this:
 * @Cameronsplaze
+
+### Remove CODEOWNERS, so dependabot can edit these files automatically:
+#  There's no way to use a github app / bot in codeowners yet, though they'd
+#  like to add it at some point. Instead of locking these files down to a
+#  specific bot, we have to disable codeowner on them:
+# https://github.com/orgs/community/discussions/23064
+# https://github.com/orgs/community/discussions/108490
+/requirements.txt
+/requirements-dev.txt
+/.github/workflows/**.yml
+/.github/workflows/**.yaml
