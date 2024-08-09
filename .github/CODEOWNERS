@@ -1,9 +1,12 @@
+##########################################
+#             code ownership
+##########################################
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-
-# Default if nothing else matches:
+### Default, if nothing below changes this:
 * @Cameronsplaze
 
-# Give Dependabot access to the files *it's* monitoring
-/.github/workflows/   @dependabot[bot] @Cameronsplaze
-/requirements.txt     @dependabot[bot] @Cameronsplaze
-/requirements-dev.txt @dependabot[bot] @Cameronsplaze
+### Give Dependabot access to the files *it's* monitoring
+/.github/workflows/   @github-actions @Cameronsplaze
+/requirements.txt     @github-actions @Cameronsplaze
+/requirements-dev.txt @github-actions @Cameronsplaze

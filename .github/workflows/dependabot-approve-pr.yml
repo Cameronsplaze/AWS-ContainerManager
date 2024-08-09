@@ -23,14 +23,22 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     steps:
 
-      - name: Dependabot metadata
+      - name: Get Dependabot Metadata
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Approve a PR
-        run: gh pr review --approve "$PR_URL"
+        # https://cli.github.com/manual/gh_pr_review
+        run: gh pr review "$PR_URL" --approve
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Flag PR to auto-merge
+        # https://cli.github.com/manual/gh_pr_merge
+        run: gh pr merge "$PR_URL" --auto --merge
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
