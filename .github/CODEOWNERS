@@ -5,8 +5,3 @@
 
 ### Default, if nothing below changes this:
 * @Cameronsplaze
-
-### Give Dependabot access to the files *it's* monitoring
-/.github/workflows/   @github-actions @Cameronsplaze
-/requirements.txt     @github-actions @Cameronsplaze
-/requirements-dev.txt @github-actions @Cameronsplaze
