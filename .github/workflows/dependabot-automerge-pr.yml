@@ -3,7 +3,10 @@
 
 name: Dependabot Auto-Approve PR's
 on:
-    pull_request: {}
+    pull_request:
+      # This is probably not needed, but just in case:
+      branches:
+        - main
 
 
 permissions:
