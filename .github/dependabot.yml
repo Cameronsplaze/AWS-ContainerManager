@@ -5,25 +5,15 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
-### NOTE for "schedule.day" and "open-pull-requests-limit":
-#    To help with auto-merging, and branches required to be *up-to-date* to merge, we
-#    use "schedule.day" and "open-pull-requests-limit" to only have ONE PR open at a time.
-#    (Without schedule.day, it's possible for each ecosystem to have a PR. This should
-#    give one ecosystem a chance to auto-merge before the next kicks off.).
-
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/" # Docs say to keep this as '/', it knows what to do.
     schedule:
-      day: "monday"
       interval: "weekly"
-    open-pull-requests-limit: 1
 
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      day: "tuesday"
       interval: "weekly"
-    open-pull-requests-limit: 1
 
