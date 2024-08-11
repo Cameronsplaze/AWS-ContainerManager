@@ -96,6 +96,9 @@ The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to g
 To connect to the container:
 
 1) Get SSH private key from AWS System Manager (SSM) Param Storage
+
+    If you have more than one key: Go to `EC2` => `Network & Security` => `Key Pairs`. Look for `ContainerManager-BaseStack-SshKey`, and copy it's `ID`. Now go to `SSM` => `Parameter Store`, and select the key that matches `/ec2/keypair/<ID>`. (I've tried adding tags/descriptions to the SSM key to skip the first step, they don't go through.)
+
 2) Add it to agent:
 
     ```bash
