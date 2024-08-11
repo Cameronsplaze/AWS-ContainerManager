@@ -131,7 +131,7 @@ class LinkTogetherStack(Stack):
                     "autoscaling:UpdateAutoScalingGroup",
                 ],
                 resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
-            )    
+            )
         )
         ### Supress the cdk_nag rules we can't do anything about or expect:
         NagSuppressions.add_resource_suppressions(
