@@ -133,9 +133,15 @@ class LinkTogetherStack(Stack):
                 resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
             )
         )
-        ### Supress the cdk_nag rules we can't do anything about or expect:
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "supress" after everything's created to work.
+
         NagSuppressions.add_resource_suppressions(
-            self.start_system_policy, [
+            self.start_system_policy,
+            [
                 {
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",

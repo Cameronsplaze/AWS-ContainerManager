@@ -6,6 +6,7 @@ This module contains the AsgStateChangeHook NestedStack class.
 from aws_cdk import (
     NestedStack,
     Duration,
+    RemovalPolicy,
     aws_lambda,
     aws_iam as iam,
     aws_logs as logs,
@@ -15,6 +16,8 @@ from aws_cdk import (
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
+
+from cdk_nag import NagSuppressions
 
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 
@@ -36,6 +39,32 @@ class AsgStateChangeHook(NestedStack):
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
 
+        ## Log group for the lambda function:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
+        self.log_group_asg_statechange_hook = logs.LogGroup(
+            self,
+            "LogGroupStartSystem",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY,
+            log_group_name=f"/aws/lambda/{container_id}-asg-state-change-hook",
+        )
+
+        ## Policy/Role for lambda function:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Role.html
+        self.asg_state_change_role = iam.Role(
+            self,
+            "AsgStateChangeHookRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="Role for the AsgStateChangeHook lambda function.",
+        )
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Policy.html
+        self.asg_state_change_policy = iam.Policy(
+            self,
+            "AsgStateChangeHookPolicy",
+            roles=[self.asg_state_change_role],
+            # Statements added at the end of this file:
+            statements=[],
+        )
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
@@ -47,7 +76,8 @@ class AsgStateChangeHook(NestedStack):
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
-            log_retention=logs.RetentionDays.ONE_WEEK,
+            log_group=self.log_group_asg_statechange_hook,
+            role=self.asg_state_change_role,
             environment={
                 "HOSTED_ZONE_ID": domain_stack.sub_hosted_zone.hosted_zone_id,
                 "DOMAIN_NAME": domain_stack.sub_domain_name,
@@ -59,7 +89,11 @@ class AsgStateChangeHook(NestedStack):
                 "ECS_SERVICE_NAME": ec2_service.service_name,
             },
         )
-        self.lambda_asg_state_change_hook.add_to_role_policy(
+        ### Lambda Permissions:
+        # Give it write to it's own log group:
+        self.log_group_asg_statechange_hook.grant_write(self.lambda_asg_state_change_hook)
+        # Give it permission to describe the stuff it needs to know about::
+        self.asg_state_change_policy.add_statements(
             iam.PolicyStatement(
                 # NOTE: these are on the list of actions that CANNOT be locked down
                 #   in ANY way. You *must* use a wild card, and conditions *don't* work 🙄
@@ -74,7 +108,7 @@ class AsgStateChangeHook(NestedStack):
             )
         )
         # Give it permissions to update the service desired_task:
-        self.lambda_asg_state_change_hook.add_to_role_policy(
+        self.asg_state_change_policy.add_statements(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
@@ -85,7 +119,7 @@ class AsgStateChangeHook(NestedStack):
             )
         )
         ## Let it update the DNS record of this stack:
-        self.lambda_asg_state_change_hook.add_to_role_policy(
+        self.asg_state_change_policy.add_statements(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["route53:ChangeResourceRecordSets"],
@@ -93,7 +127,7 @@ class AsgStateChangeHook(NestedStack):
             )
         )
         ## Let it enable/disable the cron rule for counting connections:
-        self.lambda_asg_state_change_hook.add_to_role_policy(
+        self.asg_state_change_policy.add_statements(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
@@ -127,4 +161,21 @@ class AsgStateChangeHook(NestedStack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 events_targets.LambdaFunction(self.lambda_asg_state_change_hook),
             ],
+        )
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "supress" after everything's created to work.
+
+        NagSuppressions.add_resource_suppressions(
+            self.asg_state_change_policy,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "These actions require the wildcard resource, since they're 'Describe'.",
+                    "appliesTo": ["Resource::*"]
+                }
+            ],
+            apply_to_children=True,
         )

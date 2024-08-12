@@ -7,7 +7,9 @@ import re
 
 from aws_cdk import (
     Stack,
+    Duration,
     aws_sns as sns,
+    aws_kms as kms,
 )
 from constructs import Construct
 
@@ -61,6 +63,14 @@ class ContainerManagerStack(Stack):
             self,
             "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
+             # Keep cdk_nag happy:
+            master_key=kms.Key(
+                self,
+                "SnsNotifyTopicKey",
+                description=f"Key for sns topic '{construct_id}'",
+                rotation_period=Duration.days(365),
+            ),
+            enforce_ssl=True,
         )
         subscriptions = config.get("AlertSubscription", [])
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)

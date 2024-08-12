@@ -55,12 +55,6 @@ class ContainerManagerBaseStack(Stack):
             ],
             restrict_default_security_group=True,
         )
-        NagSuppressions.add_resource_suppressions(self.vpc, [
-            {
-                "id": "AwsSolutions-VPC7",
-                "reason": "Flow logs cost a lot, and the average user won't need them.",
-            },
-        ])
 
         ## For enabling SSH access:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
@@ -81,6 +75,7 @@ class ContainerManagerBaseStack(Stack):
             self,
             "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
+            # Keep cdk_nag happy:
             master_key=kms.Key(
                 self,
                 "SnsNotifyTopicKey",
@@ -135,3 +130,18 @@ class ContainerManagerBaseStack(Stack):
                 comment=f"Hosted zone for {construct_id}: {self.domain_name}",
             )
             self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "supress" after everything's created to work.
+
+        NagSuppressions.add_resource_suppressions(
+            self.vpc,
+            [
+                {
+                    "id": "AwsSolutions-VPC7",
+                    "reason": "Flow logs cost a lot, and the average user won't need them.",
+                },
+            ],
+        )
