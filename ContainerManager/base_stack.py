@@ -75,14 +75,22 @@ class ContainerManagerBaseStack(Stack):
             self,
             "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
-            # Keep cdk_nag happy:
-            master_key=kms.Key(
-                self,
-                "SnsNotifyTopicKey",
-                description=f"Key for sns topic '{construct_id}'",
-                rotation_period=Duration.days(365),
-            ),
-            enforce_ssl=True,
+            ## TODO: Messages are either failed to be sent because of enforce_ssl, or
+            #   because of the master_key permissions. (I think master_key, I think it
+            #   worked before I added that). Need to test/fix.
+            ## Use the AWS-managed key for encryption:
+            # master_key=kms.Alias.from_alias_name(
+            #     self,
+            #     "SnsNotifyTopicKey",
+            #     alias_name="alias/aws/sns",
+            # ),
+            # master_key=kms.Key(
+            #     self,
+            #     "SnsNotifyTopicKey",
+            #     description=f"Key for sns topic '{construct_id}'",
+            #     rotation_period=Duration.days(365),
+            # ),
+            # enforce_ssl=True,
         )
         # Give CloudWatch Alarms permissions to publish to the SNS Topic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html#addwbrtowbrresourcewbrpolicystatement
