@@ -78,6 +78,7 @@ class ContainerManagerBaseStack(Stack):
             ## TODO: Messages are either failed to be sent because of enforce_ssl, or
             #   because of the master_key permissions. (I think master_key, I think it
             #   worked before I added that). Need to test/fix.
+            #   https://aws.amazon.com/blogs/compute/encrypting-messages-published-to-amazon-sns-with-aws-kms/
             ## Use the AWS-managed key for encryption:
             # master_key=kms.Alias.from_alias_name(
             #     self,
