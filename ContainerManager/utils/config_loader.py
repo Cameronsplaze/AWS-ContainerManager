@@ -5,6 +5,9 @@ config_loader.py
 Parses a config file, and ensures that all required keys are present.
 Also modifies data to a better format CDK can digest in places.
 """
+## Parsing for every possible config option requires a lot of statements:
+# pylint: disable=too-many-statements
+
 
 from aws_cdk import (
     aws_sns as sns,
@@ -199,8 +202,8 @@ def _parse_watchdog(config: dict) -> None:
             if config["Watchdog"]["Type"] == "TCP":
                 config["Watchdog"]["Threshold"] = 0
             elif config["Watchdog"]["Type"] == "UDP":
-                # TODO: Keep an eye on this and adjust as we get info from each game.
-                #           - Valheim: No players ~0-15 packets. W/ 1 player ~5k packets
+                # NOTE: This number will change without warning to support
+                # as many games as possible.
                 config["Watchdog"]["Threshold"] = 32
             else:
                 # No idea how you'll hit this, but future-proofing:
