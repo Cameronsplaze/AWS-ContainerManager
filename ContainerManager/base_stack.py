@@ -7,13 +7,11 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     Tags,
-    Duration,
     RemovalPolicy,
     aws_ec2 as ec2,
     aws_route53 as route53,
     aws_sns as sns,
     aws_iam as iam,
-    aws_kms as kms,
 )
 
 from cdk_nag import NagSuppressions
@@ -91,14 +89,14 @@ class ContainerManagerBaseStack(Stack):
             self,
             "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
-            master_key=kms.Key(
-                self,
-                "SnsNotifyTopicKey",
-                description=f"Key for sns topic '{construct_id}'",
-                rotation_period=Duration.days(365),
-            ),
             enforce_ssl=True,
         )
+        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
+            {
+                "id": "AwsSolutions-SNS2",
+                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            },
+        ])
         # Give CloudWatch Alarms permissions to publish to the SNS Topic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html#addwbrtowbrresourcewbrpolicystatement
         self.sns_notify_topic.add_to_resource_policy(

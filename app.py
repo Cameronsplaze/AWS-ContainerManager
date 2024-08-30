@@ -20,7 +20,11 @@ from ContainerManager.leaf_stack.domain_stack import DomainStack
 from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
-
+# TODO: look at moving the full name into Makefile, and passing it in through --context.
+#    This way it's in one place, AND we can do maturity stuff then potentially.
+#    OR we'd have to check the name here to know the maturity. Instead, look at
+#    --context MATURITY=dev? Since the application_id includes it though, we'd
+#    have to figure it out on both sides...
 APPLICATION_ID = "ContainerManager"
 APPLICATION_ID_TAG_NAME = "ApplicationId"
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html

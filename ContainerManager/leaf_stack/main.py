@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_sns as sns,
 )
 from constructs import Construct
+from cdk_nag import NagSuppressions
 
 from ContainerManager.base_stack import ContainerManagerBaseStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
@@ -61,7 +62,14 @@ class ContainerManagerStack(Stack):
             self,
             "SnsNotifyTopic",
             display_name=f"{construct_id}-sns-notify-topic",
+            enforce_ssl=True,
         )
+        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
+            {
+                "id": "AwsSolutions-SNS2",
+                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            },
+        ])
         subscriptions = config.get("AlertSubscription", [])
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
 
