@@ -16,6 +16,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from cdk_nag import NagSuppressions
 
 class EcsAsg(NestedStack):
     """
@@ -142,9 +143,11 @@ class EcsAsg(NestedStack):
                 autoscaling.NotificationConfiguration(topic=leaf_stack_sns_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
             ],
             # Make it push number of instances to cloudwatch, so you can warn user if it's up too long:
-            group_metrics=[autoscaling.GroupMetrics(
-                autoscaling.GroupMetric.IN_SERVICE_INSTANCES,
-            )],
+            group_metrics=[
+                autoscaling.GroupMetrics(
+                    autoscaling.GroupMetric.IN_SERVICE_INSTANCES,
+                ),
+            ],
         )
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
@@ -244,4 +247,67 @@ class EcsAsg(NestedStack):
                 events_targets.SnsTopic(base_stack_sns_topic, message=message),
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message),
             ],
+        )
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "supress" after everything's created to work.
+
+        NagSuppressions.add_resource_suppressions(
+            self.auto_scaling_group,
+            [
+                # Lambda Function:
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "This lambda function is controlled by cdk, can't update to latest version.",
+                    # "appliesTo": "N/A (Does not exist)"
+                },
+                # SNS Drain Hook:
+                {
+                    "id": "AwsSolutions-SNS2",
+                    "reason": "This sns topic is controlled by cdk, can't add server-side encryption."
+                    # "appliesTo": "N/A (Does not exist)"
+                },
+                {
+                    "id": "AwsSolutions-SNS3",
+                    "reason": "This sns topic is controlled by cdk, can't add ssl/tls encryption."
+                    # "appliesTo": "N/A (Does not exist)"
+                },
+                # ASG Permissions:
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
+                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "\n".join([
+                        "There's a bunch of '*' permissions, but they're either only 'Describe' type, or locked down by the 'conditions' key.",
+                        "(cdk code here: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-ecs/lib/drain-hook/instance-drain-hook.ts)"
+                    ]),
+                    "appliesTo": ["Resource::*"],
+                },
+                # ASG Notifications:
+                {
+                    "id": "AwsSolutions-AS3",
+                    "reason": "\n".join([
+                        "We have the important notifications on instance lifecycles, but not all.",
+                        "(We tell users when it *finishes* coming up, but who cares about when it *starts* to...)"
+                    ]),
+                    # "appliesTo": "N/A (Does not exist)"
+                },
+                # ASG EBS Encryption:
+                {
+                    "id": "AwsSolutions-EC26",
+                    "reason": "\n".join([
+                        "This is the default EBS storage cdk creates and attaches to the ASG EC2 Instances.",
+                        "We can create one ourselves so the default is overidden with one with encryption,",
+                        "but I don't want to maintain those settings, just use the one the cdk team supports.",
+                        "(This Issue will add support anyways: https://github.com/aws/aws-cdk/issues/6459)"
+                    ]),
+                    # "appliesTo": "N/A (Does not exist)"
+                }
+            ],
+            apply_to_children=True,
         )

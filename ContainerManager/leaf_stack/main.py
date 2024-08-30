@@ -7,7 +7,9 @@ import re
 
 from aws_cdk import (
     Stack,
+    Duration,
     aws_sns as sns,
+    aws_kms as kms,
 )
 from constructs import Construct
 from cdk_nag import NagSuppressions

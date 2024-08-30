@@ -63,55 +63,8 @@ class LinkTogetherStack(Stack):
             self,
             "StartSystemPolicy",
             roles=[self.start_system_role],
-            statements=[
-                # Default lambda permissions
-                # TODO: Change this to the log group option, test if it works:
-                #    https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html#grantwbrwritegrantee
-                #    It'd probably let you drop the CreateLogGroup too since it already exists.
-                iam.PolicyStatement(
-                    actions=[
-                        "logs:CreateLogStream",
-                        "logs:PutLogEvents",
-                        "logs:CreateLogGroup",
-                    ],
-                    # But only on the LogGroup:
-                    resources=[self.log_group_start_system.log_group_arn],
-                ),
-                # Give it permissions to update the ASG desired_capacity:
-                iam.PolicyStatement(
-                    effect=iam.Effect.ALLOW,
-                    actions=[
-                        "autoscaling:UpdateAutoScalingGroup",
-                    ],
-                    resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
-                ),
-                # Give it permissions to push to the metric:
-                iam.PolicyStatement(
-                    effect=iam.Effect.ALLOW,
-                    actions=["cloudwatch:PutMetricData"],
-                    resources=["*"],
-                    conditions={
-                        "StringEquals": {
-                            "cloudwatch:namespace": manager_stack.watchdog_nested_stack.metric_namespace,
-                        }
-                    }
-                ),
-            ]
-        )
-        NagSuppressions.add_resource_suppressions(
-            self.start_system_policy, [
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
-                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
-                },
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "CloudWatch Metrics don't have ARN's. You need '*' to push to them. We lock down permissions based on Namespace.",
-                    "appliesTo": ["Resource::*"]
-                }
-            ],
-            apply_to_children=True,
+            # Statements added at the end of this file:
+            statements=[],
         )
 
         ## Lambda that turns system on
@@ -140,6 +93,7 @@ class LinkTogetherStack(Stack):
             },
         )
 
+
         ## Trigger the system when someone connects:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html
         # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
@@ -150,4 +104,54 @@ class LinkTogetherStack(Stack):
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
             filter_pattern=logs.FilterPattern.any_term(domain_stack.sub_domain_name),
             filter_name="TriggerLambdaOnConnect",
+        )
+
+
+        ### Add Lambda's permissions, now that you can reference everything:
+        # Let lambda write to it's log group:
+        self.log_group_start_system.grant_write(self.lambda_start_system)
+        # Give it permissions to push to the metric:
+        self.start_system_policy.add_statements(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                conditions={
+                    "StringEquals": {
+                        "cloudwatch:namespace": manager_stack.watchdog_nested_stack.metric_namespace,
+                    }
+                }
+            )
+        )
+        # Give it permissions to update the ASG desired_capacity:
+        self.start_system_policy.add_statements(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "autoscaling:UpdateAutoScalingGroup",
+                ],
+                resources=[manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
+            )
+        )
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "supress" after everything's created to work.
+
+        NagSuppressions.add_resource_suppressions(
+            self.start_system_policy,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
+                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "CloudWatch Metrics don't have ARN's. You need '*' to push to them. We lock down permissions based on Namespace.",
+                    "appliesTo": ["Resource::*"]
+                }
+            ],
+            apply_to_children=True,
         )

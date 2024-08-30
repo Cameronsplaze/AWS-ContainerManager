@@ -24,8 +24,6 @@ def add_sns_subscriptions(context, sns_topic: sns.Topic, subscriptions: dict) ->
         sns.Subscription(
             context,
             "sns-notify-subscription",
-            ### TODO: There's also SMS (text) and https (webhook) options:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html
             protocol=protocol,
             endpoint=address,
             topic=sns_topic,

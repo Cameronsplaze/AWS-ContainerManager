@@ -54,30 +54,15 @@ class ContainerManagerBaseStack(Stack):
             ],
             restrict_default_security_group=True,
         )
-        NagSuppressions.add_resource_suppressions(self.vpc, [
-            {
-                "id": "AwsSolutions-VPC7",
-                "reason": "Flow logs cost a lot, and the average user won't need them.",
-            },
-        ])
 
         ## For enabling SSH access:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.KeyPair.html
         self.ssh_key_pair = ec2.KeyPair(
             self,
             "SshKeyPair",
-            ### To import a Public Key:
-            # TODO: Maybe use get_param to optionally import this?
-            # public_key_material="ssh-rsa ABCD...",
-            # And/Or maybe set an optional one in each leaf-stack? If set, overrides this?
             public_key_material=None,
+            key_pair_name=f"{construct_id}-SshKey",
         )
-        ## Private key generated from the KeyPair:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html
-        # TODO: Can't get these to work. Asked about it at:
-        #       https://github.com/aws/aws-cdk/discussions/30049
-        Tags.of(self.ssh_key_pair.private_key).add("SshKeyPairId", self.ssh_key_pair.key_pair_name)
-        Tags.of(self.ssh_key_pair.private_key).add("Stack", construct_id)
 
         ########################
         ### SNS Notify STUFF ###
@@ -143,3 +128,18 @@ class ContainerManagerBaseStack(Stack):
                 comment=f"Hosted zone for {construct_id}: {self.domain_name}",
             )
             self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "supress" after everything's created to work.
+
+        NagSuppressions.add_resource_suppressions(
+            self.vpc,
+            [
+                {
+                    "id": "AwsSolutions-VPC7",
+                    "reason": "Flow logs cost a lot, and the average user won't need them.",
+                },
+            ],
+        )
