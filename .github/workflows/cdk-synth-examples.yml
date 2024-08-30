@@ -46,5 +46,5 @@ jobs:
       - name: Install CDK
         run: npm install -g aws-cdk
 
-      - name: Synthesize CDK Examples
+      - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ matrix.example-config }}"
