@@ -16,6 +16,9 @@ on:
       # Except any readme's / documentation:
       - '!**README.md'
 
+env:
+  EXAMPLES_PATH: ./Examples # No trailing slash plz!
+
 jobs:
   setup-matrix:
     runs-on: ubuntu-latest
@@ -26,7 +29,7 @@ jobs:
       - name: Setup matrix
         id: setup-matrix
         run: |
-          file_list=$(find ./Examples/ -regextype egrep -regex '.*ya?ml$')
+          file_list=$(cd "${{ env.EXAMPLES_PATH }}" && find * -regextype egrep -regex '.*ya?ml$')
           json_list=$(echo $file_list | jq --raw-input --compact-output 'split(" ")')
           echo "example-config-files=$json_list" >> "$GITHUB_OUTPUT"
 
@@ -47,4 +50,4 @@ jobs:
         run: npm install -g aws-cdk
 
       - name: "Synthesize: ${{ matrix.example-config }}"
-        run: make cdk-synth config-file="${{ matrix.example-config }}"
+        run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
