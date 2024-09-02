@@ -7,6 +7,7 @@ MAKEFLAGS += --no-print-directory
 
 ### NOTE: IF THIS IS CHANGED: Also change it in the Makefile:
 base_stack_name := "ContainerManager-BaseStack"
+maturity := "prod"
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
 guard-%:
@@ -26,11 +27,14 @@ guard-%:
 _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Deploying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
-	echo ""
-	cdk deploy "$(stack-regix)" \
-		--require-approval never \
-		--no-previous-parameters \
-		--context config-file="$(config-file)"
+	base_stack_name=asdf
+	echo "$(base_stack_name)"
+	# cdk deploy "$(stack-regix)" \
+	# 	--require-approval never \
+	# 	--no-previous-parameters \
+	# 	--context config-file="$(config-file)" \
+	# 	--context maturity="$(maturity)"
+	#   --context stack_name="TODO"
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Edit the base stack:
