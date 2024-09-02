@@ -8,15 +8,20 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 ## Quick Start
 
+### First time setup
+
 First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
 
-### First time setup
+Once you have `python3` and `npm` installed, run `make update` to get everything to the latest version. (As dependabot upgrades stuff, you'll want to run this to stay up-to-date once in a while too).
+
+- If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/6237400) to let non-sudo work.
 
 ```bash
 # Setup the venv
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install -r requirements.txt -r requirements-dev.txt
+# update all npm and python packages
+make update
 # Setup the env vars
 cp vars.env.example vars.env
 nano vars.env # Use the text editor that's better than vim >:)

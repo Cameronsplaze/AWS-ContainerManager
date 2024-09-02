@@ -46,8 +46,8 @@ jobs:
       - name: Setup Python
         uses: ./.github/workflows/composite-setup-python
 
-      - name: Install CDK
-        run: npm install -g aws-cdk
+      - name: Install NPM Stuff (aws-cdk)
+        run: make update-npm
 
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"

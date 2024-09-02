@@ -114,6 +114,18 @@ aws-whoami:
 		--query Arn \
 		--output text
 
+update-npm:
+	echo "Updating NPM Stuff..."
+	npm install -g npm aws-cdk
+
+update-python:
+	echo "Updating Python Stuff..."
+	python3 -m pip install --upgrade \
+		pip \
+		-r requirements.txt \
+		-r requirements-dev.txt
+
+update: update-npm update-python
 
 #######################
 ## One Time Commands ##
