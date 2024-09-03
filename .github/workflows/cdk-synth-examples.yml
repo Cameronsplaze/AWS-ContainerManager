@@ -1,6 +1,7 @@
 name: cdk-synth
 
 on:
+  workflow_dispatch: {}
   push:
     paths:
       # Any code in ContainerManager:
@@ -15,6 +16,7 @@ on:
       - 'base-stack-config.yaml'
       # Except any readme's / documentation:
       - '!**README.md'
+
 
 env:
   EXAMPLES_PATH: ./Examples # No trailing slash plz!
@@ -34,6 +36,8 @@ jobs:
           echo "example-config-files=$json_list" >> "$GITHUB_OUTPUT"
 
   cdk-synth:
+    # If it's NOT the main branch:
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
@@ -51,3 +55,13 @@ jobs:
 
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
+
+  cdk-deploy:
+    # If it IS the main branch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs:
+      - setup-matrix
+    steps:
+      - name: "test"
+        run: echo TODO
