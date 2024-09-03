@@ -37,8 +37,6 @@ The config options for the stack are in [./base-stack-config.yaml](./base-stack-
 
 If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/).
 
-For a quickstart, just run:
-
 ```bash
 # IF a new shell
 source .venv/bin/activate
@@ -64,14 +62,7 @@ make cdk-deploy-leaf config-file=./Minecraft.yaml
 
 ### Connecting to the Container
 
-Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml").
-
-- If you don't want to change the file name, you can also pass in what you want it to be with
-
-   ```bash
-   # This will still have the same `<FileName>.<DOMAIN_NAME>` because of the container-id param:
-   make cdk-deploy-leaf config-file=./Minecraft-example.yaml container-id=Minecraft
-   ```
+Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [Different Maturities](#different-maturities) section below.
 
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
@@ -200,7 +191,7 @@ make aws-whoami
 
 ### Different Maturities
 
-I've added a different maturity, `devel`. It has defaults for developing (i.e removes storage with it when deleted). It also keeps the containers you're testing with separate from any games you're activaly running. For example, you can:
+There's currently two maturities you can set, `devel` and `prod` (prod being the default). `devel` has defaults for developing (i.e removes any storage with it when deleted). It also keeps the containers you're testing with, separate from any games you're activity running. For example, you can:
 
 ```bash
 # Create the devel base stack:
@@ -209,11 +200,11 @@ make cdk-deploy-base maturity=devel
 make cdk-deploy-leaf maturity=devel config-file=<FILE>
 # Delete said leaf stack
 make cdk-destroy-leaf maturity=devel config-file=<FILE>
-# And never touch the stuff on the normal stacks!
+# And never touch the stuff in the normal stacks!
 ```
 
 > [!WARNING]
-> The `container-id` has to be unique per ACCOUNT. To help with this, you can use the cli flag to override it to something else if the other maturity-stack is already using it.
+> The `container-id` has to be unique per ACCOUNT. To help with this, you can use the cli flag to override it to something else if the other maturity-stack is already using it. (By default, `container-id` is the filename of the config without the extension).
 
 For example, you can have GH Actions deploy to prod, but use devel locally. Both can still be in the same AWS account:
 
@@ -225,7 +216,7 @@ make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml container-id=
 make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml maturity=devel
 ```
 
-This would still give you two stacks, each with a different base stack:
+This would still give you two stacks, each with a different base stack. They won't conflict since the first command got overridden to `minecraft`, and the second one is using the default `minecraft-example` from the filename:
 
 - `minecraft.<DOMAIN>`: On the normal prod stack.
 - `minecraft-example.<DOMAIN>`: In the devel stack.
