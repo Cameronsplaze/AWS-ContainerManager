@@ -130,13 +130,14 @@ def _parse_volume(config: dict, maturity: str) -> None:
 
     ### KeepOnDelete
     if "KeepOnDelete" not in config["Volume"]:
-        # If the maturity is prod, keep the data safe:
+        # If the maturity is prod, default to keep the data safe:
         config["Volume"]["KeepOnDelete"] = bool(maturity == "prod")
     assert isinstance(config["Volume"]["KeepOnDelete"], bool)
 
     ### EnableBackups
     if "EnableBackups" not in config["Volume"]:
-        config["Volume"]["EnableBackups"] = True
+        # If the maturity is prod, default to keep the data safe:
+        config["Volume"]["EnableBackups"] = bool(maturity == "prod")
     assert isinstance(config["Volume"]["EnableBackups"], bool)
 
     ### Paths
