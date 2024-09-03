@@ -35,6 +35,13 @@ class ContainerManagerBaseStack(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        ### Fact-check the maturity, and save it for leaf stacks:
+        # (Makefile defaults to prod if not set. We want to fail-fast
+        # here, so throw if it doesn't exist)
+        self.maturity = self.node.get_context("maturity")
+        supported_maturities = ["devel", "prod"]
+        assert self.maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
+
         #################
         ### VPC STUFF ###
         #################

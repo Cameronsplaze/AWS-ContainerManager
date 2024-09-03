@@ -8,6 +8,9 @@ Also modifies data to a better format CDK can digest in places.
 ## Parsing for every possible config option requires a lot of statements:
 # pylint: disable=too-many-statements
 
+# TODO: Clean these up by turning them into a class. Lets each function use
+#        'maturity' without passing it around. Also can factor helper methods
+#        to a base class.
 
 from aws_cdk import (
     aws_sns as sns,
@@ -120,14 +123,15 @@ def _parse_container(config: dict) -> None:
     }
 
 
-def _parse_volume(config: dict) -> None:
+def _parse_volume(config: dict, maturity: str) -> None:
     if "Volume" not in config:
         config["Volume"] = {}
     assert isinstance(config["Volume"], dict)
 
     ### KeepOnDelete
     if "KeepOnDelete" not in config["Volume"]:
-        config["Volume"]["KeepOnDelete"] = True
+        # If the maturity is prod, keep the data safe:
+        config["Volume"]["KeepOnDelete"] = bool(maturity == "prod")
     assert isinstance(config["Volume"]["KeepOnDelete"], bool)
 
     ### EnableBackups
@@ -241,11 +245,11 @@ def _parse_watchdog(config: dict) -> None:
     _parse_watchdog_instance_left_up(config)
 
 
-def load_leaf_config(path: str) -> dict:
+def load_leaf_config(path: str, maturity: str) -> dict:
     " Parser/Loader for all leaf stacks "
     config = parse_config(path)
     _parse_container(config)
-    _parse_volume(config)
+    _parse_volume(config, maturity)
     _parse_ec2(config)
     _parse_watchdog(config)
     _parse_sns(config)

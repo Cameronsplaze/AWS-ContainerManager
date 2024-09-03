@@ -40,7 +40,7 @@ If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon
 For a quickstart, just run:
 
 ```bash
-# `source` if new shell
+# IF a new shell
 source .venv/bin/activate
 source vars.env
 # Actually deploy:
@@ -52,7 +52,7 @@ make cdk-deploy-base
 The config examples are in `./Examples/*-example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
 
 ```bash
-# `source` if new shell
+# IF a new shell
 source .venv/bin/activate
 source vars.env
 # Edit the config to what you want:
@@ -64,7 +64,14 @@ make cdk-deploy-leaf config-file=./Minecraft.yaml
 
 ### Connecting to the Container
 
-Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml")
+Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml").
+
+- If you don't want to change the file name, you can also pass in what you want it to be with
+
+   ```bash
+   # This will still have the same `<FileName>.<DOMAIN_NAME>` because of the container-id param:
+   make cdk-deploy-leaf config-file=./Minecraft-example.yaml container-id=Minecraft
+   ```
 
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
@@ -190,3 +197,31 @@ You can also quickly check which aws account you're configured to use, before yo
 ```bash
 make aws-whoami
 ```
+
+### Developer-specific Application
+
+I've added a different maturity, `devel`. It has defaults for developing (doesn't save storage on deletion). It also keeps the containers you're testing with, separate from. For example, you can:
+
+```bash
+# Create the devel base stack:
+make cdk-deploy-base maturity=devel
+# Add an application to it:
+make cdk-deploy-leaf maturity=devel config-file=<FILE>
+```
+
+> [!WARNING]
+> The `container-id` has to be unique per ACCOUNT. To help with this, you can use the cli flag to override it to something else if the other maturity-stack is already using it.
+
+For example, you can have GH Actions deploy to prod, but use devel locally. Both can still be in the same AWS account:
+
+```bash
+# To deploy to prod (default maturity), it'll look like:
+make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml container-id=Minecraft
+# And then manually deploying to devel could look like:
+make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml maturity=devel
+```
+
+This would still give you two stacks, `minecraft.<DOMAIN>` and `minecraft-example.<DOMAIN>`. The difference is the example stack would be apart of the devel application now.
+
+> [!NOTE]
+> If you want to update an existing stack, you MUST pass in the same exact flags you deployed with! Otherwise it's going to try to create a new stack entirely.
