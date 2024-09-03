@@ -136,6 +136,7 @@ aws-whoami:
 update-npm:
 	echo "Updating NPM Stuff..."
 	npm install -g npm aws-cdk
+	echo ""
 
 .PHONY := update-python
 update-python:
@@ -144,6 +145,7 @@ update-python:
 		pip \
 		-r requirements.txt \
 		-r requirements-dev.txt
+	echo ""
 
 .PHONY := update
 update: update-npm update-python
