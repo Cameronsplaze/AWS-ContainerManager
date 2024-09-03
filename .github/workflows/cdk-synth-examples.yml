@@ -60,6 +60,11 @@ jobs:
           ### Update:
           make update-npm
 
+      - name: DEBUG
+        run: |
+          echo $PATH
+          cat ~/.profile
+
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
 
