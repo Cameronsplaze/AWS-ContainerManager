@@ -51,7 +51,13 @@ jobs:
         uses: ./.github/workflows/composite-setup-python
 
       - name: Install NPM Stuff (aws-cdk)
-        run: make update-npm
+        run: |
+          ### Setup as non-root:
+          mkdir ~/.npm-global
+          npm config set prefix '~/.npm-global'
+          export PATH=~/.npm-global/bin:$PATH
+          ### Update:
+          make update-npm
 
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"

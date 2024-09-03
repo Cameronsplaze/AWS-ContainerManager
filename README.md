@@ -14,7 +14,7 @@ First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started
 
 Once you have `python3` and `npm` installed, run `make update` to get everything to the latest version. (As dependabot upgrades stuff, you'll want to run this to stay up-to-date once in a while too).
 
-- If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/6237400) to let non-sudo work.
+- If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/55274930) to let non-sudo work.
 
 ```bash
 # Setup the venv
