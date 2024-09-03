@@ -55,7 +55,8 @@ jobs:
           ### Setup as non-root:
           mkdir ~/.npm-global
           npm config set prefix '~/.npm-global'
-          export PATH=~/.npm-global/bin:$PATH
+          echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.profile
+          source ~/.profile
           ### Update:
           make update-npm
 
