@@ -36,6 +36,7 @@ guard-%:
 _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Deploying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
+	echo ""
 	cdk deploy "$(stack-regix)" \
 		--require-approval never \
 		--no-previous-parameters \
@@ -66,7 +67,6 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Destroying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
 	echo ""
-
 	cdk destroy "$(stack-regix)" \
 		--force \
 		--context config-file="$(config-file)" \
@@ -79,13 +79,13 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 # Destroy the base stack
 .PHONY := cdk-destroy-base
 cdk-destroy-base:
-	$(MAKE) _cdk-destroy-helper stack-regix="$${base_stack_name}"
+	$(MAKE) _cdk-destroy-helper stack-regix="$(base_stack_name)"
 
 # Destroy the leaf stack inside the config-file
 .PHONY := cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-destroy-helper stack-regix="!$${base_stack_name}"
+	$(MAKE) _cdk-destroy-helper stack-regix="!$(base_stack_name)"
 
 
 ########################

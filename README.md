@@ -198,15 +198,18 @@ You can also quickly check which aws account you're configured to use, before yo
 make aws-whoami
 ```
 
-### Developer-specific Application
+### Different Maturities
 
-I've added a different maturity, `devel`. It has defaults for developing (doesn't save storage on deletion). It also keeps the containers you're testing with, separate from. For example, you can:
+I've added a different maturity, `devel`. It has defaults for developing (i.e removes storage with it when deleted). It also keeps the containers you're testing with separate from any games you're activaly running. For example, you can:
 
 ```bash
 # Create the devel base stack:
 make cdk-deploy-base maturity=devel
 # Add an application to it:
 make cdk-deploy-leaf maturity=devel config-file=<FILE>
+# Delete said leaf stack
+make cdk-destroy-leaf maturity=devel config-file=<FILE>
+# And never touch the stuff on the normal stacks!
 ```
 
 > [!WARNING]
@@ -215,13 +218,17 @@ make cdk-deploy-leaf maturity=devel config-file=<FILE>
 For example, you can have GH Actions deploy to prod, but use devel locally. Both can still be in the same AWS account:
 
 ```bash
-# To deploy to prod (default maturity), it'll look like:
+# To deploy to prod, it'll look like:
+#    (You can have `maturity=prod` if you want, but it's the default).
 make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml container-id=Minecraft
 # And then manually deploying to devel could look like:
 make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml maturity=devel
 ```
 
-This would still give you two stacks, `minecraft.<DOMAIN>` and `minecraft-example.<DOMAIN>`. The difference is the example stack would be apart of the devel application now.
+This would still give you two stacks, each with a different base stack:
+
+- `minecraft.<DOMAIN>`: On the normal prod stack.
+- `minecraft-example.<DOMAIN>`: In the devel stack.
 
 > [!NOTE]
 > If you want to update an existing stack, you MUST pass in the same exact flags you deployed with! Otherwise it's going to try to create a new stack entirely.
