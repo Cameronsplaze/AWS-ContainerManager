@@ -23,7 +23,7 @@ on:
       - 'Examples/**'
       - 'base-stack-config.yaml'
       # Except any readme's / documentation:
-      - '!**README.md'
+      - '!**.md'
 
 
 env:
