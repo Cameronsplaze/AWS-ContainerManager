@@ -15,5 +15,5 @@ There's a lot of tweaks I had to do to get this working. Will come back to at so
 
 Going to rename soon, but it's basically the main pipeline. On PR's, it synths all the cdk stacks, and then (WIP) will hopefully deploy them when merged to main. I still need to think of a good way to exclude some of the stacks that I'll want to synth, but NOT deploy.
 
-- It's specifically designed to synth on PR's, and deploy on push's, but not vise-versa. This way when it merges to main, you're not trying to synth and deploying at the same time. (synthing THEN deploying is pointless, since it had to successfully synth to be merged...).
+- It's specifically designed to synth on PR's, and deploy on push's, but not vise-versa. This way when it merges to main, you're not trying to synth and deploying at the same time. (synth-ing THEN deploying is pointless, since it had to successfully synth to be merged...).
 - These run on PR's even though they only have a `push` trigger, because of how GH does commits behind the scenes. I have these all listed as `required` in the branch protection rules, so GH will still wait for them to finish before letting you merge the branch.
