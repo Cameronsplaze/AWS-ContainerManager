@@ -11,11 +11,19 @@ updates:
     directory: "/" # Docs say to keep this as '/', it knows what to do.
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 1
+    ### Group them together, so that when the PR is merged, we're
+    ### not trying to deploy 4 different times at once.
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
+    groups:
+      action-updates:
+        applies-to: version-updates
 
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 1
     ### Group them together, so that when the PR is merged, we're
     ### not trying to deploy 4 different times at once.
     # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
