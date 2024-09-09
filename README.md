@@ -8,15 +8,20 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 ## Quick Start
 
+### First time setup
+
 First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
 
-### First time setup
+Once you have `python3` and `npm` installed, run `make update` to get everything to the latest version. (As dependabot upgrades stuff, you'll want to run this to stay up-to-date once in a while too).
+
+- If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/55274930) to let non-sudo work.
 
 ```bash
 # Setup the venv
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install -r requirements.txt -r requirements-dev.txt
+# update all npm and python packages
+make update
 # Setup the env vars
 cp vars.env.example vars.env
 nano vars.env # Use the text editor that's better than vim >:)
@@ -32,10 +37,8 @@ The config options for the stack are in [./base-stack-config.yaml](./base-stack-
 
 If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/).
 
-For a quickstart, just run:
-
 ```bash
-# `source` if new shell
+# IF a new shell
 source .venv/bin/activate
 source vars.env
 # Actually deploy:
@@ -47,7 +50,7 @@ make cdk-deploy-base
 The config examples are in `./Examples/*-example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
 
 ```bash
-# `source` if new shell
+# IF a new shell
 source .venv/bin/activate
 source vars.env
 # Edit the config to what you want:
@@ -59,7 +62,7 @@ make cdk-deploy-leaf config-file=./Minecraft.yaml
 
 ### Connecting to the Container
 
-Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml")
+Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [Different Maturities](#different-maturities) section below.
 
 > [!NOTE]
 > It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
@@ -185,3 +188,38 @@ You can also quickly check which aws account you're configured to use, before yo
 ```bash
 make aws-whoami
 ```
+
+### Different Maturities
+
+There's currently two maturities you can set, `devel` and `prod` (prod being the default). `devel` has defaults for developing (i.e removes any storage with it when deleted). It also keeps the containers you're testing with, separate from any games you're activity running. For example, you can:
+
+```bash
+# Create the devel base stack:
+make cdk-deploy-base maturity=devel
+# Add an application to it:
+make cdk-deploy-leaf maturity=devel config-file=<FILE>
+# Delete said leaf stack
+make cdk-destroy-leaf maturity=devel config-file=<FILE>
+# And never touch the stuff in the normal stacks!
+```
+
+> [!WARNING]
+> The `container-id` has to be unique per ACCOUNT. To help with this, you can use the cli flag to override it to something else if the other maturity-stack is already using it. (By default, `container-id` is the filename of the config without the extension).
+
+For example, you can have GH Actions deploy to prod, but use devel locally. Both can still be in the same AWS account:
+
+```bash
+# To deploy to prod, it'll look like:
+#    (You can have `maturity=prod` if you want, but it's the default).
+make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml container-id=Minecraft
+# And then manually deploying to devel could look like:
+make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml maturity=devel
+```
+
+This would still give you two stacks, each with a different base stack. They won't conflict since the first command got overridden to `minecraft`, and the second one is using the default `minecraft-example` from the filename:
+
+- `minecraft.<DOMAIN>`: On the normal prod stack.
+- `minecraft-example.<DOMAIN>`: In the devel stack.
+
+> [!NOTE]
+> If you want to update an existing stack, you MUST pass in the same exact flags you deployed with! Otherwise it's going to try to create a new stack entirely.

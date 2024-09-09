@@ -2,7 +2,7 @@
 
 ## Creating Configs
 
-These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft-example.yaml` -> `minecraft-example.my-domain.com`). See any `*-example.yaml` in this directory for examples.
+These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft-example.yaml` -> `minecraft-example.my-domain.com`). See any `*-example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `maturity=` key. See the developer section in the [root README.md](../README.md#different-maturities) for more details.)
 
 - `Ec2`: (dict)
 

@@ -5,8 +5,18 @@ MAKEFLAGS += --no-print-directory
 # Default action:
 .DEFAULT_GOAL := cdk-synth
 
-### NOTE: IF THIS IS CHANGED: Also change it in the Makefile:
-base_stack_name := "ContainerManager-BaseStack"
+### Figure out the application variables:
+#    Do here instead of the cdk app, so they're not duplicated in both and
+#    avoid getting out of sync. Just pass them in
+maturity ?= prod
+# The application_id and base_stack_name are only here to have in one place,
+#    they're not meant to be modified directly:
+ifeq ($(maturity),prod)
+	application_id := "ContainerManager"
+else
+	application_id := "ContainerManager-$(maturity)"
+endif
+base_stack_name := "$(application_id)-BaseStack"
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
 guard-%:
@@ -30,19 +40,23 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	cdk deploy "$(stack-regix)" \
 		--require-approval never \
 		--no-previous-parameters \
-		--context config-file="$(config-file)"
+		--context config-file="$(config-file)" \
+		--context maturity="$(maturity)" \
+	    --context application_id="$(application_id)" \
+		--context base_stack_name="$(base_stack_name)" \
+		--context container-id="$(container-id)"
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Edit the base stack:
 .PHONY := cdk-deploy-base
 cdk-deploy-base:
-	$(MAKE) _cdk-deploy-helper stack-regix="$(base_stack_name)" config-file=""
+	$(MAKE) _cdk-deploy-helper stack-regix="$(base_stack_name)"
 
 # Edit everything BUT the base stack (within the config-file scope):
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-deploy-helper stack-regix="!$(base_stack_name)" config-file="$(config-file)"
+	$(MAKE) _cdk-deploy-helper stack-regix="!$(base_stack_name)"
 
 
 
@@ -55,21 +69,23 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo ""
 	cdk destroy "$(stack-regix)" \
 		--force \
-		--context config-file="$(config-file)"
+		--context config-file="$(config-file)" \
+		--context maturity="$(maturity)" \
+	    --context application_id="$(application_id)" \
+		--context base_stack_name="$(base_stack_name)" \
+		--context container-id="$(container-id)"
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Destroy the base stack
 .PHONY := cdk-destroy-base
 cdk-destroy-base:
-	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
-	$(MAKE) _cdk-destroy-helper stack-regix="$${base_stack_name}" config-file=""
+	$(MAKE) _cdk-destroy-helper stack-regix="$(base_stack_name)"
 
 # Destroy the leaf stack inside the config-file
 .PHONY := cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	base_stack_name=`python3 -c "import app; print(app.base_stack_name)"`
-	$(MAKE) _cdk-destroy-helper stack-regix="!$${base_stack_name}" config-file="$(config-file)"
+	$(MAKE) _cdk-destroy-helper stack-regix="!$(base_stack_name)"
 
 
 ########################
@@ -93,7 +109,13 @@ cdk-synth:
 	fi
 	echo "Synthesizing Stack..."
 	echo ""
-	cdk synth --context config-file="$(config-file)" $(STACKS)
+	cdk synth \
+		--context config-file="$(config-file)" \
+		--context maturity="$(maturity)" \
+	    --context application_id="$(application_id)" \
+		--context base_stack_name="$(base_stack_name)" \
+		--context container-id="$(container-id)" \
+		$(STACKS)
 
 .PHONY := pylint
 pylint:
@@ -110,6 +132,23 @@ aws-whoami:
 		--query Arn \
 		--output text
 
+.PHONY := update-npm
+update-npm:
+	echo "Updating NPM Stuff..."
+	npm install -g npm aws-cdk
+	echo ""
+
+.PHONY := update-python
+update-python:
+	echo "Updating Python Stuff..."
+	python3 -m pip install --upgrade \
+		pip \
+		-r requirements.txt \
+		-r requirements-dev.txt
+	echo ""
+
+.PHONY := update
+update: update-npm update-python
 
 #######################
 ## One Time Commands ##

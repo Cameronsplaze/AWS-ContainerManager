@@ -16,4 +16,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ### Group them together, so that when the PR is merged, we're
+    ### not trying to deploy 4 different times at once.
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
+    groups:
+      python-updates:
+        applies-to: version-updates
 
