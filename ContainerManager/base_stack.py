@@ -144,6 +144,7 @@ class ContainerManagerBaseStack(Stack):
         #     "CloudwatchDashboard",
         #     dashboard_name=f"{construct_id}-dashboard",
         #     period_override=cloudwatch.PeriodOverride.AUTO,
+
         # )
         # # "Namespace" the widgets. All the leaf stacks will need to access them, but
         # #    I don't want to have a ton of widgets directly in "self". Plus now we can
@@ -153,10 +154,7 @@ class ContainerManagerBaseStack(Stack):
         #     "AutoScalingGroup-Traffic": cloudwatch.GraphWidget(
         #         height=6,
         #         width=12,
-        #         left=[cloudwatch.Metric(
-        #             metric_name="ECS",
-        #             namespace="AWS/AutoScaling",
-        #         )],
+        #         left=[],
         #     ),
         # }
         # # Add the widgets to the dashboard:
