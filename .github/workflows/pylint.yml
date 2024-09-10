@@ -1,12 +1,12 @@
-name: Pylint
+name: pylint - Lint Python Files
 
 on:
-  push:
+  workflow_dispatch: {}
+  pull_request:
+    # Can use 'paths' here. This isn't running on dependabot updates.
     paths:
       # Changes to any python file:
       - '**.py'
-      # Any requirements file:
-      - '**/requirements*.txt'
       # Or Actions this workflow depends on (including itself):
       - '.pylintrc'
       - '.github/workflows/pylint.yml'
@@ -15,8 +15,6 @@ on:
 jobs:
   python-lint:
     runs-on: ubuntu-latest
-    env:
-      PYTHON_VERSION: 3.12
     steps:
       - uses: actions/checkout@v4
 
