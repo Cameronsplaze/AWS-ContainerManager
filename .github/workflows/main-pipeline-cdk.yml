@@ -1,4 +1,4 @@
-name: cdk-synth
+name: Main Pipeline - CDK Actions
 
 on:
   workflow_dispatch:
