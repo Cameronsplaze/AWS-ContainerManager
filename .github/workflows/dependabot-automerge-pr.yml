@@ -20,7 +20,7 @@ env:
 
 jobs:
 
-  dependabot:
+  dependabot-automerge:
     runs-on: ubuntu-latest
     # ONLY run if dependabot opens the PR:
     if: github.actor == 'dependabot[bot]'
