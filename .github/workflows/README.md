@@ -9,7 +9,7 @@ There's a lot of tweaks I had to do to get this working. Will come back to at so
 - Added CODEOWNERS file, but had to disable on the files dependabot touches. There's no way to add apps to CODEOWNERS. (More details in the CODEOWNERS file itself.).
 - Added a list of required actions to main. At first didn't want to maintain the list, but you get a nice clear label on all the actions, so you can easily see if you add an action later and forget to add it to the list. (I tried having the action run a `gh pr` command to wait, but it ended up waiting on itself...).
 - In [dependabot.yml](../dependabot.yml), added a `groups` section. This makes all updates happen under a single PR. That way if 3 updates get created, you don't merge all 3 at the same time and try to do 3 deployment updates at once.
-- Removed the `pull_request` trigger from main actions. I might have to revisit this. When it was both `pull_request` AND `push`, the actions would run twice. Since they're required, even if they're `push`, the action will wait on them. Since the dependabot PR's JUST got created when opened, the action will run on those too. Plus you still get normal checks on all the pushes you do anyways. So maybe it's fine to just have them run on `push` and "not" `pull_request`? (Spoiler, it's not. Coming back to this soon. It only works if the action HAPPENS to run. If it isn't triggered, you're blocked.)
+- Any actions you want to block dependabot updates from merging, MUST be **required workflows** in the repo settings. They also can't contain the `on.<trigger>.paths` key. If they do, and the paths isn't in the PR, you won't be able to merge it. (It just freezes saying "Expected — Waiting for status to be reported")
 
 ## cdk-synth-examples.yml
 
