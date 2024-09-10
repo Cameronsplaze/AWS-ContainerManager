@@ -1,7 +1,15 @@
 name: cdk-synth
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Which CDK action to take.
+        type: choice
+        options:
+          # Can't run both at once, so we need to choose.
+          - synth
+          - deploy
   pull_request:
     types:
       # For Synth
@@ -11,19 +19,14 @@ on:
       - edited
       # For Deploy
       - closed
-    paths:
-      # Any code in ContainerManager:
-      - 'ContainerManager/**'
-      - 'app.py'
-      # Any requirements file:
-      - '**/requirements*.txt'
-      # This action:
-      - '.github/workflows/cdk-synth-examples.yml'
-      # Example Configs:
-      - 'Examples/**'
-      - 'base-stack-config.yaml'
-      # Except any readme's / documentation:
-      - '!**.md'
+    # NOTE: You CAN'T have the `paths` key here!!
+    #    if you do, and the PR doesn't trigger this,
+    #    you won't be able to merge it.
+    #   (Apart of dependabot updates. See the
+    #    README.md in this dir for more details...)
+    branches:
+      - main
+
 
 
 env:
@@ -49,7 +52,8 @@ jobs:
           echo "head ref is ${{ github.head_ref }}"
 
   cdk-synth:
-    if: github.event.pull_request.merged != true
+    if: (github.event_name == 'pull_request' && github.event.action != 'closed') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'synth')
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
@@ -75,7 +79,9 @@ jobs:
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
 
   cdk-deploy:
-    if: github.event.pull_request.merged == true
+    # If the PR is merged, or if we manually trigger it.
+    if: (github.event_name == 'pull_request' && github.event.pull_request.merged) ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy')
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
