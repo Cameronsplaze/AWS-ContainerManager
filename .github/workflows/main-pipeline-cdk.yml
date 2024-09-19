@@ -88,14 +88,3 @@ jobs:
     steps:
       - name: "test"
         run: echo TODO
-
-  debug:
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: DEBUG
-        run: |
-          echo "event name is ${{ github.event_name }}"
-          echo "event merged is ${{ github.event.pull_request.merged }}"
-          echo "pull request done is ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}"
-          echo "workflow dispatch done is ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy' }}"
