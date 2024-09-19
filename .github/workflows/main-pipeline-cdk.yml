@@ -90,5 +90,12 @@ jobs:
             ( github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' )
         run: exit -1
 
+      # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
+      #     Also each leaf should check against a "REPOSITORY VARIABLE" to see if it should run.
+      #     (Check *there* so forks can have their own list, and not conflict with eachother.
+      #       Make sure to update docs w/ how it should be formated too).
+      # There might be a chance the matrix leafs will trip on eachother, but hopefully deploying
+      # base first will mean no changes will happen. It'd be so much cleaner if we can do it, so
+      # I think I'll try it first.
       - name: TODO
         run: echo TODO
