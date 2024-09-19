@@ -135,7 +135,7 @@ aws-whoami:
 .PHONY := update-npm
 update-npm:
 	echo "Updating NPM Stuff..."
-	npm install -g npm aws-cdk
+	npm install -g npm@latest aws-cdk@latest
 	echo ""
 
 .PHONY := update-python

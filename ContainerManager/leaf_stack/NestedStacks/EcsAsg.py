@@ -252,7 +252,7 @@ class EcsAsg(NestedStack):
         #####################
         ### cdk_nag stuff ###
         #####################
-        # Do at very end, they have to "supress" after everything's created to work.
+        # Do at very end, they have to "suppress" after everything's created to work.
 
         NagSuppressions.add_resource_suppressions(
             self.auto_scaling_group,

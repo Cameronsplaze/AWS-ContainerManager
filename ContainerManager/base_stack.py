@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_sns as sns,
     aws_iam as iam,
+    aws_cloudwatch as cloudwatch,
 )
 
 from cdk_nag import NagSuppressions
@@ -83,12 +84,7 @@ class ContainerManagerBaseStack(Stack):
             display_name=f"{construct_id}-sns-notify-topic",
             enforce_ssl=True,
         )
-        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
-            {
-                "id": "AwsSolutions-SNS2",
-                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
-            },
-        ])
+
         # Give CloudWatch Alarms permissions to publish to the SNS Topic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Topic.html#addwbrtowbrresourcewbrpolicystatement
         self.sns_notify_topic.add_to_resource_policy(
@@ -136,10 +132,46 @@ class ContainerManagerBaseStack(Stack):
             )
             self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
 
+        #######################
+        ### Dashboard stuff ###
+        #######################
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Dashboard.html
+        # Couldn't get it in the base stack. GraphWidget can't have no metrics. Asked about it
+        # here: https://github.com/aws/aws-cdk/issues/31393
+
+        # self.dashboard = cloudwatch.Dashboard(
+        #     self,
+        #     "CloudwatchDashboard",
+        #     dashboard_name=f"{construct_id}-dashboard",
+        #     period_override=cloudwatch.PeriodOverride.AUTO,
+
+        # )
+        # # "Namespace" the widgets. All the leaf stacks will need to access them, but
+        # #    I don't want to have a ton of widgets directly in "self". Plus now we can
+        # #    loop over the dict to add to the dashboard instead of adding each one manually.
+        # self.dashboard_widgets = {
+        #     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
+        #     "AutoScalingGroup-Traffic": cloudwatch.GraphWidget(
+        #         height=6,
+        #         width=12,
+        #         left=[],
+        #     ),
+        # }
+        # # Add the widgets to the dashboard:
+        # for widget in self.dashboard_widgets.values():
+        #     self.dashboard.add_widgets(widget)
+
+
         #####################
         ### cdk_nag stuff ###
         #####################
-        # Do at very end, they have to "supress" after everything's created to work.
+        # Do at very end, they have to "suppress" after everything's created to work.
+        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
+            {
+                "id": "AwsSolutions-SNS2",
+                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            },
+        ])
 
         NagSuppressions.add_resource_suppressions(
             self.vpc,
