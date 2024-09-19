@@ -83,7 +83,7 @@ jobs:
     steps:
       # Moved this check away from the job-level 'if', so it actually fails if you're
       # not on main and it's easier to see.
-      - name: Fail if not 'main'
+      - name: Fail if not 'main' (else skips this step)
         # Yes the pull_request line is redundant with the 'branch' trigger at the top of the
         # file, but better safe than sorry. Keeps the logic uniform with workflow_dispatch too.
         if: ( github.event_name == 'pull_request' && github.base_ref != 'main' ) ||
