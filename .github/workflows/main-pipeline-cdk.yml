@@ -91,7 +91,8 @@ jobs:
         run: exit -1
 
       # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
-      #     Also each leaf should check against a "REPOSITORY VARIABLE" to see if it should run.
+      #   - If we add resources to base, this will let the deployment succeed and leafs use it.
+      #   - Also each leaf should check against a "REPOSITORY VARIABLE" to see if it should run.
       #     (Check *there* so forks can have their own list, and not conflict with eachother.
       #       Make sure to update docs w/ how it should be formated too).
       # There might be a chance the matrix leafs will trip on eachother, but hopefully deploying

@@ -121,6 +121,7 @@ class ContainerManagerStack(Stack):
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
             efs_file_system=self.efs_nested_stack.efs_file_system,
             host_access_point=self.efs_nested_stack.host_access_point,
+            dashboard_widgets=base_stack.dashboard_widgets,
         )
 
         ### All the info for the Watchdog Stuff

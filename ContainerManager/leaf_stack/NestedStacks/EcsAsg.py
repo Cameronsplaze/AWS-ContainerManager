@@ -5,6 +5,7 @@ This module contains the EcsAsg NestedStack class.
 
 from aws_cdk import (
     NestedStack,
+    Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
@@ -13,6 +14,7 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
+    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
@@ -38,6 +40,7 @@ class EcsAsg(NestedStack):
         sg_container_traffic: ec2.SecurityGroup,
         efs_file_system: efs.FileSystem,
         host_access_point: efs.AccessPoint,
+        dashboard_widgets: dict,
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -248,6 +251,37 @@ class EcsAsg(NestedStack):
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message),
             ],
         )
+
+        #######################
+        ### Dashboard Stuff ###
+        #######################
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        # traffic_in_metric = cloudwatch.Metric(
+        #     metric_name="NetworkIn",
+        #     namespace="AWS/EC2",
+        #     dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
+        #     period=Duration.minutes(1),
+        #     statistic="Sum",
+        # )
+        # dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_in_metric)
+
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        # traffic_out_metric = cloudwatch.Metric(
+        #     metric_name="NetworkOut",
+        #     namespace="AWS/EC2",
+        #     dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
+        #     period=Duration.minutes(1),
+        #     statistic="Sum",
+        # )
+        # dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_out_metric)
+
+        # blank_metric_2 = cloudwatch.Metric(
+        #     metric_name="blank-2",
+        #     namespace="blank",
+        #     period=Duration.minutes(1),
+        #     statistic="Maximum",
+        # )
+        # dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(blank_metric_2)
 
         #####################
         ### cdk_nag stuff ###
