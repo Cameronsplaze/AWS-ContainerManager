@@ -52,6 +52,16 @@ class ContainerManagerStack(Stack):
         ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        #######################
+        ### Dashboard Stuff ###
+        #######################
+        self.dashboard_nested_stack = NestedStacks.Dashboard(
+            self,
+            description=f"Dashboard Logic for {construct_id}",
+            leaf_construct_id=construct_id,
+        )
+
+
         ###############################
         ## Container-specific Notify ##
         ###############################
@@ -66,14 +76,13 @@ class ContainerManagerStack(Stack):
             display_name=f"{construct_id}-sns-notify-topic",
             enforce_ssl=True,
         )
-        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
-            {
-                "id": "AwsSolutions-SNS2",
-                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
-            },
-        ])
         subscriptions = config.get("AlertSubscription", [])
         add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
+
+
+        #####################
+        ## Core Leaf Stack ##
+        #####################
 
         ### All the info for the Security Group Stuff
         self.sg_nested_stack = NestedStacks.SecurityGroups(
@@ -121,6 +130,7 @@ class ContainerManagerStack(Stack):
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
             efs_file_system=self.efs_nested_stack.efs_file_system,
             host_access_point=self.efs_nested_stack.host_access_point,
+            dashboard_widgets=self.dashboard_nested_stack.widgets,
         )
 
         ### All the info for the Watchdog Stuff
@@ -133,6 +143,8 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
+            dashboard=self.dashboard_nested_stack.dashboard,
+            dashboard_widgets=self.dashboard_nested_stack.widgets,
         )
 
         ### All the info for the Asg StateChange Hook Stuff
@@ -146,3 +158,14 @@ class ContainerManagerStack(Stack):
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             rule_watchdog_trigger=self.watchdog_nested_stack.rule_watchdog_trigger,
         )
+
+        #####################
+        ### cdk_nag stuff ###
+        #####################
+        # Do at very end, they have to "suppress" after everything's created to work.
+        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
+            {
+                "id": "AwsSolutions-SNS2",
+                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            },
+        ])

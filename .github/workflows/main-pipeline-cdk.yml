@@ -1,15 +1,7 @@
 name: Main Pipeline - CDK Actions
 
 on:
-  workflow_dispatch:
-    inputs:
-      action:
-        description: Which CDK action to take.
-        type: choice
-        options:
-          # Can't run both at once, so we need to choose.
-          - synth
-          - deploy
+  workflow_dispatch: {}
   pull_request:
     types:
       # For Synth
@@ -48,7 +40,7 @@ jobs:
 
   cdk-synth:
     if: ( github.event_name == 'pull_request' && github.event.action != 'closed' ) ||
-        ( github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'synth' )
+        ( github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
@@ -76,19 +68,28 @@ jobs:
   cdk-deploy:
     ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
     if: ( github.event_name == 'pull_request' && github.event.pull_request.merged ) ||
-        ( github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy' )
+        ( github.event_name == 'workflow_dispatch' )
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
+      - cdk-synth
     steps:
       # Moved this check away from the job-level 'if', so it actually fails if you're
       # not on main and it's easier to see.
-      - name: Only deploy to Main
+      - name: Fail if not 'main' (else skips this step)
         # Yes the pull_request line is redundant with the 'branch' trigger at the top of the
         # file, but better safe than sorry. Keeps the logic uniform with workflow_dispatch too.
         if: ( github.event_name == 'pull_request' && github.base_ref != 'main' ) ||
             ( github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' )
         run: exit -1
 
+      # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
+      #   - If we add resources to base, this will let the deployment succeed and leafs use it.
+      #   - Also each leaf should check against a "REPOSITORY VARIABLE" to see if it should run.
+      #     (Check *there* so forks can have their own list, and not conflict with eachother.
+      #       Make sure to update docs w/ how it should be formated too).
+      # There might be a chance the matrix leafs will trip on eachother, but hopefully deploying
+      # base first will mean no changes will happen. It'd be so much cleaner if we can do it, so
+      # I think I'll try it first.
       - name: TODO
         run: echo TODO
