@@ -133,42 +133,6 @@ class ContainerManagerBaseStack(Stack):
             )
             self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
 
-        #######################
-        ### Dashboard stuff ###
-        #######################
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Dashboard.html
-        self.dashboard = cloudwatch.Dashboard(
-            self,
-            "CloudwatchDashboard",
-            dashboard_name=f"{construct_id}-dashboard",
-            period_override=cloudwatch.PeriodOverride.AUTO,
-        )
-        ### There's a bug rn where you can't create blank widgets,
-        # So TMP create a blank metric to attach to them:
-        # BUG: https://github.com/aws/aws-cdk/issues/31393
-        # DOCS: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        blank_metric = cloudwatch.Metric(
-            metric_name="blank",
-            namespace="blank",
-            period=Duration.minutes(1),
-            statistic="Maximum",
-        )
-
-        # "Namespace" the widgets. All the leaf stacks will need to access them, but
-        #    I don't want to have a ton of widgets directly in "self". Plus now we can
-        #    loop over the dict to add to the dashboard instead of adding each one manually.
-        self.dashboard_widgets = {
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
-            "AutoScalingGroup-Traffic": cloudwatch.GraphWidget(
-                height=6,
-                width=12,
-                left=[blank_metric],
-            ),
-        }
-        # Add the widgets to the dashboard:
-        for widget in self.dashboard_widgets.values():
-            self.dashboard.add_widgets(widget)
-
 
         #####################
         ### cdk_nag stuff ###

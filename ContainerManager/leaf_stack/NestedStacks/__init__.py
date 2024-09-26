@@ -6,6 +6,7 @@ apart to keep things manageable.
 
 from .AsgStateChangeHook import AsgStateChangeHook
 from .Container import Container
+from .Dashboard import Dashboard
 from .EcsAsg import EcsAsg
 from .Efs import Efs
 from .SecurityGroups import SecurityGroups

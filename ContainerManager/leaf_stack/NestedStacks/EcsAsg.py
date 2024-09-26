@@ -255,33 +255,36 @@ class EcsAsg(NestedStack):
         #######################
         ### Dashboard Stuff ###
         #######################
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        # traffic_in_metric = cloudwatch.Metric(
-        #     metric_name="NetworkIn",
-        #     namespace="AWS/EC2",
-        #     dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
-        #     period=Duration.minutes(1),
-        #     statistic="Sum",
-        # )
-        # dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_in_metric)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_in_metric = cloudwatch.Metric(
+            metric_name="NetworkIn",
+            namespace="AWS/EC2",
+            dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
+            period=Duration.minutes(1),
+            statistic="Sum",
+        )
+        dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_in_metric)
 
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        # traffic_out_metric = cloudwatch.Metric(
-        #     metric_name="NetworkOut",
-        #     namespace="AWS/EC2",
-        #     dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
-        #     period=Duration.minutes(1),
-        #     statistic="Sum",
-        # )
-        # dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_out_metric)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_out_metric = cloudwatch.Metric(
+            metric_name="NetworkOut",
+            namespace="AWS/EC2",
+            dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
+            period=Duration.minutes(1),
+            statistic="Sum",
+        )
+        dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_out_metric)
 
-        # blank_metric_2 = cloudwatch.Metric(
-        #     metric_name="blank-2",
-        #     namespace="blank",
-        #     period=Duration.minutes(1),
-        #     statistic="Maximum",
-        # )
-        # dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(blank_metric_2)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        total_traffic_metric = cloudwatch.MathExpression(
+            expression="t_in + t_out",
+            label=f"Total Traffic: {leaf_construct_id}",
+            using_metrics={
+                "t_in": traffic_in_metric,
+                "t_out": traffic_out_metric,
+            },
+        )
+        dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(total_traffic_metric)
 
         #####################
         ### cdk_nag stuff ###

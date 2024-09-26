@@ -35,6 +35,8 @@ class Watchdog(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
+        dashboard: cloudwatch.Dashboard,
+        dashboard_widgets: dict,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
@@ -291,3 +293,21 @@ class Watchdog(NestedStack):
             # Start disabled, self.lambda_watchdog_container_activity will enable it when instance starts up
             enabled=False,
         )
+
+        #######################
+        ### Dashboard stuff ###
+        #######################
+
+        ## You can't append alarms to *this* widget after it's created, so I'm just having one per stack:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
+        alarm_status_widget = cloudwatch.AlarmStatusWidget(
+            title=f"Alarm Status: {leaf_construct_id}",
+            width=6,
+            height=4,
+            alarms=[
+                self.alarm_container_activity,
+                self.alarm_watchdog_errors,
+                self.alarm_asg_instance_left_up,
+            ]
+        )
+        dashboard.add_widgets(alarm_status_widget)
