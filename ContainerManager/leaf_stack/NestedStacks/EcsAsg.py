@@ -322,7 +322,7 @@ class EcsAsg(NestedStack):
             period=Duration.minutes(1),
             statistic="Sum",
         )
-        dashboard_widgets.append((0, traffic_widget))
+        dashboard_widgets.append((6, traffic_widget))
 
         ### ECS Info Widget:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
@@ -343,7 +343,7 @@ class EcsAsg(NestedStack):
             period=Duration.minutes(1),
             statistic="Maximum",
         )
-        dashboard_widgets.append((0, ecs_container_graph))
+        dashboard_widgets.append((10, ecs_container_graph))
 
         #####################
         ### cdk_nag stuff ###

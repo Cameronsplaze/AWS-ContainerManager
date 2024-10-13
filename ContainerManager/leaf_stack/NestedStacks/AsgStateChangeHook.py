@@ -184,7 +184,7 @@ class AsgStateChangeHook(NestedStack):
             period=Duration.minutes(1),
             statistic="Sum",
         )
-        dashboard_widgets.append((0, widget_state_change_invocations))
+        dashboard_widgets.append((2, widget_state_change_invocations))
 
         #####################
         ### cdk_nag stuff ###

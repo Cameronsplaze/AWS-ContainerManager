@@ -86,4 +86,4 @@ class Container(NestedStack):
                 "fields @message",
             ],
         )
-        dashboard_widgets.append((0, container_logs_widget))
+        dashboard_widgets.append((9, container_logs_widget))

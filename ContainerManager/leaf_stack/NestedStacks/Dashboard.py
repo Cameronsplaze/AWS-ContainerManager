@@ -61,7 +61,7 @@ class Dashboard(NestedStack):
                 f"filter @message like / {route53_dns_sub_domain_name} /",
             ],
         )
-        dashboard_widgets.append((0, dns_logs_widget))
+        dashboard_widgets.append((1, dns_logs_widget))
 
         ### Add the widgets to the dashboard:
         widgets = [widget for _, widget in sorted(dashboard_widgets, key=lambda x: x[0])]

@@ -300,19 +300,19 @@ class Watchdog(NestedStack):
             # have a different priority on the dashboard.
             # (They have different numbers, so they stack on one-another.
             #   Otherwise they'd be on different rows).
-            (0, self.alarm_container_activity),
-            (0, self.alarm_watchdog_errors),
-            (0, self.alarm_asg_instance_left_up),
+            (5, self.alarm_container_activity),
+            (8, self.alarm_watchdog_errors),
+            (7, self.alarm_asg_instance_left_up),
         ]
         ## You can't append alarms to *this* widget after it's created, so I'm just having one per stack:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
         alarm_status_widget = cloudwatch.AlarmStatusWidget(
             title=f"Alarm Summary ({container_id})",
-            width=6,
+            width=3,
             height=4,
             alarms=[alarm[1] for alarm in graph_alarms],
         )
-        dashboard_widgets.append((0, alarm_status_widget))
+        dashboard_widgets.append((4, alarm_status_widget))
 
         for priority, alarm in graph_alarms:
             alarm_widget = cloudwatch.AlarmWidget(
@@ -331,4 +331,4 @@ class Watchdog(NestedStack):
             height=4,
             metrics=[self.metric_asg_num_instances],
         )
-        dashboard_widgets.append((0, num_instances_widget))
+        dashboard_widgets.append((3, num_instances_widget))
