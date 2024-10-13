@@ -23,7 +23,7 @@ from ContainerManager.utils.config_loader import load_base_config, load_leaf_con
 
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
 app = App()
-application_id = app.node.get_context("application_id")
+application_id = app.node.get_context("_application_id")
 APPLICATION_ID_TAG_NAME = "ApplicationId"
 ### TODO: Finish going through all the cdk_nag checks:
 # Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
@@ -44,7 +44,7 @@ us_east_1_env = Environment(
 base_config = load_base_config("./base-stack-config.yaml")
 base_stack = ContainerManagerBaseStack(
     app,
-    app.node.get_context("base_stack_name"),
+    app.node.get_context("_base_stack_name"),
     description="The base VPC for all other ContainerManage stacks to use.",
     cross_region_references=True,
     env=main_env,
@@ -88,6 +88,7 @@ if file_path:
         env=main_env,
         base_stack=base_stack,
         domain_stack=domain_stack,
+        application_id=application_id,
         container_id=container_id,
         config=leaf_config,
     )
