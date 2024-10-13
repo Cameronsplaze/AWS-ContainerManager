@@ -6,14 +6,11 @@ This module contains the ContainerManagerBaseStack class.
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    Tags,
-    Duration,
     RemovalPolicy,
     aws_ec2 as ec2,
     aws_route53 as route53,
     aws_sns as sns,
     aws_iam as iam,
-    aws_cloudwatch as cloudwatch,
 )
 
 from cdk_nag import NagSuppressions

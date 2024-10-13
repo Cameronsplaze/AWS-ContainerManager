@@ -12,7 +12,6 @@ from aws_cdk import (
     aws_logs as logs,
     aws_ecs as ecs,
     aws_events as events,
-    aws_cloudwatch as cloudwatch,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
 )

@@ -5,7 +5,6 @@ This module contains the EcsAsg NestedStack class.
 
 from aws_cdk import (
     NestedStack,
-    Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
@@ -14,7 +13,6 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
-    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 

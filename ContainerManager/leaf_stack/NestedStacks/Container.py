@@ -9,7 +9,6 @@ from aws_cdk import (
     RemovalPolicy,
     aws_ecs as ecs,
     aws_logs as logs,
-    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
