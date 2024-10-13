@@ -27,7 +27,7 @@ class Dashboard(NestedStack):
         scope: Construct,
         application_id: str,
         container_id: str,
-        volume_config: dict,
+        main_config: dict,
 
         domain_stack: DomainStack,
         container_nested_stack: Container,
@@ -41,6 +41,8 @@ class Dashboard(NestedStack):
         #######################
         ### Dashboard stuff ###
         #######################
+        # Config options for specifically this stack:
+        dashboard_config = main_config["Dashboard"]
 
         ############
         ### Metrics used in the Widgets below:
@@ -130,7 +132,7 @@ class Dashboard(NestedStack):
             cloudwatch.GraphWidget(
                 title="(Lambda) ASG State Change Invocations",
                 # Only show up to an hour ago:
-                start=f"-PT{volume_config["IntervalMinutes"].to_minutes()}M",
+                start=f"-PT{dashboard_config["IntervalMinutes"].to_minutes()}M",
                 height=6,
                 width=12,
                 right=[metric_asg_lambda_invocation_count],
@@ -175,7 +177,7 @@ class Dashboard(NestedStack):
             cloudwatch.GraphWidget(
                 title="(ASG) All Network Traffic",
                 # Only show up to an hour ago:
-                start=f"-PT{volume_config["IntervalMinutes"].to_minutes()}M",
+                start=f"-PT{dashboard_config["IntervalMinutes"].to_minutes()}M",
                 height=6,
                 width=12,
                 left=[traffic_packets_in_metric, traffic_packets_out_metric, total_packets_metric],
@@ -222,9 +224,9 @@ class Dashboard(NestedStack):
             ## ECS Container Utilization:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
             cloudwatch.GraphWidget(
-                title=f"(ECS) Container Utilization - {ecs_asg_nested_stack.instance_type}",
+                title=f"(ECS) Container Utilization - {main_config["Ec2"]["InstanceType"]}",
                 # Only show up to an hour ago:
-                start=f"-PT{volume_config["IntervalMinutes"].to_minutes()}M",
+                start=f"-PT{dashboard_config["IntervalMinutes"].to_minutes()}M",
                 height=6,
                 width=12,
                 right=[cpu_utilization_metric, memory_utilization_metric],
@@ -244,6 +246,6 @@ class Dashboard(NestedStack):
             "CloudwatchDashboard",
             dashboard_name=f"{application_id}-{container_id}-Dashboard",
             period_override=cloudwatch.PeriodOverride.AUTO,
-            default_interval=volume_config["IntervalMinutes"],
+            default_interval=dashboard_config["IntervalMinutes"],
             widgets=[dashboard_widgets],
         )

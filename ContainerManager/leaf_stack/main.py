@@ -153,7 +153,7 @@ class ContainerManagerStack(Stack):
             description=f"Dashboard Logic for {construct_id}",
             application_id=application_id,
             container_id=container_id,
-            volume_config=config["Dashboard"],
+            main_config=config,
 
             domain_stack=domain_stack,
             container_nested_stack=self.container_nested_stack,

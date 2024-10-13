@@ -42,9 +42,6 @@ class EcsAsg(NestedStack):
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
 
-        ## The instance type to use for the container:
-        self.instance_type = ec2_config["InstanceType"]
-
         ## Cluster for the the container
         # This has to stay in this stack. A cluster represents a single "instance type"
         # sort of. This is the only way to tie the ASG to the ECS Service, one-to-one.
@@ -109,7 +106,7 @@ class EcsAsg(NestedStack):
         self.launch_template = ec2.LaunchTemplate(
             self,
             "LaunchTemplate",
-            instance_type=ec2.InstanceType(self.instance_type),
+            instance_type=ec2.InstanceType(ec2_config["InstanceType"]),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
             machine_image=ecs.EcsOptimizedImage.amazon_linux2023(),
