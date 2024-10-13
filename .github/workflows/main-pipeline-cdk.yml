@@ -70,7 +70,8 @@ jobs:
 
   cdk-deploy:
     ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
-    # !failure() && !cancelled(): Let it check the 'if' block here, even if the last job skipped.
+    # !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
+    #   (it'll skip when PR is merged. No point in synthing again since it has to pass TO merge)
     if: |
       !failure() && !cancelled() && (
         ( github.event_name == 'pull_request' && github.event.pull_request.merged ) ||
@@ -82,7 +83,7 @@ jobs:
       - cdk-synth
     steps:
       # Moved this check away from the job-level 'if', so it actually fails if you're
-      # not on main and it's easier to see.
+      # not on main. Failure is easier to see than a skipped job.
       - name: Fail if not 'main' (else skips this step)
         # Yes the pull_request line is redundant with the 'branch' trigger at the top of the
         # file, but better safe than sorry. Keeps the logic uniform with workflow_dispatch too.
