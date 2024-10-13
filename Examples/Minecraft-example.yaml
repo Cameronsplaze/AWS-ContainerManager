@@ -28,3 +28,6 @@ Volume:
 
 AlertSubscription:
   - Email: Does@Not.Exist
+
+Dashboard:
+  IntervalMinutes: 30

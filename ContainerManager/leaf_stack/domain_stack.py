@@ -37,6 +37,9 @@ class DomainStack(Stack):
         self.dns_ttl = 1
         self.record_type = route53.RecordType.A
         self.sub_domain_name = f"{container_id}.{base_stack.root_hosted_zone.zone_name}".lower()
+        # Spaces on the ends to not match sub-domains like "_tcp.*" that shows up in logs.
+        # The record_type is because BOTH A and AAAA appear, even if my ISP only supports one.
+        self.log_dns_filter = f" {self.sub_domain_name} {self.record_type.value} "
 
         ## Log group for the Route53 DNS logs:
         self.route53_query_log_group = logs.LogGroup(

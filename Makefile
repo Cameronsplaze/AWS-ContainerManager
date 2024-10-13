@@ -9,14 +9,14 @@ MAKEFLAGS += --no-print-directory
 #    Do here instead of the cdk app, so they're not duplicated in both and
 #    avoid getting out of sync. Just pass them in
 maturity ?= prod
-# The application_id and base_stack_name are only here to have in one place,
-#    they're not meant to be modified directly:
+# The _application_id and _base_stack_name are only here to have in one place,
+#    THEY'RE NOT MEANT TO BE MODIFIED:
 ifeq ($(maturity),prod)
-	application_id := "ContainerManager"
+	_application_id := "ContainerManager"
 else
-	application_id := "ContainerManager-$(maturity)"
+	_application_id := "ContainerManager-$(maturity)"
 endif
-base_stack_name := "$(application_id)-BaseStack"
+_base_stack_name := "$(_application_id)-BaseStack"
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
 guard-%:
@@ -40,23 +40,23 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	cdk deploy "$(stack-regix)" \
 		--require-approval never \
 		--no-previous-parameters \
+	    --context _application_id="$(_application_id)" \
+		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
-	    --context application_id="$(application_id)" \
-		--context base_stack_name="$(base_stack_name)" \
 		--context container-id="$(container-id)"
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Edit the base stack:
 .PHONY := cdk-deploy-base
 cdk-deploy-base:
-	$(MAKE) _cdk-deploy-helper stack-regix="$(base_stack_name)"
+	$(MAKE) _cdk-deploy-helper stack-regix="$(_base_stack_name)"
 
 # Edit everything BUT the base stack (within the config-file scope):
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-deploy-helper stack-regix="!$(base_stack_name)"
+	$(MAKE) _cdk-deploy-helper stack-regix="!$(_base_stack_name)"
 
 
 
@@ -69,23 +69,23 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo ""
 	cdk destroy "$(stack-regix)" \
 		--force \
+	    --context _application_id="$(_application_id)" \
+		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
-	    --context application_id="$(application_id)" \
-		--context base_stack_name="$(base_stack_name)" \
 		--context container-id="$(container-id)"
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Destroy the base stack
 .PHONY := cdk-destroy-base
 cdk-destroy-base:
-	$(MAKE) _cdk-destroy-helper stack-regix="$(base_stack_name)"
+	$(MAKE) _cdk-destroy-helper stack-regix="$(_base_stack_name)"
 
 # Destroy the leaf stack inside the config-file
 .PHONY := cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-destroy-helper stack-regix="!$(base_stack_name)"
+	$(MAKE) _cdk-destroy-helper stack-regix="!$(_base_stack_name)"
 
 
 ########################
@@ -110,10 +110,10 @@ cdk-synth:
 	echo "Synthesizing Stack..."
 	echo ""
 	cdk synth \
+	    --context _application_id="$(_application_id)" \
+		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
-	    --context application_id="$(application_id)" \
-		--context base_stack_name="$(base_stack_name)" \
 		--context container-id="$(container-id)" \
 		$(STACKS)
 

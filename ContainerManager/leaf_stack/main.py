@@ -7,9 +7,7 @@ import re
 
 from aws_cdk import (
     Stack,
-    Duration,
     aws_sns as sns,
-    aws_kms as kms,
 )
 from constructs import Construct
 from cdk_nag import NagSuppressions
@@ -41,26 +39,17 @@ class ContainerManagerStack(Stack):
         return super().get_logical_id(element)
 
     def __init__(
-            self,
-            scope: Construct,
-            construct_id: str,
-            base_stack: ContainerManagerBaseStack,
-            domain_stack: DomainStack,
-            container_id: str,
-            config: dict,
-            **kwargs
-        ) -> None:
+        self,
+        scope: Construct,
+        construct_id: str,
+        base_stack: ContainerManagerBaseStack,
+        domain_stack: DomainStack,
+        application_id: str,
+        container_id: str,
+        config: dict,
+        **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        #######################
-        ### Dashboard Stuff ###
-        #######################
-        self.dashboard_nested_stack = NestedStacks.Dashboard(
-            self,
-            description=f"Dashboard Logic for {construct_id}",
-            leaf_construct_id=construct_id,
-        )
-
 
         ###############################
         ## Container-specific Notify ##
@@ -130,7 +119,6 @@ class ContainerManagerStack(Stack):
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
             efs_file_system=self.efs_nested_stack.efs_file_system,
             host_access_point=self.efs_nested_stack.host_access_point,
-            dashboard_widgets=self.dashboard_nested_stack.widgets,
         )
 
         ### All the info for the Watchdog Stuff
@@ -143,8 +131,6 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
-            dashboard=self.dashboard_nested_stack.dashboard,
-            dashboard_widgets=self.dashboard_nested_stack.widgets,
         )
 
         ### All the info for the Asg StateChange Hook Stuff
@@ -157,6 +143,23 @@ class ContainerManagerStack(Stack):
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             rule_watchdog_trigger=self.watchdog_nested_stack.rule_watchdog_trigger,
+        )
+
+        #######################
+        ### Dashboard Stuff ###
+        #######################
+        self.dashboard_nested_stack = NestedStacks.Dashboard(
+            self,
+            description=f"Dashboard Logic for {construct_id}",
+            application_id=application_id,
+            container_id=container_id,
+            main_config=config,
+
+            domain_stack=domain_stack,
+            container_nested_stack=self.container_nested_stack,
+            ecs_asg_nested_stack=self.ecs_asg_nested_stack,
+            watchdog_nested_stack=self.watchdog_nested_stack,
+            asg_state_change_hook_nested_stack=self.asg_state_change_hook_nested_stack,
         )
 
         #####################

@@ -35,8 +35,6 @@ class Watchdog(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
-        dashboard: cloudwatch.Dashboard,
-        dashboard_widgets: dict,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
@@ -66,11 +64,11 @@ class Watchdog(NestedStack):
         )
         ## And the alarm to flag if the instance is up too long:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        duration_before_alarm = Duration.hours(watchdog_config["InstanceLeftUp"]["DurationHours"]).to_minutes()
+        duration_before_alarm = watchdog_config["InstanceLeftUp"]["DurationHours"].to_minutes()
         self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
             self,
             "AlarmInstanceLeftUp",
-            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
+            alarm_name=f"Instance Left Up ({leaf_construct_id})",
             alarm_description="To warn if the instance is up too long",
             ### This way if the period changes, this will stay the same duration:
             # Total Duration = Number of Periods * Period length... so
@@ -91,7 +89,6 @@ class Watchdog(NestedStack):
             self.alarm_asg_instance_left_up.add_alarm_action(
                 cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
             )
-
 
         #############################
         ## Count Connections Logic ##
@@ -153,11 +150,11 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html#createwbralarmscope-id-props
         #       Total Duration = Number of Periods * Period length... so
         #       Number of Periods = Total Duration / Period length
-        evaluation_periods = int(watchdog_config["MinutesWithoutConnections"] / self.metric_total_activity.period.to_minutes())
+        evaluation_periods = int(watchdog_config["MinutesWithoutConnections"].to_minutes() / self.metric_total_activity.period.to_minutes())
         self.alarm_container_activity = self.metric_total_activity.create_alarm(
             self,
             "AlarmContainerActivity",
-            alarm_name=f"{leaf_construct_id}-Alarm-ContainerActivity",
+            alarm_name=f"Container Activity ({leaf_construct_id})",
             alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
             threshold=0,
@@ -261,7 +258,7 @@ class Watchdog(NestedStack):
         self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
             self,
             "AlarmWatchdogErrors",
-            alarm_name=f"{leaf_construct_id}-Alarm-Watchdog-Errors",
+            alarm_name=f"Watchdog Errors  ({leaf_construct_id})",
             alarm_description="Trigger if the Lambda Watchdog fails too many times",
             # Must be in alarm this long consecutively to trigger. 3 strikes you're out:
             #      (Duration doesn't matter here, no need to divide by metric period. We ALWAYS want 3)
@@ -293,21 +290,3 @@ class Watchdog(NestedStack):
             # Start disabled, self.lambda_watchdog_container_activity will enable it when instance starts up
             enabled=False,
         )
-
-        #######################
-        ### Dashboard stuff ###
-        #######################
-
-        ## You can't append alarms to *this* widget after it's created, so I'm just having one per stack:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
-        alarm_status_widget = cloudwatch.AlarmStatusWidget(
-            title=f"Alarm Status: {leaf_construct_id}",
-            width=6,
-            height=4,
-            alarms=[
-                self.alarm_container_activity,
-                self.alarm_watchdog_errors,
-                self.alarm_asg_instance_left_up,
-            ]
-        )
-        dashboard.add_widgets(alarm_status_widget)
