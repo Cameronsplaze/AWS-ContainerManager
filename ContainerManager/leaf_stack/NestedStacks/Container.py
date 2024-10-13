@@ -27,7 +27,7 @@ class Container(NestedStack):
         leaf_construct_id: str,
         container_id: str,
         container_config: dict,
-        dashboard_widgets: list,
+        dashboard_widgets: list[tuple[int, cloudwatch.IWidget]],
         **kwargs
     ) -> None:
         super().__init__(scope, "ContainerNestedStack", **kwargs)
