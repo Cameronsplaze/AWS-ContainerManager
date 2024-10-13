@@ -170,7 +170,9 @@ class AsgStateChangeHook(NestedStack):
         #######################
         ### Add asg_state_change_hook's invocations to the dashboard:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrinvocationsprops
-        metric_state_change_invocations = self.lambda_asg_state_change_hook.metric_invocations()
+        metric_state_change_invocations = self.lambda_asg_state_change_hook.metric_invocations(
+            unit=cloudwatch.Unit.COUNT,
+        )
         ## Graph it:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
         widget_state_change_invocations = cloudwatch.GraphWidget(
