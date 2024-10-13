@@ -36,7 +36,6 @@ class AsgStateChangeHook(NestedStack):
         ec2_service: ecs.Ec2Service,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         rule_watchdog_trigger: events.Rule,
-        dashboard_widgets: list[tuple[int, cloudwatch.IWidget]],
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
@@ -164,29 +163,6 @@ class AsgStateChangeHook(NestedStack):
                 events_targets.LambdaFunction(self.lambda_asg_state_change_hook),
             ],
         )
-
-        #######################
-        ### Dashboard Stuff ###
-        #######################
-        ### Add asg_state_change_hook's invocations to the dashboard:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrinvocationsprops
-        metric_state_change_invocations = self.lambda_asg_state_change_hook.metric_invocations(
-            unit=cloudwatch.Unit.COUNT,
-        )
-        ## Graph it:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
-        widget_state_change_invocations = cloudwatch.GraphWidget(
-            title="(Lambda) ASG State Change Invocations",
-            # Only show up to an hour ago:
-            start="-PT1H",
-            height=6,
-            width=12,
-            right=[metric_state_change_invocations],
-            legend_position=cloudwatch.LegendPosition.RIGHT,
-            period=Duration.minutes(1),
-            statistic="Sum",
-        )
-        dashboard_widgets.append((2, widget_state_change_invocations))
 
         #####################
         ### cdk_nag stuff ###

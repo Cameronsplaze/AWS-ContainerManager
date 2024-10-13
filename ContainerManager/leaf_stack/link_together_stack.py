@@ -103,7 +103,7 @@ class LinkTogetherStack(Stack):
             log_group=domain_stack.route53_query_log_group,
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
             # Spaces on either side, so it doesn't match the "_tcp" query that pairs with it:
-            filter_pattern=logs.FilterPattern.any_term(f" {domain_stack.sub_domain_name} "),
+            filter_pattern=logs.FilterPattern.any_term(domain_stack.log_dns_filter),
             filter_name="TriggerLambdaOnConnect",
         )
 

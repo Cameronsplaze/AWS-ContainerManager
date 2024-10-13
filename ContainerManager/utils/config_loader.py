@@ -13,6 +13,7 @@ Also modifies data to a better format CDK can digest in places.
 #        to a base class.
 
 from aws_cdk import (
+    Duration,
     aws_sns as sns,
     aws_ecs as ecs,
 )
@@ -201,6 +202,8 @@ def _parse_watchdog(config: dict) -> None:
             config["Watchdog"]["MinutesWithoutConnections"] = 5
         assert isinstance(config["Watchdog"]["MinutesWithoutConnections"], int)
         assert config["Watchdog"]["MinutesWithoutConnections"] >= 2, "Watchdog.MinutesWithoutConnections must be at least 2."
+        # Cast it into a duration object:
+        config["Watchdog"]["MinutesWithoutConnections"] = Duration.minutes(config["Watchdog"]["MinutesWithoutConnections"])
 
     def _parse_watchdog_threshold(config: dict) -> None:
         if "Threshold" not in config["Watchdog"]:
@@ -223,6 +226,9 @@ def _parse_watchdog(config: dict) -> None:
         if "DurationHours" not in config["Watchdog"]["InstanceLeftUp"]:
             config["Watchdog"]["InstanceLeftUp"]["DurationHours"] = 8
         assert isinstance(config["Watchdog"]["InstanceLeftUp"]["DurationHours"], int)
+        assert config["Watchdog"]["InstanceLeftUp"]["DurationHours"] > 0, "Watchdog.InstanceLeftUp.DurationHours must be greater than 0."
+        # Cast it into a duration object:
+        config["Watchdog"]["InstanceLeftUp"]["DurationHours"] = Duration.hours(config["Watchdog"]["InstanceLeftUp"]["DurationHours"])
         # ShouldStop
         if "ShouldStop" not in config["Watchdog"]["InstanceLeftUp"]:
             config["Watchdog"]["InstanceLeftUp"]["ShouldStop"] = False
@@ -245,6 +251,16 @@ def _parse_watchdog(config: dict) -> None:
     ### InstanceLeftUp Block
     _parse_watchdog_instance_left_up(config)
 
+def _parse_dashboard(config: dict) -> None:
+    if "Dashboard" not in config:
+        config["Dashboard"] = {}
+    assert isinstance(config["Dashboard"], dict)
+    if "IntervalMinutes" not in config["Dashboard"]:
+        config["Dashboard"]["IntervalMinutes"] = 30
+    assert isinstance(config["Dashboard"]["IntervalMinutes"], int)
+    assert config["Dashboard"]["IntervalMinutes"] > 0, "Dashboard.IntervalMinutes must be greater than 0."
+    # Cast it into a duration object:
+    config["Dashboard"]["IntervalMinutes"] = Duration.minutes(config["Dashboard"]["IntervalMinutes"])
 
 def load_leaf_config(path: str, maturity: str) -> dict:
     " Parser/Loader for all leaf stacks "
@@ -254,4 +270,5 @@ def load_leaf_config(path: str, maturity: str) -> dict:
     _parse_ec2(config)
     _parse_watchdog(config)
     _parse_sns(config)
+    _parse_dashboard(config)
     return config
