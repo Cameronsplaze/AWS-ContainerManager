@@ -321,6 +321,11 @@ class EcsAsg(NestedStack):
             legend_position=cloudwatch.LegendPosition.RIGHT,
             period=Duration.minutes(1),
             statistic="Sum",
+            ## Left and Right Y-Axis:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
+            # Because of the MetricMath in the graph, units are unknown anyways:
+            left_y_axis=cloudwatch.YAxisProps(label="Traffic Packets", show_units=False),
+            right_y_axis=cloudwatch.YAxisProps(label="Traffic Amount", show_units=False),
         )
         dashboard_widgets.append((6, traffic_widget))
 

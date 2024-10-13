@@ -326,7 +326,7 @@ class Watchdog(NestedStack):
         ## Add the number of Instances, to easily see when it starts/stops.
         # Should only ever be 0 or 1, but this widget displays that the best.
         num_instances_widget = cloudwatch.SingleValueWidget(
-            title="Number of Instances",
+            title="Instance Count",
             width=3,
             height=4,
             metrics=[self.metric_asg_num_instances],
