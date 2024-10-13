@@ -41,25 +41,25 @@ class ContainerManagerStack(Stack):
         return super().get_logical_id(element)
 
     def __init__(
-            self,
-            scope: Construct,
-            construct_id: str,
-            base_stack: ContainerManagerBaseStack,
-            domain_stack: DomainStack,
-            container_id: str,
-            config: dict,
-            **kwargs
-        ) -> None:
+        self,
+        scope: Construct,
+        construct_id: str,
+        base_stack: ContainerManagerBaseStack,
+        domain_stack: DomainStack,
+        application_id: str,
+        container_id: str,
+        config: dict,
+        **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        #######################
-        ### Dashboard Stuff ###
-        #######################
-        self.dashboard_nested_stack = NestedStacks.Dashboard(
-            self,
-            description=f"Dashboard Logic for {construct_id}",
-            leaf_construct_id=construct_id,
-        )
+        ######################
+        ### Dashboard Prep ###
+        ######################
+        ###  LOWEST priority number is FIRST on the dashboard.)
+        ### Append to this in the form of:
+        #  (priority: int, widget: cloudwatch.IWidget)
+        dashboard_widgets = []
 
 
         ###############################
@@ -101,6 +101,7 @@ class ContainerManagerStack(Stack):
             leaf_construct_id=construct_id,
             container_id=container_id,
             container_config=config["Container"],
+            dashboard_widgets=dashboard_widgets,
         )
 
         ### All the info for EFS Stuff
@@ -130,7 +131,7 @@ class ContainerManagerStack(Stack):
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
             efs_file_system=self.efs_nested_stack.efs_file_system,
             host_access_point=self.efs_nested_stack.host_access_point,
-            dashboard_widgets=self.dashboard_nested_stack.widgets,
+            dashboard_widgets=dashboard_widgets,
         )
 
         ### All the info for the Watchdog Stuff
@@ -143,8 +144,7 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
-            dashboard=self.dashboard_nested_stack.dashboard,
-            dashboard_widgets=self.dashboard_nested_stack.widgets,
+            dashboard_widgets=dashboard_widgets,
         )
 
         ### All the info for the Asg StateChange Hook Stuff
@@ -157,6 +157,23 @@ class ContainerManagerStack(Stack):
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             rule_watchdog_trigger=self.watchdog_nested_stack.rule_watchdog_trigger,
+            dashboard_widgets=dashboard_widgets,
+        )
+
+        #######################
+        ### Dashboard Stuff ###
+        #######################
+        self.dashboard_nested_stack = NestedStacks.Dashboard(
+            self,
+            description=f"Dashboard Logic for {construct_id}",
+            leaf_construct_id=construct_id,
+            dashboard_widgets=dashboard_widgets,
+            application_id=application_id,
+            container_id=container_id,
+            # For creating other widgets info:
+            route53_dns_log_group_name=domain_stack.route53_query_log_group.log_group_name,
+            route53_dns_region=domain_stack.region,
+            route53_dns_sub_domain_name=domain_stack.sub_domain_name,
         )
 
         #####################

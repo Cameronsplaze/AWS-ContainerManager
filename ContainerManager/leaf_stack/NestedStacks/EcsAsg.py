@@ -40,7 +40,7 @@ class EcsAsg(NestedStack):
         sg_container_traffic: ec2.SecurityGroup,
         efs_file_system: efs.FileSystem,
         host_access_point: efs.AccessPoint,
-        dashboard_widgets: dict,
+        dashboard_widgets: list[tuple[int, cloudwatch.IWidget]],
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -160,8 +160,11 @@ class EcsAsg(NestedStack):
             self,
             "AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
-            # To let me delete the stack!!:
+            ## To let me delete the stack!!:
             enable_managed_termination_protection=False,
+            ## Since the instances don't live long, this doesn't do anything, and
+            # the system is trying to spin down twice when going down.
+            enable_managed_draining=False,
         )
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
         ## Just to populate information in the console, doesn't change the logic:
@@ -255,36 +258,92 @@ class EcsAsg(NestedStack):
         #######################
         ### Dashboard Stuff ###
         #######################
+        ### Traffic In/Out Widget:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
         traffic_in_metric = cloudwatch.Metric(
+            label="Network In",
             metric_name="NetworkIn",
             namespace="AWS/EC2",
             dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
-            period=Duration.minutes(1),
-            statistic="Sum",
         )
-        dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_in_metric)
-
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
         traffic_out_metric = cloudwatch.Metric(
+            label="Network Out",
             metric_name="NetworkOut",
             namespace="AWS/EC2",
             dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
-            period=Duration.minutes(1),
-            statistic="Sum",
         )
-        dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(traffic_out_metric)
-
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         total_traffic_metric = cloudwatch.MathExpression(
+            label="Total Network Traffic",
             expression="t_in + t_out",
-            label=f"Total Traffic: {leaf_construct_id}",
             using_metrics={
                 "t_in": traffic_in_metric,
                 "t_out": traffic_out_metric,
             },
         )
-        dashboard_widgets["AutoScalingGroup-Traffic"].add_right_metric(total_traffic_metric)
+
+        ### Traffic PACKETS In/Out Widget:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_packets_in_metric = cloudwatch.Metric(
+            label="Network Packets In",
+            metric_name="NetworkPacketsIn",
+            namespace="AWS/EC2",
+            dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
+        )
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_packets_out_metric = cloudwatch.Metric(
+            label="Network Packets Out",
+            metric_name="NetworkPacketsOut",
+            namespace="AWS/EC2",
+            dimensions_map={"AutoScalingGroupName": self.auto_scaling_group.auto_scaling_group_name},
+        )
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        total_packets_metric = cloudwatch.MathExpression(
+            label="Total Packets Traffic",
+            expression="t_p_in + t_p_out",
+            using_metrics={
+                "t_p_in": traffic_packets_in_metric,
+                "t_p_out": traffic_packets_out_metric,
+            },
+        )
+
+        ### Put them all in a GraphWidget:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
+        traffic_widget = cloudwatch.GraphWidget(
+            title="(ASG) All Network Traffic",
+            # Only show up to an hour ago:
+            start="-PT1H",
+            height=6,
+            width=12,
+            left=[traffic_packets_in_metric, traffic_packets_out_metric, total_packets_metric],
+            right=[traffic_in_metric, traffic_out_metric, total_traffic_metric],
+            legend_position=cloudwatch.LegendPosition.RIGHT,
+            period=Duration.minutes(1),
+            statistic="Sum",
+        )
+        dashboard_widgets.append((0, traffic_widget))
+
+        ### ECS Info Widget:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
+        cpu_utilization_metric = self.ec2_service.metric_cpu_utilization()
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrmemorywbrutilizationprops
+        memory_utilization_metric = self.ec2_service.metric_memory_utilization()
+        ### Put them all in a GraphWidget:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
+        ecs_container_graph = cloudwatch.GraphWidget(
+            title="(ECS) Container Utilization",
+            # Only show up to an hour ago:
+            start="-PT1H",
+            height=6,
+            width=12,
+            right=[cpu_utilization_metric, memory_utilization_metric],
+            # But have both keys in the same spot, on the right:
+            legend_position=cloudwatch.LegendPosition.RIGHT,
+            period=Duration.minutes(1),
+            statistic="Maximum",
+        )
+        dashboard_widgets.append((0, ecs_container_graph))
 
         #####################
         ### cdk_nag stuff ###

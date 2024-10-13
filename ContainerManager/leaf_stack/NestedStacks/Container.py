@@ -9,6 +9,7 @@ from aws_cdk import (
     RemovalPolicy,
     aws_ecs as ecs,
     aws_logs as logs,
+    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
@@ -26,6 +27,7 @@ class Container(NestedStack):
         leaf_construct_id: str,
         container_id: str,
         container_config: dict,
+        dashboard_widgets: list,
         **kwargs
     ) -> None:
         super().__init__(scope, "ContainerNestedStack", **kwargs)
@@ -72,3 +74,16 @@ class Container(NestedStack):
                 log_group=self.container_log_group,
             ),
         )
+
+        #######################
+        ### Dashboard stuff ###
+        #######################
+        container_logs_widget = cloudwatch.LogQueryWidget(
+            title="Container Logs",
+            log_group_names=[self.container_log_group.log_group_name],
+            width=12,
+            query_lines=[
+                "fields @message",
+            ],
+        )
+        dashboard_widgets.append((0, container_logs_widget))

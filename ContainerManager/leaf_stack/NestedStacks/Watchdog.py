@@ -35,8 +35,7 @@ class Watchdog(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
-        dashboard: cloudwatch.Dashboard,
-        dashboard_widgets: dict,
+        dashboard_widgets: list,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
@@ -70,8 +69,8 @@ class Watchdog(NestedStack):
         self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
             self,
             "AlarmInstanceLeftUp",
-            alarm_name=f"{leaf_construct_id}-Alarm-Instance-left-up",
-            alarm_description="To warn if the instance is up too long",
+            alarm_name=f"Instance Left Up ({leaf_construct_id})",
+            alarm_description=f"({leaf_construct_id}) To warn if the instance is up too long",
             ### This way if the period changes, this will stay the same duration:
             # Total Duration = Number of Periods * Period length... so
             # Number of Periods = Total Duration / Period length
@@ -91,7 +90,6 @@ class Watchdog(NestedStack):
             self.alarm_asg_instance_left_up.add_alarm_action(
                 cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
             )
-
 
         #############################
         ## Count Connections Logic ##
@@ -157,8 +155,8 @@ class Watchdog(NestedStack):
         self.alarm_container_activity = self.metric_total_activity.create_alarm(
             self,
             "AlarmContainerActivity",
-            alarm_name=f"{leaf_construct_id}-Alarm-ContainerActivity",
-            alarm_description="Trigger if 0 people are connected for too long",
+            alarm_name=f"Container Activity ({leaf_construct_id})",
+            alarm_description=f"({leaf_construct_id}) Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
@@ -261,8 +259,8 @@ class Watchdog(NestedStack):
         self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
             self,
             "AlarmWatchdogErrors",
-            alarm_name=f"{leaf_construct_id}-Alarm-Watchdog-Errors",
-            alarm_description="Trigger if the Lambda Watchdog fails too many times",
+            alarm_name=f"Watchdog Errors  ({leaf_construct_id})",
+            alarm_description=f"({leaf_construct_id}) Trigger if the Lambda Watchdog fails too many times",
             # Must be in alarm this long consecutively to trigger. 3 strikes you're out:
             #      (Duration doesn't matter here, no need to divide by metric period. We ALWAYS want 3)
             evaluation_periods=3,
@@ -297,17 +295,40 @@ class Watchdog(NestedStack):
         #######################
         ### Dashboard stuff ###
         #######################
-
+        graph_alarms = [
+            ## Have to keep 'priority' here so each alarm can
+            # have a different priority on the dashboard.
+            # (They have different numbers, so they stack on one-another.
+            #   Otherwise they'd be on different rows).
+            (0, self.alarm_container_activity),
+            (0, self.alarm_watchdog_errors),
+            (0, self.alarm_asg_instance_left_up),
+        ]
         ## You can't append alarms to *this* widget after it's created, so I'm just having one per stack:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
         alarm_status_widget = cloudwatch.AlarmStatusWidget(
-            title=f"Alarm Status: {leaf_construct_id}",
+            title=f"Alarm Summary ({container_id})",
             width=6,
             height=4,
-            alarms=[
-                self.alarm_container_activity,
-                self.alarm_watchdog_errors,
-                self.alarm_asg_instance_left_up,
-            ]
+            alarms=[alarm[1] for alarm in graph_alarms],
         )
-        dashboard.add_widgets(alarm_status_widget)
+        dashboard_widgets.append((0, alarm_status_widget))
+
+        for priority, alarm in graph_alarms:
+            alarm_widget = cloudwatch.AlarmWidget(
+                title=f"Alarm: {alarm.alarm_name}",
+                width=6,
+                height=4,
+                alarm=alarm,
+            )
+            dashboard_widgets.append((priority, alarm_widget))
+
+        ## Add the number of Instances, to easily see when it starts/stops.
+        # Should only ever be 0 or 1, but this widget displays that the best.
+        num_instances_widget = cloudwatch.SingleValueWidget(
+            title="Number of Instances",
+            width=3,
+            height=4,
+            metrics=[self.metric_asg_num_instances],
+        )
+        dashboard_widgets.append((0, num_instances_widget))
