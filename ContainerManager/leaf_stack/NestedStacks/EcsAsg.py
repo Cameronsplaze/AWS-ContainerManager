@@ -163,7 +163,7 @@ class EcsAsg(NestedStack):
             ## To let me delete the stack!!:
             enable_managed_termination_protection=False,
             ## Since the instances don't live long, this doesn't do anything, and
-            # the system is trying to spin down twice when going down.
+            # the lambda to spin down the system will trigger TWICE when going down.
             enable_managed_draining=False,
         )
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)

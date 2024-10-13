@@ -70,7 +70,7 @@ class Watchdog(NestedStack):
             self,
             "AlarmInstanceLeftUp",
             alarm_name=f"Instance Left Up ({leaf_construct_id})",
-            alarm_description=f"({leaf_construct_id}) To warn if the instance is up too long",
+            alarm_description="To warn if the instance is up too long",
             ### This way if the period changes, this will stay the same duration:
             # Total Duration = Number of Periods * Period length... so
             # Number of Periods = Total Duration / Period length
@@ -156,7 +156,7 @@ class Watchdog(NestedStack):
             self,
             "AlarmContainerActivity",
             alarm_name=f"Container Activity ({leaf_construct_id})",
-            alarm_description=f"({leaf_construct_id}) Trigger if 0 people are connected for too long",
+            alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
@@ -260,7 +260,7 @@ class Watchdog(NestedStack):
             self,
             "AlarmWatchdogErrors",
             alarm_name=f"Watchdog Errors  ({leaf_construct_id})",
-            alarm_description=f"({leaf_construct_id}) Trigger if the Lambda Watchdog fails too many times",
+            alarm_description="Trigger if the Lambda Watchdog fails too many times",
             # Must be in alarm this long consecutively to trigger. 3 strikes you're out:
             #      (Duration doesn't matter here, no need to divide by metric period. We ALWAYS want 3)
             evaluation_periods=3,
