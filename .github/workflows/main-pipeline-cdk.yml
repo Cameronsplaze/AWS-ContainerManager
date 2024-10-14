@@ -59,7 +59,7 @@ jobs:
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
 
-  cdk-deploy:
+  cdk-deploy-base:
     ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
     # !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
     #   (it'll skip when PR is merged. No point in synthing again since it has to pass TO merge)
@@ -69,12 +69,12 @@ jobs:
         ( github.event_name == 'workflow_dispatch' )
       )
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     needs:
       - setup-matrix
       - cdk-synth
+    permissions:
+      id-token: write
+      contents: read
     steps:
       # Moved this check away from the job-level 'if', so it actually fails if you're
       # not on main. Failure is easier to see than a skipped job.
@@ -90,6 +90,7 @@ jobs:
       # Install everything:
       - name: Setup CDK
         uses: ./.github/workflows/composite-setup-cdk
+
       # Log into AWS:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -103,6 +104,17 @@ jobs:
           HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
           EMAIL: ${{ secrets.EMAIL }}
 
+  cdk-deploy-leaf:
+    runs-on: ubuntu-latest
+    needs:
+      - cdk-deploy-base
+    strategy:
+      matrix:
+        TODO: [TODO]
+    permissions:
+      id-token: write
+      contents: read
+    steps:
       # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
       #   - If we add resources to base, this will let the deployment succeed and leafs use it.
       #   - Also each leaf should check against a "REPOSITORY VARIABLE" to see if it should run.
