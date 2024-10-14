@@ -1,0 +1,21 @@
+name: "Composite: Setup CDK Dependencies"
+
+description: Setup Action to CDK stuff
+
+inputs: {}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Setup Python
+      uses: ./.github/workflows/composite-setup-python
+
+    - name: Install NPM Stuff (aws-cdk)
+      run: |
+        ### Setup NPM for non-root:
+        mkdir ~/.npm-global
+        npm config set prefix '~/.npm-global'
+        echo "PATH=~/.npm-global/bin:$PATH" >> "$GITHUB_ENV"
+        ### Update:
+        make update-npm

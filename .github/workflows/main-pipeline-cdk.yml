@@ -53,17 +53,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: ./.github/workflows/composite-setup-python
-
-      - name: Install NPM Stuff (aws-cdk)
-        run: |
-          ### Setup NPM for non-root:
-          mkdir ~/.npm-global
-          npm config set prefix '~/.npm-global'
-          echo "PATH=~/.npm-global/bin:$PATH" >> "$GITHUB_ENV"
-          ### Update:
-          make update-npm
+      - name: Setup CDK
+        uses: ./.github/workflows/composite-setup-cdk
 
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
@@ -90,6 +81,12 @@ jobs:
         if: ( github.event_name == 'pull_request' && github.base_ref != 'main' ) ||
             ( github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' )
         run: exit -1
+
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}
 
       # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
       #   - If we add resources to base, this will let the deployment succeed and leafs use it.
