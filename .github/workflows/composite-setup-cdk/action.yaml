@@ -12,6 +12,7 @@ runs:
       uses: ./.github/workflows/composite-setup-python
 
     - name: Install NPM Stuff (aws-cdk)
+      shell: bash
       run: |
         ### Setup NPM for non-root:
         mkdir ~/.npm-global
