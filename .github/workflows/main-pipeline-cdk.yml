@@ -86,10 +86,22 @@ jobs:
         run: exit -1
 
       - uses: actions/checkout@v4
+
+      # Install everything:
+      - name: Setup CDK
+        uses: ./.github/workflows/composite-setup-cdk
+      # Log into AWS:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}
+
+      # Deploy the Base Stack:
+      - name: Deploy Base Stack
+        run: make cdk-deploy-base
+        env:
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+          EMAIL: ${{ secrets.EMAIL }}
 
       # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
       #   - If we add resources to base, this will let the deployment succeed and leafs use it.
