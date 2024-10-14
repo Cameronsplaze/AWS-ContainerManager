@@ -58,6 +58,8 @@ This creates the EC2 Task Definition and Container Definition for the stack.
 
 Elastic File System (EFS), is the persistent storage for the leaf_stack. This adds to the container definition, the ability to mount the EFS volume. Backups happen outside of the volume you mount as well, so if someone is able to hack your container somehow, they can't access the backups.
 
+I can't find how to see which AZ a backup is stored in, but [this AWS blog post](https://docs.aws.amazon.com/aws-backup/latest/devguide/disaster-recovery-resiliency.html) *suggests* they're multi-AZ. This is important since if the AZ our single-zone EFS is in goes down, we want the backups in a DIFFERENT AS to let us restore the data. We also don't have to pay for the data being "replicated", beyond the cost of having backups that we're already paying.
+
 ### EcsAsg
 
 This creates the Ecs Cluster/Service, AutoScaling Group, and EC2 Launch Template for the ASG. This is basically the stack for managing the single EC2 instance itself. (ASG is used to simplify management, instead of juggling EC2 directly). It also needs the Efs component to mount it TO the instance itself. (It's also mounted to the container already). The reason is if it's mounted to the instance, you can use SFTP and other tools to access the data directly. No need to duplicate the data to S3 and pay extra costs for storage.
