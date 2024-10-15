@@ -255,12 +255,17 @@ def _parse_dashboard(config: dict) -> None:
     if "Dashboard" not in config:
         config["Dashboard"] = {}
     assert isinstance(config["Dashboard"], dict)
+    ### IntervalMinutes
     if "IntervalMinutes" not in config["Dashboard"]:
         config["Dashboard"]["IntervalMinutes"] = 30
     assert isinstance(config["Dashboard"]["IntervalMinutes"], int)
     assert config["Dashboard"]["IntervalMinutes"] > 0, "Dashboard.IntervalMinutes must be greater than 0."
     # Cast it into a duration object:
     config["Dashboard"]["IntervalMinutes"] = Duration.minutes(config["Dashboard"]["IntervalMinutes"])
+    ### ShowContainerTimestamp
+    if "ShowContainerTimestamp" not in config["Dashboard"]:
+        config["Dashboard"]["ShowContainerTimestamp"] = True
+    assert isinstance(config["Dashboard"]["ShowContainerTimestamp"], bool)
 
 def load_leaf_config(path: str, maturity: str) -> dict:
     " Parser/Loader for all leaf stacks "

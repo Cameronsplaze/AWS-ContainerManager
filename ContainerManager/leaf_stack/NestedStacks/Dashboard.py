@@ -141,35 +141,37 @@ class Dashboard(NestedStack):
                 statistic="Sum",
             ),
 
-            ## Show Instances, to easily see when it starts/stops.
-            # Should only ever be 0 or 1, but this widget displays that the best.
-            cloudwatch.SingleValueWidget(
-                title="Instance Count",
-                width=3,
-                height=4,
+            ### Show the number of instances, to see when it starts/stops:
+            # Should ever only be 0 or 1, and Gauge helps show it's max too.
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GaugeWidget.html
+            cloudwatch.GaugeWidget(
+                title="EC2 Instance Count",
                 metrics=[watchdog_nested_stack.metric_asg_num_instances],
+                left_y_axis=cloudwatch.YAxisProps(min=0, max=1),
+                width=4,
+                height=5,
             ),
 
             ## Brief summary of all the alarms, and lets you jump to them directly:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
             cloudwatch.AlarmStatusWidget(
-                title=f"Alarm Summary ({container_id})",
+                title="Alarm Summary",
                 width=3,
-                height=4,
+                height=5,
                 alarms=[
+                    watchdog_nested_stack.alarm_asg_instance_left_up,
                     watchdog_nested_stack.alarm_container_activity,
                     watchdog_nested_stack.alarm_watchdog_errors,
-                    watchdog_nested_stack.alarm_asg_instance_left_up,
                 ],
             ),
 
-            ## Container Activity Alarm:
+            ## Instance Left Up Alarm:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
             cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_container_activity.alarm_name}",
-                width=6,
-                height=4,
-                alarm=watchdog_nested_stack.alarm_container_activity,
+                title=f"Alarm: {watchdog_nested_stack.alarm_asg_instance_left_up.alarm_name}",
+                width=5,
+                height=5,
+                alarm=watchdog_nested_stack.alarm_asg_instance_left_up,
             ),
 
             ### All the ASG Traffic in/out
@@ -191,13 +193,13 @@ class Dashboard(NestedStack):
                 right_y_axis=cloudwatch.YAxisProps(label="Traffic Amount", show_units=False),
             ),
 
-            ## Instance Left Up Alarm:
+            ## Container Activity Alarm:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
             cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_asg_instance_left_up.alarm_name}",
+                title=f"Alarm: {watchdog_nested_stack.alarm_container_activity.alarm_name}",
                 width=6,
-                height=4,
-                alarm=watchdog_nested_stack.alarm_asg_instance_left_up,
+                height=5,
+                alarm=watchdog_nested_stack.alarm_container_activity,
             ),
 
             ## WatchDog Errors Alarm:
@@ -205,7 +207,7 @@ class Dashboard(NestedStack):
             cloudwatch.AlarmWidget(
                 title=f"Alarm: {watchdog_nested_stack.alarm_watchdog_errors.alarm_name}",
                 width=6,
-                height=4,
+                height=5,
                 alarm=watchdog_nested_stack.alarm_watchdog_errors,
             ),
 
@@ -216,10 +218,9 @@ class Dashboard(NestedStack):
                 log_group_names=[container_nested_stack.container_log_group.log_group_name],
                 width=12,
                 query_lines=[
-                    # Since the message is controlled by the container, it's not guaranteed to have
-                    # a timestamp, so add one. Also we can't remove it from the message, since we
-                    # don't know what format it'll be in.
-                    "fields @timestamp, @message",
+                    # The message is controlled by code inside the container, no idea if it'll have a timestamp.
+                    # Let the user remove the built-in one if it has one, but show it otherwise:
+                    f"fields {'@timestamp,' if dashboard_config['ShowContainerTimestamp'] else ''} @message",
                 ],
             ),
 

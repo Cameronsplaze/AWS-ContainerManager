@@ -55,12 +55,14 @@ class Watchdog(NestedStack):
         ## Grab the built-in IN_SERVICE_INSTANCES metric and load into cdk:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
         self.metric_asg_num_instances = cloudwatch.Metric(
+            label="Number of Instances",
             metric_name="GroupInServiceInstances",
             namespace="AWS/AutoScaling",
             dimensions_map={
                 "AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name,
             },
             period=Duration.minutes(1),
+            statistic="Maximum",
         )
         ## And the alarm to flag if the instance is up too long:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
@@ -142,7 +144,7 @@ class Watchdog(NestedStack):
                 "ssh": self.metric_ssh_connections,
                 "activity": self.metric_activity_count,
             },
-            label="(Bool) total container activity",
+            label="(Bool) If Container Activity",
             period=Duration.minutes(1),
         )
 
