@@ -33,7 +33,6 @@ guard-%:
 #### DEPLOY STUFF:
 .PHONY := _cdk-deploy-helper
 _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
-	set -e
 	echo "Deploying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
 	echo ""
@@ -56,6 +55,7 @@ cdk-deploy-base:
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
+	echo "Container ID Override: $(container-id)"
 	$(MAKE) _cdk-deploy-helper stack-regix="!$(_base_stack_name)"
 
 
@@ -149,16 +149,3 @@ update-python:
 
 .PHONY := update
 update: update-npm update-python
-
-#######################
-## One Time Commands ##
-#######################
-.PHONY := cdk-bootstrap
-cdk-bootstrap: guard-AWS_REGION guard-AWS_PROFILE
-	# This needs to be run once per account/region combo
-	export AWS_DEFAULT_ACCOUNT=$$(aws --region=${AWS_REGION} sts get-caller-identity --query Account --output text) && \
-	echo "Running: \`cdk bootstrap aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}\`..." && \
-	cdk bootstrap "aws://$${AWS_DEFAULT_ACCOUNT}/${AWS_REGION}" && \
-	echo "Required in us-east-1 for domain_stack too, running there now..." && \
-	cdk bootstrap "aws://$${AWS_DEFAULT_ACCOUNT}/us-east-1" && \
-	echo "DONE!"

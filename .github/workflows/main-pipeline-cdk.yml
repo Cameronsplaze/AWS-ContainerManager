@@ -108,7 +108,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
+          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
       # Deploy the Base Stack:
       - name: Deploy Base Stack
@@ -136,7 +136,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
+          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
       # Deploy the Leaf Stack:
       - name: Deploy Leaf Stack
@@ -144,7 +144,7 @@ jobs:
         run: |
           make cdk-deploy-leaf \
             config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
-            container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^.\///' | sed -E 's/-example.ya?ml$//i')
+            container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
         env:
           # TODO: I hate how we have to expose ALL secrets to ALL containers...
           #       Is there a better way to select which matrixes get which secrets?

@@ -18,3 +18,8 @@ On PR's, it synths all the cdk stacks, and when merged, will deploy them to main
 - It's specifically designed to synth on PR's, and deploy on push's, but not vise-versa. This way when it merges to main, you're not trying to synth and deploying at the same time. (synth-ing THEN deploying is pointless, since it had to successfully synth to be merged...).
 - These run on PR's even though they only have a `push` trigger, because of how GH does commits behind the scenes. I have these all listed as `required` in the branch protection rules, so GH will still wait for them to finish before letting you merge the branch.
 
+
+## Forking this Repo
+
+- TODO: Finish this section. Make sure to include:
+  - Which secrets/vars you need to set in GH. (Including the list of examples to deploy)
