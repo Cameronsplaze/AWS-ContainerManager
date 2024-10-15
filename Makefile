@@ -129,7 +129,7 @@ pylint:
 aws-whoami:
 	# Make sure you're in the right account
 	aws sts get-caller-identity \
-		--query Arn \
+		--query "$${query:-Arn}" \
 		--output text
 
 .PHONY := update-npm
@@ -149,3 +149,13 @@ update-python:
 
 .PHONY := update
 update: update-npm update-python
+
+.PHONY := cdk-bootstrap
+# --app="": It can't synth without the right variables, so don't load it:
+cdk-bootstrap:
+	echo "Bootstrapping/Updating CDKToolkit..." && \
+	export AWS_ACCOUNT_ID=$$( $(MAKE) aws-whoami query=Account ) && \
+	cdk bootstrap \
+		--app="" \
+		"aws://$${AWS_ACCOUNT_ID}/$$( aws configure get region )" \
+		"aws://$${AWS_ACCOUNT_ID}/us-east-1"
