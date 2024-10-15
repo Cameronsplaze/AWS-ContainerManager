@@ -1,6 +1,5 @@
 SHELL:=/bin/bash
 .SILENT:
-.ONESHELL:
 MAKEFLAGS += --no-print-directory
 # Default action:
 .DEFAULT_GOAL := cdk-synth
