@@ -26,6 +26,9 @@ on:
 
 env:
   EXAMPLES_PATH: ./Examples # No trailing slash plz!
+  DOMAIN_NAME: "${{ secrets.DOMAIN_NAME }}"
+  HOSTED_ZONE_ID: "${{ secrets.HOSTED_ZONE_ID }}"
+  EMAIL: "${{ secrets.EMAIL }}"
 
 jobs:
   setup-matrix:
@@ -68,9 +71,6 @@ jobs:
 
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
-        env:
-          # This is only here so the synth passes. It doesn't use it:
-          DOMAIN_NAME: "${{ secrets.DOMAIN_NAME }}"
 
   cdk-deploy-base:
     ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
@@ -113,10 +113,6 @@ jobs:
       # Deploy the Base Stack:
       - name: Deploy Base Stack
         run: make cdk-deploy-base
-        env:
-          DOMAIN_NAME: "${{ secrets.DOMAIN_NAME }}"
-          HOSTED_ZONE_ID: "${{ secrets.HOSTED_ZONE_ID }}"
-          EMAIL: "${{ secrets.EMAIL }}"
 
   cdk-deploy-leaf:
     runs-on: ubuntu-latest
