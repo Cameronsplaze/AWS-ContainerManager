@@ -68,6 +68,9 @@ jobs:
 
       - name: "Synthesize: ${{ matrix.example-config }}"
         run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
+        env:
+          # This is only here so the synth passes. It doesn't use it:
+          DOMAIN_NAME: "${{ secrets.DOMAIN_NAME }}"
 
   cdk-deploy-base:
     ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
