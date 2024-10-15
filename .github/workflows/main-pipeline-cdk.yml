@@ -146,9 +146,11 @@ jobs:
       - name: Deploy Leaf Stack
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
+          export CONTAINER_ID=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
+          echo "Deploying to container: $CONTAINER_ID"
           make cdk-deploy-leaf \
             config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
-            container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
+            container-id="${CONTAINER_ID}"
         env:
           # TODO: I hate how we have to expose ALL secrets to ALL containers...
           #       Is there a better way to select which matrixes get which secrets?
