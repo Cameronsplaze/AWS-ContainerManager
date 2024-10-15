@@ -120,7 +120,8 @@ class Dashboard(NestedStack):
                 region=domain_stack.region,
                 width=12,
                 query_lines=[
-                    "fields @message",
+                    # The message also contains the timestamp, remove it:
+                    "fields @timestamp, substr(@message, 25) as message",
                     # Spaces on either side, just like SubscriptionFilter, to not
                     # trigger on the "_tcp" query that pairs with the normal one:
                     f"filter @message like /{domain_stack.log_dns_filter}/",
@@ -132,7 +133,6 @@ class Dashboard(NestedStack):
             cloudwatch.GraphWidget(
                 title="(Lambda) ASG State Change Invocations",
                 # Only show up to an hour ago:
-                start=f"-PT{dashboard_config["IntervalMinutes"].to_minutes()}M",
                 height=6,
                 width=12,
                 right=[metric_asg_lambda_invocation_count],
@@ -177,7 +177,6 @@ class Dashboard(NestedStack):
             cloudwatch.GraphWidget(
                 title="(ASG) All Network Traffic",
                 # Only show up to an hour ago:
-                start=f"-PT{dashboard_config["IntervalMinutes"].to_minutes()}M",
                 height=6,
                 width=12,
                 left=[traffic_packets_in_metric, traffic_packets_out_metric, total_packets_metric],
@@ -217,7 +216,10 @@ class Dashboard(NestedStack):
                 log_group_names=[container_nested_stack.container_log_group.log_group_name],
                 width=12,
                 query_lines=[
-                    "fields @message",
+                    # Since the message is controlled by the container, it's not guaranteed to have
+                    # a timestamp, so add one. Also we can't remove it from the message, since we
+                    # don't know what format it'll be in.
+                    "fields @timestamp, @message",
                 ],
             ),
 
@@ -226,7 +228,6 @@ class Dashboard(NestedStack):
             cloudwatch.GraphWidget(
                 title=f"(ECS) Container Utilization - {main_config["Ec2"]["InstanceType"]}",
                 # Only show up to an hour ago:
-                start=f"-PT{dashboard_config["IntervalMinutes"].to_minutes()}M",
                 height=6,
                 width=12,
                 right=[cpu_utilization_metric, memory_utilization_metric],
