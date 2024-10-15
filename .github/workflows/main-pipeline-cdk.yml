@@ -31,15 +31,25 @@ jobs:
   setup-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.setup-matrix.outputs.example-config-files }}
+      synth-matrix: ${{ steps.setup-synth.outputs.synth-config-files }}
+      deploy-matrix: ${{ steps.setup-deploy.outputs.deploy-config-files }}
     steps:
       - uses: actions/checkout@v4
-      - name: Setup matrix
-        id: setup-matrix
+
+      - name: Setup cdk-synth Matrix
+        id: setup-synth
         run: |
           file_list=$(cd "${{ env.EXAMPLES_PATH }}" && find * -regextype egrep -regex '.*ya?ml$')
           json_list=$(echo $file_list | jq --raw-input --compact-output 'split(" ")')
-          echo "example-config-files=$json_list" >> "$GITHUB_OUTPUT"
+          echo "synth-config-files=$json_list" >> "$GITHUB_OUTPUT"
+
+      - name: Setup cdk-deploy Matrix
+        id: setup-deploy
+        run: |
+          github_vars_list=$(echo "${{ vars.DEPLOY_EXAMPLES }}" | tr '\n' ' ')
+          json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
+          echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
+
 
   cdk-synth:
     if: ( github.event_name == 'pull_request' && github.event.action != 'closed' ) ||
@@ -49,7 +59,7 @@ jobs:
       - setup-matrix
     strategy:
       matrix:
-        example-config: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+        example-config: ${{ fromJson(needs.setup-matrix.outputs.synth-matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -94,34 +104,52 @@ jobs:
       # Log into AWS:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ vars.AWS_REGION }}
-          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}
+          aws-region: "${{ vars.AWS_REGION }}"
+          role-to-assume: "arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
       # Deploy the Base Stack:
       - name: Deploy Base Stack
         run: make cdk-deploy-base
         env:
-          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
-          EMAIL: ${{ secrets.EMAIL }}
+          DOMAIN_NAME: "${{ secrets.DOMAIN_NAME }}"
+          HOSTED_ZONE_ID: "${{ secrets.HOSTED_ZONE_ID }}"
+          EMAIL: "${{ secrets.EMAIL }}"
 
   cdk-deploy-leaf:
     runs-on: ubuntu-latest
     needs:
+      - setup-matrix
       - cdk-deploy-base
     strategy:
       matrix:
-        TODO: [TODO]
+        deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
     permissions:
       id-token: write
       contents: read
     steps:
-      # TODO: First have it deploy the base stack, THEN matrix out to all the leafs.
-      #   - If we add resources to base, this will let the deployment succeed and leafs use it.
-      #   - Also each leaf should check against a "REPOSITORY VARIABLE" to see if it should run.
-      #     (Check *there* so forks can have their own list, and not conflict with eachother.
-      #       Make sure to update docs w/ how it should be formated too).
-      # There might be a chance the matrix leafs will trip on eachother, but hopefully deploying
-      # base first will mean no changes will happen. It'd be so much cleaner if we can do it, so
-      # I think I'll try it first.
-      - name: TODO
-        run: echo TODO
+      - uses: actions/checkout@v4
+
+      # Install everything:
+      - name: Setup CDK
+        uses: ./.github/workflows/composite-setup-cdk
+
+      # Log into AWS:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: "${{ vars.AWS_REGION }}"
+          role-to-assume: "arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
+
+      # Deploy the Leaf Stack:
+      - name: Deploy Leaf Stack
+        run: |
+          make cdk-deploy-leaf \
+            config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
+            container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/-example.ya?ml//i')
+        env:
+          # TODO: I hate how we have to expose ALL secrets to ALL containers...
+          #       Is there a better way to select which matrixes get which secrets?
+          #       I know environments do it, maybe that's the route to go...
+          #       BUT how do you not have to manage this list? It'd be nice if
+          #       I can find a way to "make everything in the environment available".
+          MINECRAFT_RCRON_PASSWORD: "${{ secrets.MINECRAFT_RCRON_PASSWORD }}"
+          VALHEIM_SERVER_PASS: "${{ secrets.VALHEIM_SERVER_PASS }}"

@@ -11,7 +11,7 @@ Container:
   Environment:
     SERVER_NAME: "Example World"
     WORLD_NAME: "Example"
-    SERVER_PASS: !ENV ${VALHEIM_PASS}
+    SERVER_PASS: !ENV ${VALHEIM_SERVER_PASS}
     # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
     SERVER_ARGS: "-modifier resources most -modifier portals casual"
     SERVER_PUBLIC: False

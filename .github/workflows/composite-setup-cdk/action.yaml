@@ -1,4 +1,4 @@
-name: "Composite: Setup CDK Dependencies"
+name: "Composite: Setup Everything to use CDK"
 
 description: Setup Action to CDK stuff
 

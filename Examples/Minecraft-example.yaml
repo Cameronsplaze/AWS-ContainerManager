@@ -26,8 +26,8 @@ Volume:
 #   MinutesWithoutConnections: 5
 #   Type: "TCP"
 
-AlertSubscription:
-  - Email: Does@Not.Exist
+# AlertSubscription:
+#   - Email: Does@Not.Exist
 
-Dashboard:
-  IntervalMinutes: 30
+# Dashboard:
+#   IntervalMinutes: 30

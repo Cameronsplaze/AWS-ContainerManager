@@ -3,7 +3,7 @@ Vpc:
   MaxAZs: 1
 
 Domain:
-  Name: TheAmazingCameron.com
+  Name: !ENV ${DOMAIN_NAME}
   HostedZoneId: !ENV ${HOSTED_ZONE_ID}
 
 AlertSubscription:
