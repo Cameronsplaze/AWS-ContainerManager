@@ -33,6 +33,7 @@ guard-%:
 #### DEPLOY STUFF:
 .PHONY := _cdk-deploy-helper
 _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
+	set -e
 	echo "Deploying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
 	echo ""
@@ -101,10 +102,10 @@ endif
 .PHONY := cdk-synth
 cdk-synth:
 	if [[ -n "$(config-file)" ]]; then \
-		echo "Config File: $(config-file)";
+		echo "Config File: $(config-file)"; \
 	else \
-		echo "No Config File";
-		echo "    (Pass in with 'make cdk-synth config-file=<config>' to synth that stack too!)";
+		echo "No Config File"; \
+		echo "    (Pass in with 'make cdk-synth config-file=<config>' to synth that stack too!)"; \
 	fi
 	echo "Synthesizing Stack..."
 	echo ""
