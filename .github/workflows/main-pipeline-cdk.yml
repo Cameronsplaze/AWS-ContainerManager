@@ -30,9 +30,9 @@ env:
   HOSTED_ZONE_ID: "${{ secrets.HOSTED_ZONE_ID }}"
   EMAIL: "${{ secrets.EMAIL }}"
 
-defaults:
-  run:
-    shell: bash
+# defaults:
+#   run:
+#     shell: bash
 
 jobs:
   setup-matrix:
