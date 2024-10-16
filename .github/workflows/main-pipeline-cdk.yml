@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
-      # - cdk-synth
+      - cdk-synth
     permissions:
       id-token: write
       contents: read
@@ -118,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
-      # - cdk-deploy-base
+      - cdk-deploy-base
     strategy:
       matrix:
         deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
