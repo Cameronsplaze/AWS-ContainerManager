@@ -19,6 +19,11 @@ on:
     branches:
       - main
 
+  # TEMP DEBUG!!!:
+  push:
+    branches:
+      - main
+
 #### Overall Strategy:
 # If Open a PR: Make sure everything can Synth (No deploy)
 # If Merge a PR: Deploy to your account (No synth, it just passed)
