@@ -55,7 +55,6 @@ cdk-deploy-base:
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	echo "Container ID Override: $(container-id)"
 	$(MAKE) _cdk-deploy-helper stack-regix="!$(_base_stack_name)"
 
 
