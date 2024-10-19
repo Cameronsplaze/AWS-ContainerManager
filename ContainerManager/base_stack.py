@@ -134,7 +134,7 @@ class ContainerManagerBaseStack(Stack):
         ### Export Values ###
         #####################
         ## To stop cdk from trying to delete the exports when cdk is deployed by
-        ## itself, but has leaf stacks attached to it.
+        ## itself, but still has leaf stacks attached to it.
         # https://blogs.thedevs.co/aws-cdk-export-cannot-be-deleted-as-it-is-in-use-by-stack-5c205b8004b4
         self.export_value(self.vpc.vpc_id)
         self.export_value(self.ssh_key_pair.key_pair_name)
