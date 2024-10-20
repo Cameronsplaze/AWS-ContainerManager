@@ -19,6 +19,8 @@ on:
     branches:
       - main
 
+
+
 #### Overall Strategy:
 # If Open a PR: Make sure everything can Synth (No deploy)
 # If Merge a PR: Deploy to your account (No synth, it just passed)
@@ -122,7 +124,7 @@ jobs:
     strategy:
       matrix:
         deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
-    environment: ${{ matrix.deploy-config }}
+    environment: "${{ matrix.deploy-config }}"
     permissions:
       id-token: write
       contents: read
