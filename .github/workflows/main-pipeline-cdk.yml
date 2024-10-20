@@ -148,10 +148,10 @@ jobs:
       - name: "Deploying: ${{ matrix.deploy-config }}"
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
-          echo "DEBUG: ${{ vars.CONTAINER_VARS }}"
-          for var in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\n' ' ' ); do
-            echo "VAR: $var"
-            echo "YEP"
+          for key_var in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\n' ' ' ); do
+            echo "::add-mask::${str#*=}"
+            echo "$key_var"
+            export ${key_var}
           done
         env:
           # TODO: I hate how we have to expose ALL secrets to ALL containers...
