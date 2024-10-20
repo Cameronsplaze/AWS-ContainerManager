@@ -148,12 +148,10 @@ jobs:
       - name: "Deploying: ${{ matrix.deploy-config }}"
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
-          for var in "${{ vars.CONTAINER_VARS }}"; do
-            echo "... $var ..."
-          done
-          # while IFS= read -r line || [[ -n $line ]]; do
-          #     echo "... $line ..."
-          # done < <(printf '%s' "${{ vars.CONTAINER_VARS }}")
+          while IFS= read -r line || [[ -n $line ]]; do
+              echo "... $line ..."
+          done < <(printf '%s' "${{ vars.CONTAINER_VARS }}")
+
 
           # make cdk-deploy-leaf \
           #   config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
