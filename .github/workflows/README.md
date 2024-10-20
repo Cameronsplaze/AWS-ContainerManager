@@ -34,6 +34,7 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
 3) If there's secrets/variables you want passed to the container config, add a variable to the environment called `CONTAINER_VARS`. This should be a list of key-value pairs, each on a new-line. For example:
 
     ```txt
+    # NO SPACES! They won't parse correctly.
     SERVER_NAME=My-Minecraft-Server
     SERVER_PASSWORD=super_secure_pass
     ```
