@@ -148,9 +148,9 @@ jobs:
       - name: "Deploying: ${{ matrix.deploy-config }}"
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
-          for j in "${{ vars.CONTAINER_VARS }}"; do   
-              echo "---$j---"
-          done
+          while IFS= read -r line; do
+            echo "tester: $line"
+          done < "${{ vars.CONTAINER_VARS }}"
 
 
           # while IFS= read -r line || [[ -n $line ]]; do
