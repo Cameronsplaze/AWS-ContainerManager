@@ -9,9 +9,10 @@ Container:
     - UDP: 2456
     - UDP: 2457
   Environment:
-    SERVER_NAME: "Example World"
-    WORLD_NAME: "Example"
-    SERVER_PASS: !ENV ${VALHEIM_SERVER_PASS}
+    # Yes I know it's Valheim. It's a inside joke w/ friends.
+    SERVER_NAME: "Christian Minecraft Server"
+    WORLD_NAME: "Valhalla"
+    SERVER_PASS: !ENV ${VALHEIM_PASS}
     # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
     SERVER_ARGS: "-modifier resources most -modifier portals casual"
     SERVER_PUBLIC: False
