@@ -153,6 +153,7 @@ jobs:
             echo "$key_var"
             export ${key_var}
           done
+          echo "OUTSIDE! ${TEST_1}"
         env:
           # TODO: I hate how we have to expose ALL secrets to ALL containers...
           #       Is there a better way to select which matrixes get which secrets?
