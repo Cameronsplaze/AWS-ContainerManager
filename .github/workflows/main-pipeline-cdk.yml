@@ -149,7 +149,7 @@ jobs:
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
           for key_var in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\n' ' ' ); do
-            echo "::add-mask::${str#*=}"
+            echo "::add-mask::${key_var#*=}"
             echo "$key_var"
             export ${key_var}
           done
