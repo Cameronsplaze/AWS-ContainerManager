@@ -149,7 +149,7 @@ jobs:
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
           for j in "${{ vars.CONTAINER_VARS }}"; do   
-              echo ---"$j"---
+              echo "---$j---"
           done
 
 
