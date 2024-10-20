@@ -150,7 +150,7 @@ jobs:
         run: |
           while IFS= read -r line; do
             echo "tester: $line"
-          done < echo "${{ vars.CONTAINER_VARS }}"
+          done < <(printf '%s' "${{ vars.CONTAINER_VARS }}")
 
 
           # while IFS= read -r line || [[ -n $line ]]; do
