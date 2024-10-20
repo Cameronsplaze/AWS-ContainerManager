@@ -39,6 +39,8 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
     SERVER_PASSWORD=super_secure_pass
     ```
 
+If you decide to remove it to save money, you can just remove the line from `DEPLOY_EXAMPLES`. This lets you keep the environment around with all the variables, in case you want to re-enable it later.
+
 ## Forking this Repo
 
 - TODO: Finish this section. Make sure to include:
