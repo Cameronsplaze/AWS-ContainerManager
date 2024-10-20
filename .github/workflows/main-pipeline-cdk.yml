@@ -145,6 +145,11 @@ jobs:
       - name: "Deploying: ${{ matrix.deploy-config }}"
         ## Load and mask the container-specific variables, then deploy.
         # container-id: Take off the beginning './' and the end '-example.yaml'
+        # TODO:
+          # - Add SPACE support. Will need to change the for loop, make sure values 
+          #   are quoted if they're not, and MAYBE make add-mask skip if spaces exist
+          #   if it doesn't support that.
+          # - Check if '=' inside passwords are supported.
         run: |
           for key_val in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\n' ' ' ); do
             echo "::add-mask::${key_val#*=}"
