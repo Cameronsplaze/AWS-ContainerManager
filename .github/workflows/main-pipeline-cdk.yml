@@ -148,6 +148,7 @@ jobs:
       - name: "Deploying: ${{ matrix.deploy-config }}"
         # container-id: Take off the beginning './' and the end '-example.yaml'
         run: |
+          echo "DEBUG: ${{ vars.CONTAINER_VARS }}"
           for var in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\n' ' ' ); do
             echo "VAR: $var";
           done
