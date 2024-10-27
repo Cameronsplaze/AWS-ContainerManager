@@ -124,6 +124,8 @@ jobs:
       - setup-matrix
       - cdk-deploy-base
     strategy:
+      # Since they all use the Base Stack, only one can create/update at a time:
+      max-parallel: 1
       matrix:
         deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
     environment: "${{ matrix.deploy-config }}"
