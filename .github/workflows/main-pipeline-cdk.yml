@@ -136,15 +136,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install everything:
-      - name: Setup CDK
-        uses: ./.github/workflows/composite-setup-cdk
+      # # Install everything:
+      # - name: Setup CDK
+      #   uses: ./.github/workflows/composite-setup-cdk
 
-      # Log into AWS:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
+      # # Log into AWS:
+      # - uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-region: "${{ vars.AWS_REGION }}"
+      #     role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
       # Deploy the Leaf Stack:
       - name: "Deploying: ${{ matrix.deploy-config }}"
@@ -163,10 +163,10 @@ jobs:
             echo "DEBUG: ${key_val}"
           done
 
-          # for key_val in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\r\n' ' ' ); do
-          #   echo "::add-mask::${key_val#*=}"
-          #   export ${key_val}
-          # done
-          # make cdk-deploy-leaf \
-          #   config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
-          #   container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
+  # for key_val in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\r\n' ' ' ); do
+  #   echo "::add-mask::${key_val#*=}"
+  #   export ${key_val}
+  # done
+  # make cdk-deploy-leaf \
+  #   config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
+  #   container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
