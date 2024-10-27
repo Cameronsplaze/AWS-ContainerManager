@@ -157,7 +157,7 @@ jobs:
           # - Check if '=' inside passwords are supported.
         run: |
           echo "::add-mask::${{ vars.CONTAINER_VARS }}"
-          IFS=$'\r\n'
+          IFS=$', '
           for key_val in $( echo "${{ vars.CONTAINER_VARS }}" ); do
             echo "::add-mask::${key_val#*=}"
             export ${key_val}
