@@ -19,7 +19,8 @@ on:
     branches:
       - main
 
-
+  ## TMP - REMOVE ME!!!
+  push: {}
 
 #### Overall Strategy:
 # If Open a PR: Make sure everything can Synth (No deploy)
@@ -58,71 +59,71 @@ jobs:
           echo "DEBUG: $json_list"
 
 
-  cdk-synth:
-    if: ( github.event_name == 'pull_request' && github.event.action != 'closed' ) ||
-        ( github.event_name == 'workflow_dispatch' )
-    runs-on: ubuntu-latest
-    needs:
-      - setup-matrix
-    strategy:
-      matrix:
-        example-config: ${{ fromJson(needs.setup-matrix.outputs.synth-matrix) }}
-    steps:
-      - uses: actions/checkout@v4
+  # cdk-synth:
+  #   if: ( github.event_name == 'pull_request' && github.event.action != 'closed' ) ||
+  #       ( github.event_name == 'workflow_dispatch' )
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - setup-matrix
+  #   strategy:
+  #     matrix:
+  #       example-config: ${{ fromJson(needs.setup-matrix.outputs.synth-matrix) }}
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Setup CDK
-        uses: ./.github/workflows/composite-setup-cdk
+  #     - name: Setup CDK
+  #       uses: ./.github/workflows/composite-setup-cdk
 
-      - name: "Synthesize: ${{ matrix.example-config }}"
-        run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
+  #     - name: "Synthesize: ${{ matrix.example-config }}"
+  #       run: make cdk-synth config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.example-config }}"
 
-  cdk-deploy-base:
-    ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
-    # !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
-    #   (it'll skip when PR is merged. No point in synthing again since it has to pass TO merge)
-    if: |
-      !failure() && !cancelled() && (
-        ( github.event_name == 'pull_request' && github.event.pull_request.merged ) ||
-        ( github.event_name == 'workflow_dispatch' )
-      )
-    runs-on: ubuntu-latest
-    needs:
-      - setup-matrix
-      - cdk-synth
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      # Moved this check away from the job-level 'if', so it actually fails if you're
-      # not on main. Failure is easier to see than a skipped job.
-      - name: Fail if not 'main' (else skips this step)
-        # Yes the pull_request line is redundant with the 'branch' trigger at the top of the
-        # file, but better safe than sorry. Keeps the logic uniform with workflow_dispatch too.
-        if: ( github.event_name == 'pull_request' && github.base_ref != 'main' ) ||
-            ( github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' )
-        run: exit -1
+  # cdk-deploy-base:
+  #   ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
+  #   # !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
+  #   #   (it'll skip when PR is merged. No point in synthing again since it has to pass TO merge)
+  #   if: |
+  #     !failure() && !cancelled() && (
+  #       ( github.event_name == 'pull_request' && github.event.pull_request.merged ) ||
+  #       ( github.event_name == 'workflow_dispatch' )
+  #     )
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - setup-matrix
+  #     - cdk-synth
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   steps:
+  #     # Moved this check away from the job-level 'if', so it actually fails if you're
+  #     # not on main. Failure is easier to see than a skipped job.
+  #     - name: Fail if not 'main' (else skips this step)
+  #       # Yes the pull_request line is redundant with the 'branch' trigger at the top of the
+  #       # file, but better safe than sorry. Keeps the logic uniform with workflow_dispatch too.
+  #       if: ( github.event_name == 'pull_request' && github.base_ref != 'main' ) ||
+  #           ( github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' )
+  #       run: exit -1
 
-      - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v4
 
-      # Install everything:
-      - name: Setup CDK
-        uses: ./.github/workflows/composite-setup-cdk
+  #     # Install everything:
+  #     - name: Setup CDK
+  #       uses: ./.github/workflows/composite-setup-cdk
 
-      # Log into AWS:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
+  #     # Log into AWS:
+  #     - uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-region: "${{ vars.AWS_REGION }}"
+  #         role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
-      # Deploy the Base Stack:
-      - name: Deploy Base Stack
-        run: make cdk-deploy-base
+  #     # Deploy the Base Stack:
+  #     - name: Deploy Base Stack
+  #       run: make cdk-deploy-base
 
   cdk-deploy-leaf:
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
-      - cdk-deploy-base
+      # - cdk-deploy-base
     strategy:
       # Since they all use the Base Stack, only one can create/update at a time:
       max-parallel: 1
@@ -155,10 +156,17 @@ jobs:
           #   if it doesn't support that.
           # - Check if '=' inside passwords are supported.
         run: |
-          for key_val in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\n' ' ' ); do
+          IFS=$'\r\n'
+          for key_val in $( echo "${{ vars.CONTAINER_VARS }}" ); do
             echo "::add-mask::${key_val#*=}"
             export ${key_val}
+            echo "DEBUG: ${key_val}"
           done
-          make cdk-deploy-leaf \
-            config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
-            container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
+
+          # for key_val in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\r\n' ' ' ); do
+          #   echo "::add-mask::${key_val#*=}"
+          #   export ${key_val}
+          # done
+          # make cdk-deploy-leaf \
+          #   config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
+          #   container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/^\.\///' | sed -E 's/-example\.ya?ml$//i')
