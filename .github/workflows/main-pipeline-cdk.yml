@@ -52,7 +52,7 @@ jobs:
       - name: Setup cdk-deploy Matrix
         id: setup-deploy
         run: |
-          github_vars_list=$(echo "${{ vars.DEPLOY_EXAMPLES }}" | tr '\n' ' ')
+          github_vars_list=$(echo "${{ vars.DEPLOY_EXAMPLES }}" | tr '\r\n' ' ')
           json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
           echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
           echo "DEBUG: $json_list"
