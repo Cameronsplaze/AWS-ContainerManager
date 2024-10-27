@@ -158,7 +158,6 @@ jobs:
         run: |
           IFS=$'\r\n'
           for key_val in $( echo "${{ vars.CONTAINER_VARS }}" ); do
-            echo "::add-mask::${key_val#*=}"
             export ${key_val}
             echo "DEBUG: ${key_val}"
           done
