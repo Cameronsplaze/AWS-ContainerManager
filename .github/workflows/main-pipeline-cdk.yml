@@ -1,13 +1,7 @@
 name: Main Pipeline - CDK Actions
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        type: environment
-        default: all
-        required: False
-
+  workflow_dispatch: {}
 
   pull_request:
     types:

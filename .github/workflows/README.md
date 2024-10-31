@@ -47,7 +47,7 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
 
     Technically to do this, all secrets/variables are turned into environment variables in the action. However, even if the container is untrusted, if you don't pass the env-vars to the container in the `./Examples/<container>` yaml file, it won't be able to see them.
 
-**Finally**: If you decide to remove it to save money, you can just remove the one line from `DEPLOY_EXAMPLES`. This lets you keep the environment around with all the variables, in case you want to re-enable it later.
+**Finally**: If you decide to remove it to save money, you can just remove the one line from `DEPLOY_EXAMPLES`, then delete the stack. This lets you keep the environment around with all the variables, in case you want to re-deploy it later.
 
 ## Forking this Repo
 
