@@ -156,13 +156,16 @@ jobs:
           #   if it doesn't support that.
           # - Check if '=' inside passwords are supported.
         run: |
-          echo "::add-mask::${{ vars.CONTAINER_VARS }}"
-          IFS=$', '
-          for key_val in $( echo "${{ vars.CONTAINER_VARS }}" ); do
-            echo "::add-mask::${key_val#*=}"
-            export ${key_val}
-            echo "DEBUG: ${key_val}"
-          done
+          echo "::add-mask::${{ vars.TEST_VAR }}"
+          echo "DEBUG: ${{ vars.TEST_VAR }}"
+  
+  # echo "::add-mask::${{ vars.CONTAINER_VARS }}"
+  # IFS=$', '
+  # for key_val in $( echo "${{ vars.CONTAINER_VARS }}" ); do
+  #   echo "::add-mask::${key_val#*=}"
+  #   export ${key_val}
+  #   echo "DEBUG: ${key_val}"
+  # done
 
   # for key_val in $( echo "${{ vars.CONTAINER_VARS }}" | tr '\r\n' ' ' ); do
   #   echo "::add-mask::${key_val#*=}"
