@@ -156,8 +156,11 @@ jobs:
           #   if it doesn't support that.
           # - Check if '=' inside passwords are supported.
         run: |
-          echo "::add-mask::${{ vars.TEST_VAR }}"
-          echo "DEBUG: ${{ vars.TEST_VAR }}"
+          echo "$SECRETS_CONTEXT"
+          echo "$VARS_CONTEXT"
+        env:
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+          VARS_CONTEXT: ${{ toJson(vars) }}
   
   # echo "::add-mask::${{ vars.CONTAINER_VARS }}"
   # IFS=$', '
