@@ -6,6 +6,8 @@ on:
       environment:
         type: environment
         default: all
+        required: False
+
 
   pull_request:
     types:
