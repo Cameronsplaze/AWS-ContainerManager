@@ -5,6 +5,8 @@ on:
     inputs:
       environment:
         type: environment
+        default: all
+
   pull_request:
     types:
       # For Synth
