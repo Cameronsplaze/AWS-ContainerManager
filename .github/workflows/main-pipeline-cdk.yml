@@ -1,7 +1,10 @@
 name: Main Pipeline - CDK Actions
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: environment
   pull_request:
     types:
       # For Synth
