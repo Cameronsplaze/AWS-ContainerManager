@@ -146,22 +146,38 @@ jobs:
       #     aws-region: "${{ vars.AWS_REGION }}"
       #     role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
-      # Deploy the Leaf Stack:
-      - name: "Deploying: ${{ matrix.deploy-config }}"
-        ## Load and mask the container-specific variables, then deploy.
-        # container-id: Take off the beginning './' and the end '-example.yaml'
-        # TODO:
-          # - Add SPACE support. Will need to change the for loop, make sure values 
-          #   are quoted if they're not, and MAYBE make add-mask skip if spaces exist
-          #   if it doesn't support that.
-          # - Check if '=' inside passwords are supported.
-        run: |
-          echo "$SECRETS_CONTEXT"
-          echo "$VARS_CONTEXT"
+      # # Deploy the Leaf Stack:
+      # - name: "Deploying: ${{ matrix.deploy-config }}"
+      #   ## Load and mask the container-specific variables, then deploy.
+      #   # container-id: Take off the beginning './' and the end '-example.yaml'
+      #   # TODO:
+      #     # - Add SPACE support. Will need to change the for loop, make sure values 
+      #     #   are quoted if they're not, and MAYBE make add-mask skip if spaces exist
+      #     #   if it doesn't support that.
+      #     # - Check if '=' inside passwords are supported.
+      #   run: |
+      #     echo "$SECRETS_CONTEXT"
+      #     echo "$VARS_CONTEXT"
+      #   env:
+      #     SECRETS_CONTEXT: ${{ toJson(secrets) }}
+      #     VARS_CONTEXT: ${{ toJson(vars) }}
+  
+
+      - name: Expose github environment as shell variables
         env:
           SECRETS_CONTEXT: ${{ toJson(secrets) }}
           VARS_CONTEXT: ${{ toJson(vars) }}
-  
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          to_envs() { jq -r "( . // {} ) | to_entries[] | \"\(.key)<<$EOF\n\(.value)\n$EOF\n\""; }
+          echo "$VARS_CONTEXT" | to_envs >> $GITHUB_ENV
+          echo "$SECRETS_CONTEXT" | to_envs >> $GITHUB_ENV
+
+      - name: Debug
+        run: echo ${CONTAINER_VARS}
+
   # echo "::add-mask::${{ vars.CONTAINER_VARS }}"
   # IFS=$', '
   # for key_val in $( echo "${{ vars.CONTAINER_VARS }}" ); do
