@@ -68,8 +68,15 @@ jobs:
     strategy:
       matrix:
         example-config: ${{ fromJson(needs.setup-matrix.outputs.synth-matrix) }}
+    environment: ${{ matrix.example-config }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Export GitHub Secret/Vars as Shell Variables
+        uses: ./.github/workflows/composite-export-env-vars
+        with:
+          secrets_context: ${{ secrets }}
+          vars_context: ${{ vars }}
 
       - name: Setup CDK
         uses: ./.github/workflows/composite-setup-cdk
@@ -141,19 +148,6 @@ jobs:
         with:
           secrets_context: ${{ secrets }}
           vars_context: ${{ vars }}
-      # ## Setup Env Vars:
-      # # Taken from: https://stackoverflow.com/a/75789640/11650472
-      # - name: Export GitHub Secret/Vars as Shell Variables
-      #   # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-      #   # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
-      #   run: |
-      #     EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-      #     to_envs() { jq -r "( . // {} ) | to_entries[] | \"\(.key)<<$EOF\n\(.value)\n$EOF\n\""; }
-      #     echo "$VARS_CONTEXT" | to_envs >> $GITHUB_ENV
-      #     echo "$SECRETS_CONTEXT" | to_envs >> $GITHUB_ENV
-      #   env:
-      #     SECRETS_CONTEXT: ${{ toJson(secrets) }}
-      #     VARS_CONTEXT: ${{ toJson(vars) }}
 
       ## Install everything:
       - name: Setup CDK
