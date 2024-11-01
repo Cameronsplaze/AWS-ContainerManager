@@ -20,13 +20,13 @@ On PR's, it synths all the cdk stacks, and when merged, will deploy them to main
 
 ## Automatic Deployments: Whitelisting/Adding a Container
 
-I made this different than `cdk-synth`. For synth, it should run on EVERY config to make sure they always work. For deploy, it'll change randomly depending on what games you find fun at the time.
+I made this different than `cdk-synth`. For synth, it should run on EVERY config to make sure they always work. For deploy, it'll change randomly depending on what games you find fun at the time (update `DEPLOY_EXAMPLES` to **add** stacks, or **delete** with the `dispatch-delete-leaf-stack.yaml` action).
 
-1) Add a new line to the **Github Variable** `DEPLOY_EXAMPLES`. Each line is a path, starting **after** `./Examples/` in this repo. For example, it might contain:
+1) Add a new line to the **Github Variable** `DEPLOY_EXAMPLES`. Each line is the filename for a config **inside** `./Examples/` in this repo. For example, it might contain:
 
     ```txt
-    ./Minecraft-example.yaml
-    ./Valheim-example.yaml
+    Minecraft-example.yaml
+    Valheim-example.yaml
     ```
 
 2) Create a new Github Environment, with the same name as the line you added. For example, `./Minecraft-example.yaml`.
