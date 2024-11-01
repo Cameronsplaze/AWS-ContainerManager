@@ -75,8 +75,8 @@ jobs:
       - name: Export GitHub Secret/Vars as Shell Variables
         uses: ./.github/workflows/composite-export-env-vars
         with:
-          secrets: ${{ secrets }}
-          vars: ${{ vars }}
+          secrets: ${{ toJson(secrets) }}
+          vars: ${{ toJson(vars) }}
 
       - name: Setup CDK
         uses: ./.github/workflows/composite-setup-cdk
