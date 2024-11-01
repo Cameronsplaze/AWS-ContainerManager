@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "The leaf stack to delete"
+        description: "The leaf stack to DESTROY"
         type: environment
         required: true
 
