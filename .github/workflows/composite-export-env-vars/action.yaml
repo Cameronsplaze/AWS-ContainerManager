@@ -3,10 +3,10 @@ name: "Composite: Export GitHub Secrets/Vars"
 description: "Composite: Export GitHub Secrets/Vars as Environment Variables"
 
 inputs:
-  secrets_context:
+  secrets:
     description: "The secrets to export as environment variables"
     required: true
-  vars_context:
+  vars:
     description: "The vars to export as environment variables"
     required: true
 
@@ -27,5 +27,5 @@ runs:
           echo "$VARS_CONTEXT" | to_envs >> $GITHUB_ENV
           echo "$SECRETS_CONTEXT" | to_envs >> $GITHUB_ENV
       env:
-          SECRETS_CONTEXT: ${{ toJson(secrets_context) }}
-          VARS_CONTEXT: ${{ toJson(vars_context) }}
+          SECRETS_CONTEXT: ${{ toJson(inputs.secrets) }}
+          VARS_CONTEXT: ${{ toJson(inputs.vars) }}
