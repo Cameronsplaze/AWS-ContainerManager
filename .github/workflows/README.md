@@ -53,4 +53,18 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
 
 I specifically designed all the automation, so that if it's forked, you can re-use it and customize it to your own needs without conflicting with the base. The way of doing this was relying on GitHub's secrets/variables when deploying.
 
-See '[Add another Container to cdk-deploy in main-pipeline-cdk.yml](#add-another-container-to-cdk-deploy-in-main-pipeline-cdkyml)' for details on a single container, and just duplicate that for any number of examples.
+1) Setup [AWS OIDC](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services). How I do it personally is at [Cameronsplaze/AWS-OIDC](https://github.com/Cameronsplaze/AWS-OIDC). It's only one-per-account, so it can't be in this repo.
+2) Repository **Secrets** you'll want declared (in the 'core', NOT in any environment):
+
+    - **AWS_ACCOUNT_ID**: Your AWS Account ID.
+    - **DOMAIN_NAME**: The domain name of your Route53 Hosted Zone.
+    - **HOSTED_ZONE_ID**: The ID of your Route53 Hosted Zone.
+    - **EMAIL**: The email for receiving alerts for everything. (Might turn this into a list at some point, the yaml config supports that already anyways...)
+
+3) Repository **Variables** you'll want declared (in the 'core', NOT in any environment):
+
+    - **AWS_DEPLOY_ROLE**: The role to use with OIDC. (If you're using my repo, it's `github_actions_role`).
+    - **AWS_REGION**: The region to deploy to. (Some HAS to be deployed to `us-east-1`, this is everything else that's not restricted).
+    - **DEPLOY_EXAMPLES**: The list of container config paths to deploy, each on their own line. (See '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for details).
+
+4) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
