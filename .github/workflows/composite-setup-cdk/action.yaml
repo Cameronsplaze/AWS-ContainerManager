@@ -2,12 +2,29 @@ name: "Composite: Setup Everything to use CDK"
 
 description: Setup Action to CDK stuff
 
-inputs: {}
+inputs:
+  secrets:
+    description: "To be used with 'compostie-export-env-vars' to setup env-vars"
+    required: true
+  vars:
+    description: "To be used with 'compostie-export-env-vars' to setup env-vars"
+    required: true
 
 runs:
   using: "composite"
   steps:
 
+    ### NOTE: OIDC isn't here, because you don't need it to synth. Only Deploy.
+
+    # If you're using CDK, you'll need all the variables
+    # like 'HOSTED_ZONE_ID' declared to synth/deploy:
+    - name: Export GitHub Secret/Vars as Shell Variables
+      uses: ./.github/workflows/composite-export-env-vars
+      with:
+        secrets: ${{ toJson(secrets) }}
+        vars: ${{ toJson(vars) }}
+
+    # Finally, install everything:
     - name: Setup Python
       uses: ./.github/workflows/composite-setup-python
 
