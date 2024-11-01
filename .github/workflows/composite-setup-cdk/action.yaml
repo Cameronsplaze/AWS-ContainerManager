@@ -21,8 +21,8 @@ runs:
     - name: Export GitHub Secret/Vars as Shell Variables
       uses: ./.github/workflows/composite-export-env-vars
       with:
-        secrets: ${{ toJson(secrets) }}
-        vars: ${{ toJson(vars) }}
+        secrets: ${{ inputs.secrets }}
+        vars: ${{ inputs.vars }}
 
     # Finally, install everything:
     - name: Setup Python
