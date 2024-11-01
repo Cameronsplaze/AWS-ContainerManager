@@ -5,6 +5,7 @@ on:
     inputs:
       environment:
         description: "The leaf stack to delete"
+        type: environment
         required: true
 
 env:
