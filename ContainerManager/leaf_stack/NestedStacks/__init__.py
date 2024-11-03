@@ -8,6 +8,6 @@ from .AsgStateChangeHook import AsgStateChangeHook
 from .Container import Container
 from .Dashboard import Dashboard
 from .EcsAsg import EcsAsg
-from .Efs import Efs
+from .Volumes import Volumes
 from .SecurityGroups import SecurityGroups
 from .Watchdog import Watchdog
