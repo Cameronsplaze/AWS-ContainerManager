@@ -125,6 +125,11 @@ jobs:
         run: make cdk-deploy-base
 
   cdk-deploy-leaf:
+    ## Since cdk-synth can be skipped, it'll skip EVERY job after, even if the job isn't directly tied
+    # to it. This 'if' ties this job directly to the cdk-deploy-base job. Only if that runs successfully,
+    # run this.
+    if: |
+      !failure() && !cancelled() && needs.cdk-deploy-base.result == 'success'
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
