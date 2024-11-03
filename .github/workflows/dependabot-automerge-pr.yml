@@ -25,16 +25,20 @@ jobs:
     # ONLY run if dependabot opens the PR:
     if: github.actor == 'dependabot[bot]'
     steps:
+
+      ### Auto-Merge the PR:
+
       - name: Approve the PR
         # https://cli.github.com/manual/gh_pr_review
         run: gh pr review "$PR_URL" --approve
 
-      ### This will still wait for all the REQUIRED checks to pass
       - name: Flag PR to auto-merge
+        # '--auto': Wait for REQUIRED checks to pass still.
         # https://cli.github.com/manual/gh_pr_merge
         run: gh pr merge "$PR_URL" --auto --merge
 
-      - name: Flag for Review
+      ### ONLY on failure:
+      - name: FAILED - Flag for Review
         if: failure()
         # https://cli.github.com/manual/gh_pr_edit
         run: gh pr edit "$PR_URL" --add-assignee "${{ github.repository_owner }}"
