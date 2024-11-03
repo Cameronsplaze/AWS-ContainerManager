@@ -99,7 +99,7 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
-            volume_config=config["Volume"],
+            volumes_config=config["Volumes"],
             sg_efs_traffic=self.sg_nested_stack.sg_efs_traffic,
         )
 
@@ -117,8 +117,8 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
-            efs_file_system=self.volumes_nested_stack.efs_file_system,
-            host_access_point=self.volumes_nested_stack.host_access_point,
+            efs_file_systems=self.volumes_nested_stack.efs_file_systems,
+            efs_ap_acl=self.volumes_nested_stack.efs_ap_acl,
         )
 
         ### All the info for the Watchdog Stuff

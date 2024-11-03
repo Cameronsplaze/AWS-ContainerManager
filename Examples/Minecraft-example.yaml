@@ -15,11 +15,19 @@ Container:
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
 
-Volume:
-  Paths:
-    - Path: /data
-    # - Path: /testing
-    #   ReadOnly: True
+# Volume:
+#   Paths:
+#     - Path: /data
+#     # - Path: /testing
+#     #   ReadOnly: True
+
+Volumes: # List
+  - Type: EFS # EFS or (eventually) S3. EFS is the default.
+    EnableBackups: True
+    KeepOnDelete: True
+    Paths:
+      - Path: /data
+        ReadOnly: False
 
 # # Config options for how to monitor for players:
 # Watchdog:
