@@ -3,20 +3,14 @@
 
 name: Dependabot Auto-Approve PR's
 on:
-    pull_request:
-      # This is probably not needed, but just in case:
-      branches:
-        - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+    # This is probably not needed, but just in case:
+    branches:
+      - main
 
-
-permissions:
-  # For Approving PR, and Auto-Merging it.
-  contents: write
-  pull-requests: write
-
-env:
-  PR_URL: ${{ github.event.pull_request.html_url }}
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
 
@@ -24,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     # ONLY run if dependabot opens the PR:
     if: github.actor == 'dependabot[bot]'
+    env:
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    permissions:
+      # For Approving PR, and Auto-Merging it.
+      contents: write
+      pull-requests: write
     steps:
 
       ### Auto-Merge the PR:
@@ -31,6 +31,9 @@ jobs:
       - name: Approve the PR
         # https://cli.github.com/manual/gh_pr_review
         run: gh pr review "$PR_URL" --approve
+        env:
+          # Basic token to just approve the PR.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Flag PR to auto-merge
         # '--auto': Wait for REQUIRED checks to pass still.
