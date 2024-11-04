@@ -73,7 +73,9 @@ def _parse_domain(config: dict) -> None:
 
 def load_base_config(path: str) -> dict:
     " Parser/Loader for the base stack "
-    config = parse_config(path, default_value="")
+    # default_value: Dependabot PR's can't read secrets. Give variables
+    #    a default value since most will be blank for the synth.
+    config = parse_config(path, default_value="UNDECLARED")
     _parse_vpc(config)
     _parse_domain(config)
     _parse_sns(config)
@@ -286,7 +288,9 @@ def _parse_dashboard(config: dict) -> None:
 
 def load_leaf_config(path: str, maturity: str) -> dict:
     " Parser/Loader for all leaf stacks "
-    config = parse_config(path, default_value="")
+    # default_value: Dependabot PR's can't read secrets. Give variables
+    #    a default value since most will be blank for the synth.
+    config = parse_config(path, default_value="UNDECLARED")
     _parse_container(config)
     _parse_volume(config, maturity)
     _parse_ec2(config)
