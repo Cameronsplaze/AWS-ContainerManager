@@ -81,10 +81,13 @@ jobs:
 
   cdk-deploy-base:
     ## If the PR is merged, or if we manually trigger it (MAIN ONLY):
-    # !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
-    #   (it'll skip when PR is merged. No point in synthing again since it has to pass TO merge)
+    #    - !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
+    #    - needs.setup-matrix.outputs.deploy-matrix != '[]': Only run if there's something to deploy.
+    #    - (github.event_name block): Only run if it's a PR merge or on workflow_dispatch.
     if: |
-      !failure() && !cancelled() && (
+      !failure() && !cancelled() &&
+      needs.setup-matrix.outputs.deploy-matrix != '[]' &&
+      (
         ( github.event_name == 'pull_request' && github.event.pull_request.merged ) ||
         ( github.event_name == 'workflow_dispatch' )
       )
@@ -129,11 +132,8 @@ jobs:
     # to it.
     #    - !failure() && !cancelled(): Let it check the 'if' block here, EVEN if cdk-synth skipped.
     #    - needs.cdk-deploy-base.result == 'success': Only run if cdk-deploy-base runs AND succeeds.
-    #    - needs.setup-matrix.outputs.deploy-matrix != '[]': Only run if there's something to deploy.
     if: |
-      !failure() && !cancelled() &&
-      needs.cdk-deploy-base.result == 'success' &&
-      needs.setup-matrix.outputs.deploy-matrix != '[]'
+      !failure() && !cancelled() && needs.cdk-deploy-base.result == 'success'
     runs-on: ubuntu-latest
     needs:
       - setup-matrix
