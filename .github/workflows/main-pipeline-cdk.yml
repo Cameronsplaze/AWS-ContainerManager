@@ -54,6 +54,9 @@ jobs:
           json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
           echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
           echo "DEBUG: $json_list"
+          if [ $json_list == '[]' ]; then
+            echo "WARNING: No deploy examples found, skipping deployment. Populate the 'DEPLOY_EXAMPLES' GH Variable to change." >> $GITHUB_STEP_SUMMARY
+          fi
 
 
   cdk-synth:
