@@ -45,7 +45,6 @@ jobs:
           file_list=$(cd "${{ env.EXAMPLES_PATH }}" && find * -regextype egrep -regex '.*ya?ml$')
           json_list=$(echo $file_list | jq --raw-input --compact-output 'split(" ")')
           echo "synth-config-files=$json_list" >> "$GITHUB_OUTPUT"
-          echo "DEBUG: $json_list"
 
       - name: Setup cdk-deploy Matrix
         id: setup-deploy
@@ -53,10 +52,8 @@ jobs:
           github_vars_list=$(echo "${{ vars.DEPLOY_EXAMPLES }}" | tr '\r\n' ' ')
           json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
           echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
-          echo "DEBUG: $json_list"
           if [ $json_list == '[]' ]; then
             echo "**WARNING**: No deploy examples found, skipping deployment. Populate the 'DEPLOY_EXAMPLES' GH Variable to change." >> $GITHUB_STEP_SUMMARY
-            echo "Does linking readme work? [./README.md](./README.md)" >> $GITHUB_STEP_SUMMARY
           fi
 
 
