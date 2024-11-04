@@ -20,11 +20,11 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
-      GH_TOKEN: ${{ secrets.PAT_AUTOMERGE_PR }}
-    # permissions:
-    #   # For Approving PR, and Auto-Merging it.
-    #   contents: write
-    #   pull-requests: write
+      GH_TOKEN: ${{ github.token }}
+    permissions:
+      # For Approving PR, and Auto-Merging it.
+      contents: write
+      pull-requests: write
     steps:
 
       ### Auto-Merge the PR:
