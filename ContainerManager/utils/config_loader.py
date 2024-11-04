@@ -14,6 +14,7 @@ Also modifies data to a better format CDK can digest in places.
 
 from aws_cdk import (
     Duration,
+    RemovalPolicy,
     aws_sns as sns,
     aws_ecs as ecs,
 )
@@ -125,33 +126,49 @@ def _parse_container(config: dict) -> None:
 
 
 def _parse_volume(config: dict, maturity: str) -> None:
-    if "Volume" not in config:
-        config["Volume"] = {}
-    assert isinstance(config["Volume"], dict)
+    if "Volumes" not in config:
+        config["Volumes"] = []
+    assert isinstance(config["Volumes"], list)
 
-    ### KeepOnDelete
-    if "KeepOnDelete" not in config["Volume"]:
-        # If the maturity is prod, default to keep the data safe:
-        config["Volume"]["KeepOnDelete"] = bool(maturity == "prod")
-    assert isinstance(config["Volume"]["KeepOnDelete"], bool)
+    ### Parse Each Volume:
+    for volume in config["Volumes"]:
+        ### Type
+        if "Type" not in volume:
+            volume["Type"] = "EFS" # Default to EFS
+        volume["Type"] = volume["Type"].upper()
+        assert volume["Type"] in ["EFS"] # Will support 'S3' soon!
 
-    ### EnableBackups
-    if "EnableBackups" not in config["Volume"]:
-        # If the maturity is prod, default to keep the data safe:
-        config["Volume"]["EnableBackups"] = bool(maturity == "prod")
-    assert isinstance(config["Volume"]["EnableBackups"], bool)
+        ## EnableBackups
+        if "EnableBackups" not in volume:
+            # If the maturity is prod, default to keep the data safe:
+            volume["EnableBackups"] = bool(maturity == "prod")
+        assert isinstance(volume["EnableBackups"], bool)
 
-    ### Paths
-    if "Paths" not in config["Volume"]:
-        config["Volume"]["Paths"] = []
-    assert isinstance(config["Volume"]["Paths"], list)
-    for path in config["Volume"]["Paths"]:
-        if "Path" not in path:
-            raise_missing_key_error("Volume.Paths[*].Path")
-        assert isinstance(path["Path"], str)
-        if "ReadOnly" not in path:
-            path["ReadOnly"] = False
-        assert isinstance(path["ReadOnly"], bool)
+        ## KeepOnDelete
+        if "KeepOnDelete" not in volume:
+            # If the maturity is prod, default to keep the data safe:
+            volume["KeepOnDelete"] = bool(maturity == "prod")
+        assert isinstance(volume["KeepOnDelete"], bool)
+        # Private var, another good excuse to turn this into a class:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
+        if volume["KeepOnDelete"]:
+            volume["_removal_policy"] = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
+        else:
+            volume["_removal_policy"] = RemovalPolicy.DESTROY
+        del volume["KeepOnDelete"]
+
+
+        ## Paths
+        if "Paths" not in volume:
+            raise_missing_key_error("Volumes[*].Paths")
+        assert isinstance(volume["Paths"], list)
+        for path in volume["Paths"]:
+            if "Path" not in path:
+                raise_missing_key_error("Volumes[*].Paths[*].Path")
+            assert isinstance(path["Path"], str)
+            if "ReadOnly" not in path:
+                path["ReadOnly"] = False
+            assert isinstance(path["ReadOnly"], bool)
 
 def _parse_ec2(config: dict) -> None:
     if "Ec2" not in config:

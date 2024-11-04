@@ -26,12 +26,15 @@ Container:
     BACKUPS: False
 
 
-Volume:
-  Paths:
-    # Holds server config info
-    - Path: /config
-    # Holds server download file
-    - Path: /opt/valheim
+Volumes:
+  # Holds server config info
+  - Paths:
+      - Path: /config
+  # Holds server download file
+  - EnableBackups: False
+    KeepOnDelete: False
+    Paths:
+      - Path: /opt/valheim
 
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 

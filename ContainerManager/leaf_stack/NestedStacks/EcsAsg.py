@@ -36,8 +36,8 @@ class EcsAsg(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
         sg_container_traffic: ec2.SecurityGroup,
-        efs_file_system: efs.FileSystem,
-        host_access_point: efs.AccessPoint,
+        efs_file_systems: list[efs.FileSystem],
+        efs_ap_acl: efs.AccessPoint,
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -60,8 +60,6 @@ class EcsAsg(NestedStack):
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             description="The instance's permissions (HOST of the container)",
         )
-        ## Give it root access to the EFS:
-        efs_file_system.grant_root_access(self.ec2_role)
 
         ## Let the instance register itself to a ecs cluster:
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
@@ -75,16 +73,30 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
         self.ec2_user_data = ec2.UserData.for_linux() # (Can also set to python, etc. Default bash)
 
-        ## Mount the EFS volume:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
-        #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
-        efs_mount_point = "/mnt/efs"
-        self.ec2_user_data.add_commands(
-            f'mkdir -p "{efs_mount_point}"',
+        ### Tie all the EFS's to the host:
+        for efs_file_system in efs_file_systems:
+            # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
+            efs_mount_point = f"/mnt/efs/{efs_file_system.node.id}"
+            ### Give it root access to the EFS:
+            efs_file_system.grant_root_access(self.ec2_role)
+
+            ### Create a access point for the host:
+            ## Creating an access point:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
+            ## What it returns:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
+            host_access_point = efs_file_system.add_access_point("efs-access-point-host", create_acl=efs_ap_acl, path="/")
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
             #      (You can also mount efs directly by removing the accesspoint flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
-            f'echo "{efs_file_system.file_system_id}:/ {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+            self.ec2_user_data.add_commands(
+                f'mkdir -p "{efs_mount_point}"',
+                f'echo "{efs_file_system.file_system_id}:/ {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+            )
+        ## Actually mount the EFS volumes:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
+        #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
+        self.ec2_user_data.add_commands(
             'mount -a -t efs,nfs4 defaults',
         )
 

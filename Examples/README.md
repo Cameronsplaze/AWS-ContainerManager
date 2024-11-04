@@ -40,9 +40,26 @@ These are config options when you deploy, for a single leaf. (The file's name be
         # ...
     ```
 
-- `Volume`: (dict)
+- `Volumes`: (list)
 
-  Config options for the EFS volume. If not provided, you won't save any data between restarts.
+  Each element is a config options `dict` for the volume.
+
+  ```yaml
+  Volumes:
+    - Type: EFS # EFS or (eventually) S3. EFS is the default.
+      Paths:
+        - Path: /data
+          ReadOnly: False
+    # Or if you wanted something persistent, but not backed up:
+    # (i.e the path to the valheim server binary. Saves
+    #  on startup time, but not critical if lost.)
+    - EnableBackups: False
+      KeepOnDelete: False
+      Paths:
+        - Path: /opt/valheim
+  ```
+
+  For each element:
 
   - `KeepOnDelete`: (Optional, bool)
 
@@ -65,11 +82,11 @@ These are config options when you deploy, for a single leaf. (The file's name be
       If the path should be read-only. (Default=`False`).
 
     ```yaml
-    Volume:
-      Paths:
-        - Path: /data
-        - Path: /some/read/only/dir
-          ReadOnly: True
+    Volumes:
+      - Paths:
+          - Path: /data
+          - Path: /some/read/only/dir
+            ReadOnly: True
     ```
 
 - `Watchdog`: (dict)

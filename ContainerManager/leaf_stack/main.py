@@ -32,7 +32,7 @@ class ContainerManagerStack(Stack):
         if "NestedStackResource" in element.node.id:
             match = re.search(r'([a-zA-Z0-9]+)\.NestedStackResource', element.node.id)
             if match:
-                # Returns "EfsNestedStack" instead of "EfsNestedStackEfsNestedStackResource..."
+                # Returns "VolumesNestedStack" instead of "VolumesNestedStackVolumesNestedStackResource..."
                 return match.group(1)
             # Fail fast. If the logical_id ever changes on a existing stack, you replace everything and might loose data.
             raise RuntimeError(f"Could not find 'NestedStackResource' in {element.node.id}. Did a CDK update finally fix NestedStack names?")
@@ -92,14 +92,14 @@ class ContainerManagerStack(Stack):
             container_config=config["Container"],
         )
 
-        ### All the info for EFS Stuff
-        self.efs_nested_stack = NestedStacks.Efs(
+        ### All the info for Volumes Stuff
+        self.volumes_nested_stack = NestedStacks.Volumes(
             self,
-            description=f"EFS Logic for {construct_id}",
+            description=f"Volume Logic for {construct_id}",
             vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
-            volume_config=config["Volume"],
+            volumes_config=config["Volumes"],
             sg_efs_traffic=self.sg_nested_stack.sg_efs_traffic,
         )
 
@@ -117,8 +117,8 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
             sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
-            efs_file_system=self.efs_nested_stack.efs_file_system,
-            host_access_point=self.efs_nested_stack.host_access_point,
+            efs_file_systems=self.volumes_nested_stack.efs_file_systems,
+            efs_ap_acl=self.volumes_nested_stack.efs_ap_acl,
         )
 
         ### All the info for the Watchdog Stuff
