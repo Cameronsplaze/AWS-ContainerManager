@@ -24,7 +24,7 @@ Container:
     AUTO_REBOOT_ENABLED: True
     AUTO_REBOOT_EVEN_IF_PLAYERS_ONLINE: True
 
-Volume:
-  Paths:
-    - Path: /palworld
+Volumes:
+  - Paths:
+      - Path: /palworld
 

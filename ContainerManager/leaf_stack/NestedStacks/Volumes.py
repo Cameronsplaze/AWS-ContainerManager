@@ -30,7 +30,7 @@ class Volumes(NestedStack):
         sg_efs_traffic: ec2.SecurityGroup,
         **kwargs,
     ) -> None:
-        super().__init__(scope, "EfsNestedStack", **kwargs)
+        super().__init__(scope, "VolumesNestedStack", **kwargs)
 
         ########################
         ### EFS FILE SYSTEMS ###
@@ -42,13 +42,14 @@ class Volumes(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
         self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
         self.efs_file_systems = []
-        for volume_config in volumes_config:
+        # i: each construct must have a different name inside the for-loop.
+        for i, volume_config in enumerate(volumes_config, start=1):
             if not volume_config["Type"] == "EFS":
                 continue
 
             efs_file_system = efs.FileSystem(
                 self,
-                "Efs",
+                f"Efs-{i}",
                 vpc=vpc,
                 removal_policy=volume_config["_removal_policy"],
                 security_group=sg_efs_traffic,

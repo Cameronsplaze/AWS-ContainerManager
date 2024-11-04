@@ -155,6 +155,7 @@ def _parse_volume(config: dict, maturity: str) -> None:
             volume["_removal_policy"] = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
         else:
             volume["_removal_policy"] = RemovalPolicy.DESTROY
+        del volume["KeepOnDelete"]
 
 
         ## Paths

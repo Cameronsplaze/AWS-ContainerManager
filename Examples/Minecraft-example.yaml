@@ -15,13 +15,7 @@ Container:
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
 
-# Volume:
-#   Paths:
-#     - Path: /data
-#     # - Path: /testing
-#     #   ReadOnly: True
-
-Volumes: # List
+Volumes:
   - Type: EFS # EFS or (eventually) S3. EFS is the default.
     EnableBackups: True
     KeepOnDelete: True
