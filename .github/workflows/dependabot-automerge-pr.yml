@@ -15,8 +15,8 @@ permissions:
   pull-requests: write
 
 env:
-  PR_URL: ${{github.event.pull_request.html_url}}
-  GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  PR_URL: ${{ github.event.pull_request.html_url }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
 
@@ -36,6 +36,10 @@ jobs:
         # '--auto': Wait for REQUIRED checks to pass still.
         # https://cli.github.com/manual/gh_pr_merge
         run: gh pr merge "$PR_URL" --auto --merge
+        env:
+          ## Use a PAT, so merging this will trigger other workflows.
+          # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+          GH_TOKEN: ${{ secrets.PAT_AUTOMERGE_PR }}
 
       ### ONLY on failure:
       - name: FAILED - Flag for Review
