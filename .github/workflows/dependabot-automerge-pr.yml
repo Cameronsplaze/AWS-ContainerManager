@@ -20,10 +20,11 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
-    permissions:
-      # For Approving PR, and Auto-Merging it.
-      contents: write
-      pull-requests: write
+      GH_TOKEN: ${{ secrets.PAT_AUTOMERGE_PR }}
+    # permissions:
+    #   # For Approving PR, and Auto-Merging it.
+    #   contents: write
+    #   pull-requests: write
     steps:
 
       ### Auto-Merge the PR:
@@ -31,18 +32,18 @@ jobs:
       - name: Approve the PR
         # https://cli.github.com/manual/gh_pr_review
         run: gh pr review "$PR_URL" --approve
-        env:
-          # Basic token to just approve the PR.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # env:
+        #   # Basic token to just approve the PR.
+        #   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Flag PR to auto-merge
         # '--auto': Wait for REQUIRED checks to pass still.
         # https://cli.github.com/manual/gh_pr_merge
         run: gh pr merge "$PR_URL" --auto --merge
-        env:
-          ## Use a PAT, so merging this will trigger other workflows.
-          # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow
-          GH_TOKEN: ${{ secrets.PAT_AUTOMERGE_PR }}
+        # env:
+        #   ## Use a PAT, so merging this will trigger other workflows.
+        #   # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+        #   GH_TOKEN: ${{ secrets.PAT_AUTOMERGE_PR }}
 
       ### ONLY on failure:
       - name: FAILED - Flag for Review
