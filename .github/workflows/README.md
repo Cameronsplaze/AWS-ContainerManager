@@ -68,4 +68,8 @@ I specifically designed all the automation, so that if it's forked, you can re-u
     - **AWS_REGION**: The region to deploy to. (Some HAS to be deployed to `us-east-1`, this is everything else that's not restricted).
     - **DEPLOY_EXAMPLES**: The list of container config paths to deploy, each on their own line. (See '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for details).
 
-4) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
+4) **Dependabot Secrets** (Also under `Secrets and variables`)
+
+    - **PAT_AUTOMERGE_PR**: A personal PAT with ONLY `pull_request: write` permissions. (Create it under your Account -> Settings -> Developer Settings -> Personal Access Tokens -> Fine-grained tokens)
+
+5) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
