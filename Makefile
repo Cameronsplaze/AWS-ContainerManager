@@ -51,7 +51,8 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 cdk-deploy-base:
 	$(MAKE) _cdk-deploy-helper stack-regix="$(_base_stack_name)"
 
-# Edit everything BUT the base stack (within the config-file scope):
+# Edit everything BUT the base stack, within the config-file scope:
+#  (The base stack will still be updated as a 'Dependancy Stack')
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
@@ -80,7 +81,8 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 cdk-destroy-base:
 	$(MAKE) _cdk-destroy-helper stack-regix="$(_base_stack_name)"
 
-# Destroy the leaf stack inside the config-file
+# Destroy everything BUT the base stack, within the config-file scope:
+#  (The base stack will still be updated as a 'Dependancy Stack')
 .PHONY := cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
