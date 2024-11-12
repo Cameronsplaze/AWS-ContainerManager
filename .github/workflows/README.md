@@ -54,7 +54,8 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
 I specifically designed all the automation, so that if it's forked, you can re-use it and customize it to your own needs without conflicting with the base. The way of doing this was relying on GitHub's secrets/variables when deploying.
 
 1) Setup [AWS OIDC](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services). How I do it personally is at [Cameronsplaze/AWS-OIDC](https://github.com/Cameronsplaze/AWS-OIDC). It's only one-per-account, so it can't be in this repo.
-2) Repository **Secrets** you'll want declared (in the 'core', NOT in any environment):
+
+2) **Secrets and variables: Actions Secrets** you'll want declared (in the 'core', NOT in any environment):
 
     - **AWS_ACCOUNT_ID**: Your AWS Account ID.
     - **DOMAIN_NAME**: The domain name of your Route53 Hosted Zone.
@@ -62,14 +63,14 @@ I specifically designed all the automation, so that if it's forked, you can re-u
     - **EMAIL**: The email for receiving alerts for everything. (Might turn this into a list at some point, the yaml config supports that already anyways...)
     - **PAT_AUTOMERGE_PR**: The Personal Access Token for automerging PRs. If you used `GITHUB_TOKEN` instead, it wouldn't trigger other workflows when merged. Go to `Profile` -> `Settings` -> `Developer settings` -> `Personal access tokens`+`Fine-grained tokens` -> `Generate new token`. For permissions, only give it access to your fork, and you only need `Read & Write for Pull requests`.
 
-3) Repository **Variables** you'll want declared (in the 'core', NOT in any environment):
+3) **Secrets and variables: *Actions Variables*** you'll want declared (in the 'core', NOT in any environment):
 
     - **AWS_DEPLOY_ROLE**: The role to use with OIDC. (If you're using my repo, it's `github_actions_role`).
     - **AWS_REGION**: The region to deploy to. (Some HAS to be deployed to `us-east-1`, this is everything else that's not restricted).
     - **DEPLOY_EXAMPLES**: The list of container config paths to deploy, each on their own line. (See '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for details).
 
-4) **Dependabot Secrets** (Also under `Secrets and variables`)
+4) **Secrets and variables: *Dependabot Secrets***: These are only accessible to dependabot, BUT dependabot can't access any of the github secrets above.
 
-    - **PAT_AUTOMERGE_PR**: A personal PAT with ONLY `pull_request: write` permissions. (Create it under your Account -> Settings -> Developer Settings -> Personal Access Tokens -> Fine-grained tokens)
+    - **PAT_AUTOMERGE_PR**: A *classic* PAT with ONLY `repo:public_repo` permissions. (Has to be classic until [this issue](https://github.com/cli/cli/issues/9166) is fixed. You'll get permission denied otherwise.) Create this under `Account` -> `Settings` -> `Developer Settings` -> `Personal Access Tokens` -> `Tokens (classic)`
 
 5) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
