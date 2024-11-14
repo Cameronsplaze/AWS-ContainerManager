@@ -1,5 +1,10 @@
 # GitHub Actions
 
+GitHub Actions Docs/References:
+
+- The GOOD docs on [writting workflows](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions) that I can never find when I need.
+- Docs on [context](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)'s (i.e ${{ github.* }}, and other built-in variables)
+
 ## Dependabot auto updates
 
 There's a lot of tweaks I had to do to get this working. Will come back to at some point and re-write this readme. To include:
