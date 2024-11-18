@@ -7,13 +7,27 @@ Container:
   Image: itzg/minecraft-server
   Ports:
     - TCP: 25565
+    # Only required for GeyserMC Bedrock connections:
+    - UDP: 19132
   Environment:
     EULA: "TRUE"
     TYPE: "PAPER"
+    # PAPER_CHANNEL=experimental # Allow experimental versions (Lets you update to newer versions of mc sooner)
     # From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
+    ### Plugins List:
+    # geysermc (geyser adn floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
+    #    - Each player needs to follow this guide to use bedrock: https://geysermc.org/wiki/floodgate/linking#what-is-global-linking
+    # ViaVersion (and Backwards): Allows older and new versions of the client to connect to the server:
+    #    - https://hangar.papermc.io/ViaVersion/ViaVersion/versions
+    #    - https://hangar.papermc.io/ViaVersion/ViaBackwards/versions
+    PLUGINS: |
+      https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
+      https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
+      https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/versions/5.1.1/PAPER/ViaVersion-5.1.1.jar
+      https://hangarcdn.papermc.io/plugins/ViaVersion/ViaBackwards/versions/5.1.1/PAPER/ViaBackwards-5.1.1.jar
 
 Volumes:
   - Type: EFS # EFS or (eventually) S3. EFS is the default.
@@ -23,10 +37,11 @@ Volumes:
       - Path: /data
         ReadOnly: False
 
-# # Config options for how to monitor for players:
-# Watchdog:
-#   MinutesWithoutConnections: 5
-#   Type: "TCP"
+## Config options for how to monitor for players:
+# (Only required since we're using BOTH tcp and udp)
+Watchdog:
+  # MinutesWithoutConnections: 5
+  Type: "TCP"
 
 # AlertSubscription:
 #   - Email: Does@Not.Exist
