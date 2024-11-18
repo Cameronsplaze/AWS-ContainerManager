@@ -2,7 +2,13 @@
 
 ## Creating Configs
 
-These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft-example.yaml` -> `minecraft-example.my-domain.com`). See any `*-example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `maturity=` key. See the developer section in the [root README.md](../README.md#different-maturities) for more details.)
+These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft.java.example.yaml` -> `minecraft.java.example.my-domain.com`). See any `*.example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `container_id=` key. See the developer section in the [root README.md](../README.md#different-maturities) for more details.)
+
+If you're looking at automating updates to the deployments, or just deploying with GitHub, see the [GitHub Actions README](../.github/workflows/README.md).
+
+### Config File Options
+
+You can also look at the yaml's in the [./Examples](./) directory here to see how each of these are used directly.
 
 - `Ec2`: (dict)
 
@@ -137,8 +143,16 @@ These are config options when you deploy, for a single leaf. (The file's name be
 
 ## Gotchas
 
-- **For backups**: We use EFS behind the scenes. Use the `Volume.EnableBackups` if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too.
+- **For backups**: We use EFS behind the scenes. Use the `Volume.EnableBackups` if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too. Always use flags for the container to disable backups, and use EFS if you want them.
 - **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it first spins up. Then what to do depends on the game.
   - For minecraft, it won't let anyone connect until after it finishes. It handles everything for you.
   - For Valheim, it'll let you connect, then everyone will get kicked when it finishes so it can restart (3-4min into playing). OR you can have it *not* restart, and you'll get the update after everyone disconnects for the night.
 - **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of this. You can use it, but it means you have to re-deploy this project every time you make a change. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
+
+## Adding a new Example to the Repo
+
+1) Create a new file in this [./Examples](./) directory. Make sure it ends with `*.example.yaml`.
+2) Make sure it correctly Synths. (If you're doing a PR, it'll happen automatically)
+3) Once it Synths, add it to the "Settings -> Branches -> `main` -> Required Status Checks" list. (If you don't have permissions, remind me to inside the PR please).
+
+And that's it!

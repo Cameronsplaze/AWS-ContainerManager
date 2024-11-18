@@ -61,14 +61,18 @@ if file_path:
     container_id = app.node.try_get_context("container-id")
     if not container_id:
         container_id = os.path.basename(os.path.splitext(file_path)[0])
+    container_id = container_id.lower()
+    # For stack names, turn "minecraft.java.example" into "MinecraftJavaExample":
+    container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
     stack_tags = {
         "ContainerId": container_id,
+        "StackId": f"{application_id}-{container_id_alpha}",
     }
 
     domain_stack = DomainStack(
         app,
-        f"{application_id}-{container_id}-DomainStack",
+        f"{application_id}-{container_id_alpha}-DomainStack",
         description=f"Route53 for '{container_id}', since it MUST be in us-east-1",
         cross_region_references=True,
         env=us_east_1_env,
@@ -80,7 +84,7 @@ if file_path:
 
     manager_stack = ContainerManagerStack(
         app,
-        f"{application_id}-{container_id}-Stack",
+        f"{application_id}-{container_id_alpha}-Stack",
         description="For automatically managing a single container.",
         # cross_region_references lets this stack reference the domain_stacks
         # variables, since that one is ONLY in us-east-1
@@ -97,7 +101,7 @@ if file_path:
 
     link_together_stack = LinkTogetherStack(
         app,
-        f"{application_id}-{container_id}-LinkTogetherStack",
+        f"{application_id}-{container_id_alpha}-LinkTogetherStack",
         description=f"To avoid a circular dependency, and connect '{manager_stack.stack_name}' and '{domain_stack.stack_name}' together.",
         cross_region_references=True,
         env=us_east_1_env,

@@ -48,14 +48,14 @@ make cdk-deploy-base
 
 #### Leaf Stack
 
-The config examples are in `./Examples/*-example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
+The config examples are in `./Examples/*.example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
 
 ```bash
 # IF a new shell
 source .venv/bin/activate
 source vars.env
 # Edit the config to what you want:
-cp ./Examples/Minecraft-example.yaml ./Minecraft.yaml
+cp ./Examples/Minecraft.java.example.yaml ./Minecraft.yaml
 nano ./Minecraft.yaml
 # Actually deploy:
 make cdk-deploy-leaf config-file=./Minecraft.yaml
@@ -212,15 +212,15 @@ For example, you can have GH Actions deploy to prod, but use devel locally. Both
 ```bash
 # To deploy to prod, it'll look like:
 #    (You can have `maturity=prod` if you want, but it's the default).
-make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml container-id=Minecraft
+make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml container-id=Minecraft
 # And then manually deploying to devel could look like:
-make cdk-deploy-leaf config-file=./Examples/Minecraft-example.yaml maturity=devel
+make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml maturity=devel
 ```
 
-This would still give you two stacks, each with a different base stack. They won't conflict since the first command got overridden to `minecraft`, and the second one is using the default `minecraft-example` from the filename:
+This would still give you two stacks, each with a different base stack. They won't conflict since the *first command* got overridden to `minecraft`, and the *second one* is using the default `minecraft.java.example` from the filename:
 
 - `minecraft.<DOMAIN>`: On the normal prod stack.
-- `minecraft-example.<DOMAIN>`: In the devel stack.
+- `minecraft.java.example.<DOMAIN>`: In the devel stack.
 
 > [!NOTE]
 > If you want to update an existing stack, you MUST pass in the same exact flags you deployed with! Otherwise it's going to try to create a new stack entirely.

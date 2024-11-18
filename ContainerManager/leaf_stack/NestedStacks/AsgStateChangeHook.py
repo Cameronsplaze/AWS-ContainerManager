@@ -38,6 +38,7 @@ class AsgStateChangeHook(NestedStack):
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
         ## Log group for the lambda function:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
@@ -71,7 +72,7 @@ class AsgStateChangeHook(NestedStack):
         self.lambda_asg_state_change_hook = aws_lambda.Function(
             self,
             "AsgStateChangeHook",
-            description=f"{container_id}-ASG-StateChange: Triggered by ec2 state changes. Starts/Stops the management logic",
+            description=f"{container_id_alpha}-ASG-StateChange: Triggered by ec2 state changes. Starts/Stops the management logic",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,

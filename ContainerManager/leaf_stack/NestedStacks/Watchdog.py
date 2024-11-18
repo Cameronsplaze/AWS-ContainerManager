@@ -38,6 +38,7 @@ class Watchdog(NestedStack):
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
         ## Scale down ASG if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
@@ -174,7 +175,7 @@ class Watchdog(NestedStack):
         self.lambda_watchdog_container_activity = aws_lambda.Function(
             self,
             "WatchdogContainerActivity",
-            description=f"{container_id}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
+            description=f"{container_id_alpha}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/watchdog-container-activity/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,

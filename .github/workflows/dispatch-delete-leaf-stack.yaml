@@ -35,8 +35,10 @@ jobs:
           role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
       ## Destroy the Leaf Stack:
+      # CONTAINER_ID: If not defined in Environment, default to everything before the first period in the filename.
       - name: "Destroying: ${{ inputs.environment }}"
         run: |
+          CONTAINER_ID=${CONTAINER_ID:=$(echo "${{ inputs.environment }}" | sed 's/\..*//i')}
           make cdk-destroy-leaf \
             config-file="${{ env.EXAMPLES_PATH }}/${{ inputs.environment }}" \
-            container-id=$(echo "${{ inputs.environment }}" | sed -E 's/-example\.ya?ml$//i')
+            container-id=${CONTAINER_ID}

@@ -166,8 +166,9 @@ jobs:
 
       ## Deploy the Leaf Stack:
       - name: "Deploying: ${{ matrix.deploy-config }}"
-        # container-id: Take off the end '-example.yaml', and make all lowercase, to use the example file directly.
+        # CONTAINER_ID: If not defined in Environment, default to everything before the first period in the filename.
         run: |
+          CONTAINER_ID=${CONTAINER_ID:=$(echo "${{ matrix.deploy-config }}" | sed 's/\..*//i')}
           make cdk-deploy-leaf \
             config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
-            container-id=$(echo "${{ matrix.deploy-config }}" | sed -E 's/-example\.ya?ml$//i')
+            container-id=${CONTAINER_ID}

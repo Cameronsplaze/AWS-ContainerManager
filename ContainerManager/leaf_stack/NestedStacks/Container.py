@@ -29,6 +29,7 @@ class Container(NestedStack):
         **kwargs
     ) -> None:
         super().__init__(scope, "ContainerNestedStack", **kwargs)
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
         ## The details of a task definition run on an EC2 cluster.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html
@@ -56,7 +57,7 @@ class Container(NestedStack):
         ## And what it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
-            container_id.title(),
+            container_id_alpha,
             image=ecs.ContainerImage.from_registry(container_config["Image"]),
             port_mappings=container_config["Ports"],
             ## Hard limit. Won't ever go above this
