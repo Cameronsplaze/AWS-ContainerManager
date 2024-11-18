@@ -2,7 +2,13 @@
 
 ## Creating Configs
 
-These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft-example.yaml` -> `minecraft-example.my-domain.com`). See any `*-example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `maturity=` key. See the developer section in the [root README.md](../README.md#different-maturities) for more details.)
+These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft.java.example.yaml` -> `minecraft.java.example.my-domain.com`). See any `*.example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `container_id=` key. See the developer section in the [root README.md](../README.md#different-maturities) for more details.)
+
+If you're looking at automating updates to the deployments, or just deploying with GitHub, see the [GitHub Actions README](../.github/workflows/README.md).
+
+### Config File Options
+
+You can also look at the yaml's in the [./Examples](./) directory here to see how each of these are used directly.
 
 - `Ec2`: (dict)
 

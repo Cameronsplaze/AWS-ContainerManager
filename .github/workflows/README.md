@@ -1,6 +1,6 @@
 # GitHub Actions
 
-GitHub Actions Docs/References:
+**GitHub Actions Docs/References:**
 
 - The GOOD docs on [writting workflows](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions) that I can never find when I need.
 - Docs on [context](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)'s (i.e ${{ github.* }}, and other built-in variables)
@@ -30,13 +30,18 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
 1) Add a new line to the **Github Variable** `DEPLOY_EXAMPLES`. Each line is the filename for a config **inside** `./Examples/` in this repo. For example, it might contain:
 
     ```txt
-    Minecraft-example.yaml
-    Valheim-example.yaml
+    Minecraft.java.example.yaml
+    Valheim.example.yaml
     ```
 
-2) Create a new Github Environment, with the same name as the line you added. For example, `./Minecraft-example.yaml`.
+    **NOTE**: If you deploy *manually*, the `container-id` will be `minecraft.java.example`. If the *pipeline* does it though, I made it default to everything left of the first period (i.e here, just `minecraft`). This is to keep the urls short, and also not conflict with manual deployments by default.
 
-3) Inside that environment, you can create any number of variables / secrets specific to that deployment. Since they're apart of the environment, they won't be exposed to the other containers either. They'll be environment variables when the action deploys, so reference them directly in the `./Examples/<container>` yaml file. I.e:
+    - This means `minecraft.java.example` and `minecraft.bedrock.example` will conflict by default. I figured no one wants both running at once, and there's away to override this if you do.
+    - You can override this by adding `CONTAINER_ID` as either a **secret** or **variable** in your Github Environment.
+
+2) Create a new Github Environment, with the same name as the line you added. For example, `Minecraft.java.example.yaml`.
+
+3) Inside that environment, you can create any number of variables / secrets specific to that deployment. Since they're apart of the environment, they won't be exposed to the other containers either. They'll be *environment variables* when the action deploys, so reference them directly in the `./Examples/<container>` yaml file. I.e:
 
     ```txt
     Github Secret: ${{ secrets.SERVER_PASS }}
@@ -50,7 +55,7 @@ I made this different than `cdk-synth`. For synth, it should run on EVERY config
     !ENV ${SERVER_NAME}
     ```
 
-    Technically to do this, all secrets/variables are turned into environment variables in the action. However, even if the container is untrusted, if you don't pass the env-vars to the container in the `./Examples/<container>` yaml file, it won't be able to see them.
+    Technically to do this, **all** secrets/variables are turned into environment variables in the action. However, even if the container is untrusted, if you don't pass the env-vars to the container in the `./Examples/<container>` yaml file, it won't be able to see them.
 
 **Finally**: If you decide to remove it to save money, you can just remove the one line from `DEPLOY_EXAMPLES`, then delete the stack. This lets you keep the environment around with all the variables, in case you want to re-deploy it later.
 
