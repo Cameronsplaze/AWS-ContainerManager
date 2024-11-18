@@ -11,9 +11,9 @@ Container:
     - UDP: 19132
   Environment:
     EULA: "TRUE"
-    TYPE: "PAPER" # TODO: Test SPIGOT instead. It updates a LOT faster than PAPER.
-
-    # PAPER_CHANNEL=experimental # Allow experimental versions (Lets you update to newer versions of mc sooner)
+    TYPE: "PAPER" # TODO: Think about SPIGOT instead. It updates ~10 days sooner than the experimental paper branch, BUT paper is faster and fixes duping bugs in MC...
+    PAPER_CHANNEL: experimental # Allow experimental versions (Lets you update to newer versions of mc sooner)
+  
     ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: "TRUE"
     DIFFICULTY: "hard"
