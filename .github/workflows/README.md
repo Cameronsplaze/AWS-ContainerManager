@@ -5,16 +5,16 @@
 - The GOOD docs on [writting workflows](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions) that I can never find when I need.
 - Docs on [context](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)'s (i.e ${{ github.* }}, and other built-in variables)
 
-## Dependabot auto updates
+## Dependabot Auto-Updates
 
 There's a lot of tweaks I had to do to get this working. Will come back to at some point and re-write this readme. To include:
 
 - Disabled PR code having to be up to date with base. If two dependabot PRs are open at the same time, the second one will fail to merge.
   - We can technically get around this by setting the max-pr to 1 in each config block, then having each block run a different day of the week. This feels really hacky though...
 - Added [CODEOWNERS](../CODEOWNERS) file, but had to disable on the files dependabot touches. There's no way to add apps to CODEOWNERS. (More details in the CODEOWNERS file itself.).
-- Added a list of required actions to main. At first didn't want to maintain the list, but you get a nice clear label on all the actions, so you can easily see if you add an action later and forget to add it to the list. (I tried having the action run a `gh pr` command to wait, but it ended up waiting on itself...).
+- Added a list of required actions to Branch Protections Rules for `main`. When dependabot waits to auto-merge, it'll only wait for **required** actions to finish.
+  - They also can't contain the `on.<trigger>.paths` key. If they do, and the paths isn't in the PR, you won't be able to merge it. (It just freezes saying "Expected — Waiting for status to be reported")
 - In [dependabot.yml](../dependabot.yml), added a `groups` section. This makes all updates happen under a single PR. That way if 3 updates get created, you don't merge all 3 at the same time and try to do 3 deployment updates at once.
-- Any actions you want to block dependabot updates from merging, MUST be **required workflows** in the repo settings. They also can't contain the `on.<trigger>.paths` key. If they do, and the paths isn't in the PR, you won't be able to merge it. (It just freezes saying "Expected — Waiting for status to be reported")
 
 ## main-pipeline-cdk.yml
 
@@ -65,7 +65,9 @@ I specifically designed all the automation, so that if it's forked, you can re-u
 
 1) Setup [AWS OIDC](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services). How I do it personally is at [Cameronsplaze/AWS-OIDC](https://github.com/Cameronsplaze/AWS-OIDC). It's only one-per-account, so it can't be in this repo.
 
-2) **Secrets and variables: Actions Secrets** you'll want declared (in the 'core', NOT in any environment):
+2) There's a couple steps inside [Dependabot Auto-updates](#dependabot-auto-updates) above you'll want to follow, like setting up branch protections with required actions.
+
+3) **Secrets and variables: Actions Secrets** you'll want declared (in the 'core', NOT in any environment):
 
     - **AWS_ACCOUNT_ID**: Your AWS Account ID.
     - **DOMAIN_NAME**: The domain name of your Route53 Hosted Zone.
@@ -73,14 +75,14 @@ I specifically designed all the automation, so that if it's forked, you can re-u
     - **EMAIL**: The email for receiving alerts for everything. (Might turn this into a list at some point, the yaml config supports that already anyways...)
     - **PAT_AUTOMERGE_PR**: The Personal Access Token for automerging PRs. If you used `GITHUB_TOKEN` instead, it wouldn't trigger other workflows when merged. Go to `Profile` -> `Settings` -> `Developer settings` -> `Personal access tokens`+`Fine-grained tokens` -> `Generate new token`. For permissions, only give it access to your fork, and you only need `Read & Write for Pull requests`.
 
-3) **Secrets and variables: *Actions Variables*** you'll want declared (in the 'core', NOT in any environment):
+4) **Secrets and variables: *Actions Variables*** you'll want declared (in the 'core', NOT in any environment):
 
     - **AWS_DEPLOY_ROLE**: The role to use with OIDC. (If you're using my repo, it's `github_actions_role`).
     - **AWS_REGION**: The region to deploy to. (Some HAS to be deployed to `us-east-1`, this is everything else that's not restricted).
     - **DEPLOY_EXAMPLES**: The list of container config paths to deploy, each on their own line. (See '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for details).
 
-4) **Secrets and variables: *Dependabot Secrets***: These are only accessible to dependabot, BUT dependabot can't access any of the github secrets above.
+5) **Secrets and variables: *Dependabot Secrets***: These are only accessible to dependabot, BUT dependabot can't access any of the github secrets above.
 
     - **PAT_AUTOMERGE_PR**: A *classic* PAT with ONLY `repo:public_repo` permissions. (Has to be classic until [this issue](https://github.com/cli/cli/issues/9166) is fixed. You'll get permission denied otherwise.) Create this under `Account` -> `Settings` -> `Developer Settings` -> `Personal Access Tokens` -> `Tokens (classic)`
 
-5) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
+6) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
