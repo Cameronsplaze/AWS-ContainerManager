@@ -19,7 +19,7 @@ Container:
     DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
     ### Plugins List:
-    # geysermc (geyser adn floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
+    # geysermc (geyser and floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
     #    - Each player needs to follow this guide to use bedrock: https://geysermc.org/wiki/floodgate/linking#what-is-global-linking
     # ViaVersion (and Backwards): Allows older and new versions of the client to connect to the server:
     #    - https://hangar.papermc.io/ViaVersion/ViaVersion/versions
@@ -29,11 +29,14 @@ Container:
       https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
       https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/versions/5.1.1/PAPER/ViaVersion-5.1.1.jar
       https://hangarcdn.papermc.io/plugins/ViaVersion/ViaBackwards/versions/5.1.1/PAPER/ViaBackwards-5.1.1.jar
-
-    ### CursedForge Plugin List:
-    #    TODO: Test this option next
-    # https://www.curseforge.com/minecraft/bukkit-plugins/singleplayersleep2
-    # https://www.curseforge.com/minecraft/bukkit-plugins/grief-prevention
+    ### CursedForge Bukkit Plugin List:
+    # Generate it at: https://console.curseforge.com/#/api-keys
+    # BUT YOU HAVE TO MODIFY IT! Details at
+    #   https://docker-minecraft-server.readthedocs.io/en/latest/types-and-platforms/mod-platforms/auto-curseforge/#api-key
+    CF_API_KEY: !ENV ${CF_API_KEY}
+    CURSEFORGE_FILES: |
+      singleplayersleep2
+      grief-prevention
     ### MAYBE:
     # https://www.curseforge.com/minecraft/bukkit-plugins/dropheads
     # https://www.curseforge.com/minecraft/bukkit-plugins/dynmap
@@ -70,7 +73,8 @@ Volumes:
 ## Config options for how to monitor for players:
 # (Only required since we're using BOTH tcp and udp)
 Watchdog:
-  # MinutesWithoutConnections: 5
+  MinutesWithoutConnections: 5
+  # MinutesWithoutConnections: 90 # Just for debugging, don't set it this high
   Type: "TCP"
 
 # AlertSubscription:
