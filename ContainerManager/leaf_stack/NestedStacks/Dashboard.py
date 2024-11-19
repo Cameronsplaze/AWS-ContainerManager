@@ -139,7 +139,7 @@ class Dashboard(NestedStack):
                 right=[metric_asg_lambda_invocation_count],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
-                statistic="Sum",
+                statistic="Max",
             ),
 
             ### Show the number of instances, to see when it starts/stops:
