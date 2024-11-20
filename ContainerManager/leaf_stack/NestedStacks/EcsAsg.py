@@ -172,13 +172,13 @@ class EcsAsg(NestedStack):
             # the lambda to spin down the system will trigger TWICE when going down.
             enable_managed_draining=False,
         )
-        capacity_provider_strategies = [
-            ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name, weight=1),
-        ]
+        capacity_provider_strategy = ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name, weight=1)
+
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
+        self.ecs_cluster.node.add_dependency(self.capacity_provider)
         ## Just to populate information in the console, doesn't change the logic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html#addwbrdefaultwbrcapacitywbrproviderwbrstrategydefaultcapacityproviderstrategy
-        self.ecs_cluster.add_default_capacity_provider_strategy(capacity_provider_strategies)
+        self.ecs_cluster.add_default_capacity_provider_strategy([capacity_provider_strategy])
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
@@ -191,7 +191,7 @@ class EcsAsg(NestedStack):
             circuit_breaker={
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
-            capacity_provider_strategies=capacity_provider_strategies,
+            capacity_provider_strategies=[capacity_provider_strategy],
             ### Puts each task in a particular group, on a different instance:
             ### (Not sure if we want this. Only will ever have one instance, and adds complexity)
             # placement_constraints=[ecs.PlacementConstraint.distinct_instances()],
