@@ -10,13 +10,13 @@ Container:
     # Only required for GeyserMC Bedrock connections:
     - UDP: 19132
   Environment:
-    EULA: "TRUE"
-    TYPE: "PAPER"
+    EULA: True
+    TYPE: PAPER
     MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
     VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.
 
     ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
-    TUNE_VIRTUALIZED: "TRUE"
+    TUNE_VIRTUALIZED: True
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
     ### Plugins List:
     # geysermc (geyser and floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
