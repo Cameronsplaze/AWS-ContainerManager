@@ -11,56 +11,34 @@ Container:
     - UDP: 19132
   Environment:
     EULA: "TRUE"
-    TYPE: "PAPER" # TODO: Think about SPIGOT instead. It updates ~10 days sooner than the experimental paper branch, BUT paper is faster and fixes duping bugs in MC...
-    PAPER_CHANNEL: experimental # Allow experimental versions (Lets you update to newer versions of mc sooner)
-  
+    TYPE: "PAPER"
+    MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
+    VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.
+
     ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: "TRUE"
-    DIFFICULTY: "hard"
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
     ### Plugins List:
     # geysermc (geyser and floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
     #    - Each player needs to follow this guide to use bedrock: https://geysermc.org/wiki/floodgate/linking#what-is-global-linking
-    # ViaVersion (and Backwards): Allows older and new versions of the client to connect to the server:
-    #    - https://hangar.papermc.io/ViaVersion/ViaVersion/versions
-    #    - https://hangar.papermc.io/ViaVersion/ViaBackwards/versions
     PLUGINS: |
       https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
       https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
-      https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/versions/5.1.1/PAPER/ViaVersion-5.1.1.jar
-      https://hangarcdn.papermc.io/plugins/ViaVersion/ViaBackwards/versions/5.1.1/PAPER/ViaBackwards-5.1.1.jar
-    ### CursedForge Bukkit Plugin List:
-    # Generate it at: https://console.curseforge.com/#/api-keys
-    # BUT YOU HAVE TO MODIFY IT! Details at
-    #   https://docker-minecraft-server.readthedocs.io/en/latest/types-and-platforms/mod-platforms/auto-curseforge/#api-key
-    CF_API_KEY: !ENV ${CF_API_KEY}
-    CURSEFORGE_FILES: |
-      singleplayersleep2
-      grief-prevention
-    ### MAYBE:
-    # https://www.curseforge.com/minecraft/bukkit-plugins/dropheads
-    # https://www.curseforge.com/minecraft/bukkit-plugins/dynmap
-    #   - https://dev.bukkit.org/projects/dynmap-griefprevention
-
-
-    # ### Modrinth Mod List:
-    # ### This failed to work too. It couldn't find what 'sleep' was, and I can't find a different var to use.
-    # # https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/
-    # MODRINTH_DOWNLOAD_DEPENDENCIES: required
-    # # sleep: Only one player needs to sleep: https://modrinth.com/datapack/sleep
-    # # afk-announcer: Announce AFK, and hooks into sleep mod to ignore them: https://modrinth.com/datapack/afk-announcer
-    # # griefprevention: Claim an area of the world: https://modrinth.com/plugin/griefprevention
-    # MODRINTH_PROJECTS: |
-    #   sleep
-    #   afk-announcer
-    #   griefprevention
-
-
-    ### Spigot Plugins (https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/spiget/#auto-download-using-spiget)
-    ### Couldn't get this workingk, spigotmc added cloudflare and it's blocking this...
-    # 68139: SinglePlayerSleep - https://www.spigotmc.org/resources/singleplayersleep.68139/
-    # 1884: GriefPrevention - https://www.spigotmc.org/resources/griefprevention.1884/
-    # SPIGET_RESOURCES: 68139,1884
+    ### Modrinth Plugins List:
+    # https://modrinth.com/plugins
+    MODRINTH_DOWNLOAD_DEPENDENCIES: required
+    # viaversion + viabackwards: Let clients with different versions connect to server.
+    #      https://modrinth.com/plugin/viaversion
+    #      https://modrinth.com/plugin/viabackwards
+    # sleeper: Not everyone has to sleep to skip the night.
+    #      https://modrinth.com/plugin/sleeper
+    # griefprevention: Claim an area of the world.
+    #      https://modrinth.com/plugin/griefprevention
+    MODRINTH_PROJECTS: |
+      viaversion
+      viabackwards
+      sleeper
+      griefprevention
 
 Volumes:
   - Type: EFS # EFS or (eventually) S3. EFS is the default.
@@ -79,6 +57,3 @@ Watchdog:
 
 # AlertSubscription:
 #   - Email: Does@Not.Exist
-
-# Dashboard:
-#   IntervalMinutes: 30
