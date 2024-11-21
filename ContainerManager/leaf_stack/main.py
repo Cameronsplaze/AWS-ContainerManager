@@ -142,7 +142,6 @@ class ContainerManagerStack(Stack):
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            rule_watchdog_trigger=self.watchdog_nested_stack.rule_watchdog_trigger,
         )
 
         #######################

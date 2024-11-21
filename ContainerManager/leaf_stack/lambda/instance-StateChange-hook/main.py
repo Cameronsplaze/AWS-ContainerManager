@@ -16,7 +16,6 @@ required_vars = [
     "UNAVAILABLE_IP",
     "DNS_TTL",
     "RECORD_TYPE",
-    "WATCH_INSTANCE_RULE",
     "ECS_CLUSTER_NAME",
     "ECS_SERVICE_NAME",
 ]
@@ -41,23 +40,16 @@ def lambda_handler(event: dict, context: dict) -> None:
 
     ### If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
-        try:
-            update_system(spin_up=True, event=event)
-        finally:
-            # We're doing this last, since it's not required for a user to connect (Get them in ASAP)
-            # BUT we want to make sure this ALWAYS happens! If something goes wrong, this'll grantee
-            # the instance will eventually spin down.
-            events_client.enable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
+        update_system(spin_up=True, event=event)
+
 
     ### If the ec2 instance just STARTED to go down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
-        try:
-            ### Safety Check - If another instance is spinning up, just quit:
-            exit_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"])
-            # Now just update the system like normal:
-            update_system(spin_up=False, event=event)
-        finally:
-            events_client.disable_rule(Name=os.environ["WATCH_INSTANCE_RULE"])
+        ### Safety Check - If another instance is spinning up, just quit:
+        exit_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"])
+        # Now just update the system like normal:
+        update_system(spin_up=False, event=event)
+
 
     ### If the EventBridge filter somehow changed (This should never happen):
     else:

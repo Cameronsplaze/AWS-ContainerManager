@@ -4,6 +4,7 @@ This module contains the Watchdog NestedStack class.
 """
 
 import json
+import sys
 
 from aws_cdk import (
     NestedStack,
@@ -40,7 +41,7 @@ class Watchdog(NestedStack):
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
         container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
-        ## Scale down ASG if this is ever triggered:
+        ## Scale down ASG to 0 if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
         # https://medium.com/swlh/deploy-your-auto-scaling-stack-with-aws-cdk-abae64f8e6b6
         self.scale_down_asg_action = autoscaling.StepScalingAction(self,
@@ -48,6 +49,11 @@ class Watchdog(NestedStack):
             auto_scaling_group=auto_scaling_group,
             adjustment_type=autoscaling.AdjustmentType.EXACT_CAPACITY,
         )
+        ## There's a bug where you HAVE to set lower_bound or upper_bound,
+        ##    AND float("inf") isn't supported.
+        # Set -inf to 0:
+        self.scale_down_asg_action.add_adjustment(adjustment=0, upper_bound=0)
+        # Set 0 to inf:
         self.scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
 
         ################################
@@ -96,56 +102,58 @@ class Watchdog(NestedStack):
         #############################
         ## Count Connections Logic ##
         #############################
+        ## These variables are also used in link_together_stack.py, so
+        #    if someone is connecting, it'll reset the alarm:
+        self.threshold = watchdog_config["Threshold"]
         self.metric_namespace = leaf_construct_id
         self.metric_unit = cloudwatch.Unit.COUNT
         self.metric_dimension_map = {
             "ContainerNameID": container_id,
         }
-        ## Custom Metric for the number of connections
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html
-        if watchdog_config["Type"] == "TCP":
-            label = "Number of Connections (TCP)"
-        else: # watchdog_config["Type"] == "UDP":
-            label = "Number of packets in since last check (UDP)"
-
-        self.metric_activity_count = cloudwatch.Metric(
-            metric_name=f"Metric-ContainerActivity-{watchdog_config['Type']}",
+        # And the metric it resets with:
+        self.traffic_dns_metric = cloudwatch.Metric(
+            label="DNS Traffic",
+            metric_name="DNSTraffic",
             namespace=self.metric_namespace,
             dimensions_map=self.metric_dimension_map,
-            label=label,
-            unit=self.metric_unit,
-            # If multiple requests happen in a period, this takes the higher of the two.
-            # This way BOTH have to be zero for it to count as an alarm trigger.
-            # (And it's still accurate, multiple of the same value will just be that value)
-            statistic=cloudwatch.Stats.MAXIMUM,
-            # It costs $0.30 to create this metric, but then the first million API
-            # requests are free. Since this only happens when the container is up, we're fine.
             period=Duration.minutes(1),
+            statistic="Maximum",
+            unit=self.metric_unit,
         )
 
-        self.metric_ssh_connections = cloudwatch.Metric(
-            metric_name="Metric-SSH-Connections",
-            namespace=self.metric_namespace,
-            dimensions_map=self.metric_dimension_map,
-            label="Number of SSH Connections",
-            unit=self.metric_unit,
-            statistic=cloudwatch.Stats.MAXIMUM,
+        ## ASG Traffic In:
+        # Originally Added 'Out' too, but it was too noisy. You only care about
+        # people connecting to container, or container downloading anyways.
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_in_metric = cloudwatch.Metric(
+            label="Network In",
+            metric_name="NetworkIn",
+            namespace="AWS/EC2",
+            dimensions_map={"AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name},
             period=Duration.minutes(1),
+        )
+        ## Get Bytes per Second
+        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        self.bytes_per_second_in = cloudwatch.MathExpression(
+            label="Bytes IN per Second",
+            expression="b_in/(DIFF_TIME(b_in))",
+            using_metrics={
+                "b_in": traffic_in_metric,
+            },
         )
 
         ## Combine two metrics here before creating the alarm:
         # Docs: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         # Info: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html
-        ## (Save threshold, it's also used in dns stack to NOT trip alarm if someone is connecting)
-        self.threshold = watchdog_config["Threshold"]
-        self.metric_total_activity = cloudwatch.MathExpression(
-            expression=f"ssh > 0 OR activity > {self.threshold}",
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        self.watchdog_traffic_metric = cloudwatch.MathExpression(
+            label="Watchdog Container Traffic",
+            expression="traffic + dns_hit",
             using_metrics={
-                "ssh": self.metric_ssh_connections,
-                "activity": self.metric_activity_count,
+                "traffic": self.bytes_per_second_in,
+                "dns_hit": self.traffic_dns_metric,
             },
-            label="(Bool) If Container Activity",
             period=Duration.minutes(1),
         )
 
@@ -153,14 +161,14 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html#createwbralarmscope-id-props
         #       Total Duration = Number of Periods * Period length... so
         #       Number of Periods = Total Duration / Period length
-        evaluation_periods = int(watchdog_config["MinutesWithoutConnections"].to_minutes() / self.metric_total_activity.period.to_minutes())
-        self.alarm_container_activity = self.metric_total_activity.create_alarm(
+        evaluation_periods = int(watchdog_config["MinutesWithoutConnections"].to_minutes() / self.watchdog_traffic_metric.period.to_minutes())
+        self.alarm_container_activity = self.watchdog_traffic_metric.create_alarm(
             self,
             "AlarmContainerActivity",
             alarm_name=f"Container Activity ({leaf_construct_id})",
             alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
-            threshold=0,
+            threshold=self.threshold,
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
         )
@@ -168,128 +176,4 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
         self.alarm_container_activity.add_alarm_action(
             cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
-        )
-
-        ## Lambda, count the number of connections and pass to CloudWatch Alarm
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_watchdog_container_activity = aws_lambda.Function(
-            self,
-            "WatchdogContainerActivity",
-            description=f"{container_id_alpha}-Watchdog: Counts the number of connections to the container, and passes it to a CloudWatch Alarm.",
-            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/watchdog-container-activity/"),
-            handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(30),
-            log_retention=logs.RetentionDays.ONE_WEEK,
-            environment={
-                "ASG_NAME": auto_scaling_group.auto_scaling_group_name,
-                "TASK_DEFINITION": task_definition.family,
-                "METRIC_NAMESPACE": self.metric_namespace,
-                "METRIC_NAME_ACTIVITY_COUNT": self.metric_activity_count.metric_name,
-                "METRIC_NAME_SSH_CONNECTIONS": self.metric_ssh_connections.metric_name,
-                # Convert from an Enum, to a string that boto3 expects. (Words must have first letter
-                #   capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
-                "METRIC_UNIT": self.metric_unit.value.title(),
-                "METRIC_DIMENSIONS": json.dumps(self.metric_dimension_map),
-                # Load the config options, depending on connection type:
-                "CONNECTION_TYPE": watchdog_config["Type"],
-                "TCP_PORT": str(watchdog_config.get("TcpPort", "")),
-            },
-        )
-        # Just like the other lambda, check and find the running instance:
-        self.lambda_watchdog_container_activity.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["autoscaling:DescribeAutoScalingGroups"],
-                resources=["*"],
-            )
-        )
-        # Give it permissions to send commands to the instance host:
-        self.lambda_watchdog_container_activity.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["ssm:SendCommand"],
-                # No clue what the instance ID will be, so lock it to the ASG:
-                resources=["*"],
-                conditions={
-                    "StringEquals": {
-                        "aws:ResourceTag/aws:autoscaling:groupName": auto_scaling_group.auto_scaling_group_name,
-                    }
-                },
-            )
-        )
-        self.lambda_watchdog_container_activity.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["ssm:SendCommand"],
-                resources=[f"arn:aws:ssm:{self.region}::document/AWS-RunShellScript"],
-            )
-        )
-        self.lambda_watchdog_container_activity.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["ssm:GetCommandInvocation"],
-                resources=[f"arn:aws:ssm:{self.region}:{self.account}:*"],
-            )
-        )
-        # Give it permissions to push metric data:
-        self.lambda_watchdog_container_activity.add_to_role_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["cloudwatch:PutMetricData"],
-                resources=["*"],
-                conditions={
-                    "StringEquals": {
-                        "cloudwatch:namespace": self.metric_namespace,
-                    }
-                }
-            )
-        )
-
-        ## Grab existing metric for Lambda fail alarm
-        # https://bobbyhadz.com/blog/cloudwatch-alarm-aws-cdk
-        ## Something like this:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
-        self.metric_watchdog_errors = self.lambda_watchdog_container_activity.metric_errors(
-            label="Number of Watchdog Errors",
-            unit=cloudwatch.Unit.COUNT,
-            # If multiple requests happen in a period, and one isn't an error,
-            # use that one.
-            statistic=cloudwatch.Stats.MINIMUM,
-            period=Duration.minutes(1),
-        )
-        self.alarm_watchdog_errors = self.metric_watchdog_errors.create_alarm(
-            self,
-            "AlarmWatchdogErrors",
-            alarm_name=f"Watchdog Errors  ({leaf_construct_id})",
-            alarm_description="Trigger if the Lambda Watchdog fails too many times",
-            # Must be in alarm this long consecutively to trigger. 3 strikes you're out:
-            #      (Duration doesn't matter here, no need to divide by metric period. We ALWAYS want 3)
-            evaluation_periods=3,
-            # What counts as an alarm (ANY error here):
-            threshold=1,
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
-        )
-
-        ## Call this if switching to ALARM:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.alarm_watchdog_errors.add_alarm_action(
-            cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
-        )
-
-        ## EventBridge Rule to trigger lambda every minute, to see how many are using the container
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        self.rule_watchdog_trigger = events.Rule(
-            self,
-            "RuleWatchdogTrigger",
-            rule_name=f"{container_id}-rule-watchdog-trigger",
-            description="Trigger Watchdog Lambda every minute, to see how many are using the container",
-            schedule=events.Schedule.rate(Duration.minutes(1)),
-            targets=[
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
-                events_targets.LambdaFunction(self.lambda_watchdog_container_activity),
-            ],
-            # Start disabled, self.lambda_watchdog_container_activity will enable it when instance starts up
-            enabled=False,
         )

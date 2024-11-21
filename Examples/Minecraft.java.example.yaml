@@ -52,8 +52,8 @@ Volumes:
 # (Only required since we're using BOTH tcp and udp)
 Watchdog:
   MinutesWithoutConnections: 5
-  # MinutesWithoutConnections: 90 # Just for debugging, don't set it this high
   Type: "TCP"
+  Threshold: 1913
 
 # AlertSubscription:
 #   - Email: Does@Not.Exist

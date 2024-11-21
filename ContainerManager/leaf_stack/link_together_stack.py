@@ -84,7 +84,7 @@ class LinkTogetherStack(Stack):
                 "MANAGER_STACK_REGION": manager_stack.region,
                 ## Metric info to let the system know someone is trying to connect, and don't spin down:
                 "METRIC_NAMESPACE": manager_stack.watchdog_nested_stack.metric_namespace,
-                "METRIC_NAME": manager_stack.watchdog_nested_stack.metric_activity_count.metric_name,
+                "METRIC_NAME": manager_stack.watchdog_nested_stack.traffic_dns_metric.metric_name,
                 "METRIC_THRESHOLD": str(manager_stack.watchdog_nested_stack.threshold),
                 ## Convert METRIC_UNIT from an Enum, to a string that boto3 expects. (Words must have first
                 #   letter capitalized too, which is what `.title()` does. Otherwise they'd be all caps).

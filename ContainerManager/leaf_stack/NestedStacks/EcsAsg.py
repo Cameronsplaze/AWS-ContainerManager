@@ -64,10 +64,6 @@ class EcsAsg(NestedStack):
         ## Let the instance register itself to a ecs cluster:
         # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
         self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
-        ## Let the instance allow SSM Session Manager to connect to it:
-        # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-instance-profile.html
-        # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedEC2InstanceDefaultPolicy.html
-        self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedEC2InstanceDefaultPolicy"))
 
         ### For Running Commands on container when it starts up:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
@@ -130,6 +126,8 @@ class EcsAsg(NestedStack):
             ## Console recommends to enable IMDSv2:
             http_tokens=ec2.LaunchTemplateHttpTokens.REQUIRED,
             require_imdsv2=True,
+            ## Needed so traffic metric is updated every minute (instead of 5)
+            detailed_monitoring=True,
         )
 
         ## A Fleet represents a managed set of EC2 instances:
@@ -172,13 +170,13 @@ class EcsAsg(NestedStack):
             # the lambda to spin down the system will trigger TWICE when going down.
             enable_managed_draining=False,
         )
-        capacity_provider_strategy = ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name, weight=1)
 
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
-        self.ecs_cluster.node.add_dependency(self.capacity_provider)
         ## Just to populate information in the console, doesn't change the logic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html#addwbrdefaultwbrcapacitywbrproviderwbrstrategydefaultcapacityproviderstrategy
-        self.ecs_cluster.add_default_capacity_provider_strategy([capacity_provider_strategy])
+        self.ecs_cluster.add_default_capacity_provider_strategy([
+            ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name, weight=1),
+        ])
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
@@ -191,7 +189,13 @@ class EcsAsg(NestedStack):
             circuit_breaker={
                 "rollback": False # Don't keep trying to restart the container if it fails
             },
-            capacity_provider_strategies=[capacity_provider_strategy],
+            ### TODO: This creates an error on create, or delete, but not both. (Depending on what you depend on)
+            #  If you look in the console for service, the default isn't being used. How to use it?
+            # capacity_provider_strategies=[capacity_provider_strategy],
+            #   With These just after this block:
+            #   # self.ecs_cluster.node.add_dependency(self.ec2_service)
+            #   # self.ec2_service.node.add_dependency(self.capacity_provider)
+
             ### Puts each task in a particular group, on a different instance:
             ### (Not sure if we want this. Only will ever have one instance, and adds complexity)
             # placement_constraints=[ecs.PlacementConstraint.distinct_instances()],
