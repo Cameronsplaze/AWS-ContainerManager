@@ -218,8 +218,6 @@ class EcsAsg(NestedStack):
             # placement_constraints=[ecs.PlacementConstraint.distinct_instances()],
             # placement_strategies=[ecs.PlacementStrategy.spread_across_instances()],
         )
-        # self.ec2_service.node.add_dependency(self.capacity_provider)
-
 
 
         ##########################
