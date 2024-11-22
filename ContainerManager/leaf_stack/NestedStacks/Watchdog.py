@@ -135,9 +135,10 @@ class Watchdog(NestedStack):
         ## Get Bytes per Second
         # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        # BUT the DIFF_TIME function can cause divide by 0, and errors on first metric. Just grab period instead:
         self.bytes_per_second_in = cloudwatch.MathExpression(
             label="Bytes IN per Second",
-            expression="b_in/(DIFF_TIME(b_in))",
+            expression=f"b_in/{traffic_in_metric.period.to_seconds()}",
             using_metrics={
                 "b_in": traffic_in_metric,
             },
