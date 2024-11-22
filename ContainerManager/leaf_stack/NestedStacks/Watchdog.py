@@ -6,7 +6,6 @@ This module contains the Watchdog NestedStack class.
 from aws_cdk import (
     NestedStack,
     Duration,
-    aws_ecs as ecs,
     aws_sns as sns,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
