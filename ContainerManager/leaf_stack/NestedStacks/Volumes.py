@@ -5,7 +5,6 @@ This module contains the Volumes NestedStack class.
 
 from aws_cdk import (
     NestedStack,
-    RemovalPolicy,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_efs as efs,

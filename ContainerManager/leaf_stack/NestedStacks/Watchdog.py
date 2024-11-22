@@ -3,22 +3,14 @@
 This module contains the Watchdog NestedStack class.
 """
 
-import json
-import sys
-
 from aws_cdk import (
     NestedStack,
     Duration,
-    aws_lambda,
-    aws_iam as iam,
     aws_ecs as ecs,
     aws_sns as sns,
-    aws_logs as logs,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
     aws_autoscaling as autoscaling,
-    aws_events as events,
-    aws_events_targets as events_targets,
 )
 from constructs import Construct
 
@@ -33,13 +25,11 @@ class Watchdog(NestedStack):
         leaf_construct_id: str,
         container_id: str,
         watchdog_config: dict,
-        task_definition: ecs.Ec2TaskDefinition,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
-        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
         ## Scale down ASG to 0 if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
