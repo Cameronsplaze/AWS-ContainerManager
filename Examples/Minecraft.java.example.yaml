@@ -53,7 +53,7 @@ Volumes:
 Watchdog:
   MinutesWithoutConnections: 5
   Type: "TCP"
-  Threshold: 1913
+  Threshold: 1850
 
 # AlertSubscription:
 #   - Email: Does@Not.Exist
