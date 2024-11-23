@@ -41,5 +41,4 @@ Volumes:
 ##   (Currently the default anyways...) 
 Watchdog:
   # MinutesWithoutConnections: 5
-  Threshold: 500
-#   Type: "UDP"
+  Threshold: 750

@@ -25,7 +25,7 @@ source .venv/bin/activate
 make update
 # Setup the env vars
 cp vars.env.example vars.env
-nano vars.env # Use the text editor that's better than vim >:)
+nano vars.env # Use the text editor that's better than vim :)
 ```
 
 ### Deploy the Stack
@@ -94,6 +94,9 @@ Core AWS docs for this are [here](https://docs.aws.amazon.com/systems-manager/la
 (I can't get it automated. Use the SSH method below for now. Details are [here](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/2) if you're interested!).
 
 ### SSH into the Host
+
+> [!NOTE]
+> There likely won't be enough traffic from JUST ssh to stop the container from spinning down. Just connect to the container with whatever client it needs (Minecraft, Valheim, etc) to keep it up.
 
 The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP.
 

@@ -99,33 +99,27 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
   Config options for how long to wait before shutting down, and what is considered to be "idle".
 
+  - `Threshold`: (Required, int)
+
+    Bytes per Second. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
+
+    To find this number, just set it to `20` to deploy the stack. Then go into (Dashboard) and check the (Name) Graph.
+
+    I couldn't make any default, because it's too different for each game. If I set it to 20, there's a risk of people not reading docs, and having a instance be up 24/7.
+
   - `MinutesWithoutConnections`: (Optional, int)
 
     How many minutes without a connection before shutting down. (Default=`5`).
 
-  - `Type`: (Optional unless both protocols are used, str)
+  - `InstanceLeftUp`: (dict)
 
-    What type of connection to monitor. Either `TCP` or `UDP`. Default is whichever is open under `Container.Ports` above. Required if both are used.
+    - `DurationHours`: (Optional, int)
 
-  - `Threshold`: (Optional, int)
+      How many hours before alarming the instance has been running this long. ALL alerts happen through `AlertSubscription`. (Default=`8`).
 
-    If `Type=TCP`: If established connections open is this or less, you're considered "idle". Default is `0`.
+    - `ShouldStop`: (Optional, bool)
 
-    If `Type=UDP`: If how many packets sent/received is less than this, you're considered "idle". Default is `32`, BUT can change without warning. I'm going to try to keep it in a place that'll work with **all** `Example/*.yaml` games by default.
-
-    - `Valheim`: Mainly stays between 0-7 packets when idle, with spikes ocationally up to  15. Each player will make it jump by  ~5k, very obvious.
-
-    **If the default settings aren't working for the container**: In the AWS Console, you can go into CloudWatch Metrics -> Namespace: `ContainerManager-<ContainerId>-Stack` -> `ContainerNameID` -> and check `Metric-ContainerActivity-*` to see what the current activity is. Connect and Disconnect to the container to get an idea what the threshold *should* be.
-
-- `InstanceLeftUp`: (dict)
-
-  - `DurationHours`: (Optional, int)
-
-    How many hours before alarming the instance has been running this long. (Default=`8`).
-
-  - `ShouldStop`: (Optional, bool)
-
-    If the alarm is triggered, should it stop the instance? (Default=`False`).
+      If `DurationHours` is reached, should it also stop the instance? (Default=`False`).
 
 - `AlertSubscription`: (Optional, list)
 
@@ -143,11 +137,10 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ## Gotchas
 
-- **For backups**: We use EFS behind the scenes. Use the `Volume.EnableBackups` if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too. Always use flags for the container to disable backups, and use EFS if you want them.
-- **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it first spins up. Then what to do depends on the game.
-  - For minecraft, it won't let anyone connect until after it finishes. It handles everything for you.
-  - For Valheim, it'll let you connect, then everyone will get kicked when it finishes so it can restart (3-4min into playing). OR you can have it *not* restart, and you'll get the update after everyone disconnects for the night.
-- **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of this. You can use it, but it means you have to re-deploy this project every time you make a change. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
+- Container `Environment Variables` to set when Writing Configs:
+  - **For backups**: Completely Disable. We use EFS behind the scenes. Use the `Volume.EnableBackups` if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too. Always use flags for the container to disable backups, and use EFS if you want them.
+  - **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it first spins up.
+- **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of this. You can use it, but it means you have to re-deploy this project every time you add someone. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
 
 ## Adding a new Example to the Repo
 

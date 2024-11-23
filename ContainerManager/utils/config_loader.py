@@ -182,40 +182,6 @@ def _parse_ec2(config: dict) -> None:
 
 def _parse_watchdog(config: dict) -> None:
 
-    def _parse_watchdog_type(config: dict) -> None:
-        ### Type
-        if "Type" not in config["Watchdog"]:
-            ## See if we can figure out the default:
-            using_tcp = any([port.protocol == ecs.Protocol.TCP for port in  config["Container"]["Ports"]])
-            using_udp = any([port.protocol == ecs.Protocol.UDP for port in  config["Container"]["Ports"]])
-            # If you have both port types, no way to know which to use:
-            if using_tcp and using_udp:
-                raise_missing_key_error("Watchdog.Type")
-            # If just one, default to that:
-            elif using_tcp:
-                config["Watchdog"]["Type"] = "TCP"
-            elif using_udp:
-                config["Watchdog"]["Type"] = "UDP"
-            # If they don't have either, no idea what to do either:
-            else:
-                raise_missing_key_error("Watchdog.Type")
-        config["Watchdog"]["Type"] = config["Watchdog"]["Type"].upper()
-        assert config["Watchdog"]["Type"] in ["TCP", "UDP"]
-
-    def _parse_watchdog_type_extras(config: dict) -> None:
-        if config["Watchdog"]["Type"] == "TCP":
-            if "TcpPort" not in config["Watchdog"]:
-                tcp_ports = [port for port in config["Container"]["Ports"] if port.protocol == ecs.Protocol.TCP]
-                # If there's more than one TCP port:
-                if len(tcp_ports) != 1:
-                    raise_missing_key_error("Watchdog.TcpPort")
-                # Both host_port and container_port are the same:
-                config["Watchdog"]["TcpPort"] = tcp_ports[0].host_port
-            assert isinstance(config["Watchdog"]["TcpPort"], int)
-        elif config["Watchdog"]["Type"] == "UDP":
-            # No extra config options needed for UDP yet:
-            pass
-
     def _parse_watchdog_minutes_without_connections(config: dict) -> None:
         if "MinutesWithoutConnections" not in config["Watchdog"]:
             config["Watchdog"]["MinutesWithoutConnections"] = 5
@@ -226,15 +192,7 @@ def _parse_watchdog(config: dict) -> None:
 
     def _parse_watchdog_threshold(config: dict) -> None:
         if "Threshold" not in config["Watchdog"]:
-            if config["Watchdog"]["Type"] == "TCP":
-                config["Watchdog"]["Threshold"] = 0
-            elif config["Watchdog"]["Type"] == "UDP":
-                # NOTE: This number will change without warning to support
-                # as many games as possible.
-                config["Watchdog"]["Threshold"] = 32
-            else:
-                # No idea how you'll hit this, but future-proofing:
-                raise_missing_key_error("Watchdog.Threshold")
+            raise_missing_key_error("Watchdog.Threshold")
         assert isinstance(config["Watchdog"]["Threshold"], int)
 
     def _parse_watchdog_instance_left_up(config: dict) -> None:
@@ -256,10 +214,6 @@ def _parse_watchdog(config: dict) -> None:
     if "Watchdog" not in config:
         config["Watchdog"] = {}
     assert isinstance(config["Watchdog"], dict)
-
-    ### Type / Extras
-    _parse_watchdog_type(config)
-    _parse_watchdog_type_extras(config)
 
     ### MinutesWithoutConnections
     _parse_watchdog_minutes_without_connections(config)
