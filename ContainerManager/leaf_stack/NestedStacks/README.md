@@ -9,7 +9,7 @@ flowchart LR
     %% ID's
     SecurityGroups[SecurityGroups.py]
     Container[Container.py]
-    Efs[Efs.py]
+    Volumes[Volumes.py]
     EcsAsg[EcsAsg.py]
     Watchdog[Watchdog.py]
     AsgStateChangeHook[AsgStateChangeHook.py]
@@ -17,16 +17,16 @@ flowchart LR
     %% SecurityGroups - Nothing
     %% Container - Nothing
 
-    %% Efs
-    SecurityGroups --sg_efs_traffic--> Efs
+    %% Volumes
+    SecurityGroups --sg_efs_traffic--> Volumes
     Container -- task_definition
                  container
-              --> Efs
+              --> Volumes
 
     %% EcsAsg
     Container --task_definition--> EcsAsg
     SecurityGroups --sg_container_traffic--> EcsAsg
-    Efs --  efs_file_system
+    Volumes --  efs_file_system
             host_access_point
         --> EcsAsg
 
@@ -53,7 +53,7 @@ Factored this out to avoid circular imports. This NestedStack contains the secur
 
 This creates the EC2 Task Definition and Container Definition for the stack.
 
-### Efs
+### Volumes
 
 Elastic File System (EFS), is the persistent storage for the leaf_stack. This adds to the container definition, the ability to mount the EFS volume. Backups happen outside of the volume you mount as well, so if someone is able to hack your container somehow, they can't access the backups.
 
