@@ -193,6 +193,10 @@ class EcsAsg(NestedStack):
             ## Since the instances don't live long, this doesn't do anything, and
             # the lambda to spin down the system will trigger TWICE when going down.
             enable_managed_draining=False,
+            ## We need the `CapacityProviderReservation` metric to know when to kill the ec2 instance
+            # if the container exists on startup. (Otherwise the task infinite loops, and since it
+            # successfully started FIRST, the circuit breaker won't stop it).
+            enable_managed_scaling=True,
         )
 
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)

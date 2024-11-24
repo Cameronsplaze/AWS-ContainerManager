@@ -228,6 +228,10 @@ def _parse_dashboard(config: dict) -> None:
     if "Dashboard" not in config:
         config["Dashboard"] = {}
     assert isinstance(config["Dashboard"], dict)
+    ### If Enabled
+    if "Enabled" not in config["Dashboard"]:
+        config["Dashboard"]["Enabled"] = True
+    assert isinstance(config["Dashboard"]["Enabled"], bool)
     ### IntervalMinutes
     if "IntervalMinutes" not in config["Dashboard"]:
         config["Dashboard"]["IntervalMinutes"] = 30

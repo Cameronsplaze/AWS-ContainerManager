@@ -6,6 +6,7 @@ This module contains the Watchdog NestedStack class.
 from aws_cdk import (
     NestedStack,
     Duration,
+    aws_ecs as ecs,
     aws_sns as sns,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
@@ -26,6 +27,8 @@ class Watchdog(NestedStack):
         watchdog_config: dict,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
+        ecs_cluster: ecs.Cluster,
+        ecs_capacity_provider: ecs.AsgCapacityProvider,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
@@ -88,9 +91,9 @@ class Watchdog(NestedStack):
                 cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
             )
 
-        #############################
-        ## Count Connections Logic ##
-        #############################
+        ############################
+        ## Traffic IN Alarm Logic ##
+        ############################
         ## These variables are also used in link_together_stack.py, so
         #    if someone is connecting, it'll reset the alarm:
         self.threshold = watchdog_config["Threshold"]
@@ -165,5 +168,44 @@ class Watchdog(NestedStack):
         ## Call this if switching to ALARM:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
         self.alarm_container_activity.add_alarm_action(
+            cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
+        )
+
+        ##########################################
+        ## Container Crash-loop Detection Logic ##
+        ##########################################
+        # If the task can start, but then something in their entrypoint throws, ecs will just
+        # restart it. (And because you technically started, it won't trip the circuit breaker).
+        # This logic will (hopefully) see the task spinning up and down constantly, and spin
+        # the ec2 instance to avoid paying for something you're not using.
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        metric_capacity_provider = cloudwatch.Metric(
+            label="Capacity Provider Reservation (percent)",
+            metric_name="CapacityProviderReservation",
+            namespace="AWS/ECS/ManagedScaling",
+            dimensions_map={
+                "ClusterName": ecs_cluster.cluster_name,
+                "CapacityProviderName": ecs_capacity_provider.capacity_provider_name,
+            },
+            period=Duration.minutes(1),
+            statistic="Minimum",
+        )
+
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        self.alarm_capacity_provider = metric_capacity_provider.create_alarm(
+            self,
+            "AlarmCapacityProvider",
+            alarm_name=f"Capacity Provider ({leaf_construct_id})",
+            alarm_description="Trigger if the container is crashing too often",
+            threshold=100,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            ## In the last 6 points, 2 must alarm to trigger:
+            # (When tasks fail, it creates a zig-zag pattern in the metric).
+            datapoints_to_alarm=2,
+            evaluation_periods=6,
+        )
+        ## Call this if switching to ALARM:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        self.alarm_capacity_provider.add_alarm_action(
             cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
         )
