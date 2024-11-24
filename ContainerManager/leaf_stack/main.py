@@ -130,6 +130,8 @@ class ContainerManagerStack(Stack):
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
+            ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
+            ecs_capacity_provider=self.ecs_asg_nested_stack.capacity_provider,
         )
 
         ### All the info for the Asg StateChange Hook Stuff
@@ -146,19 +148,20 @@ class ContainerManagerStack(Stack):
         #######################
         ### Dashboard Stuff ###
         #######################
-        self.dashboard_nested_stack = NestedStacks.Dashboard(
-            self,
-            description=f"Dashboard Logic for {construct_id}",
-            application_id=application_id,
-            container_id=container_id,
-            main_config=config,
+        if config["Dashboard"]["Enabled"]:
+            self.dashboard_nested_stack = NestedStacks.Dashboard(
+                self,
+                description=f"Dashboard Logic for {construct_id}",
+                application_id=application_id,
+                container_id=container_id,
+                main_config=config,
 
-            domain_stack=domain_stack,
-            container_nested_stack=self.container_nested_stack,
-            ecs_asg_nested_stack=self.ecs_asg_nested_stack,
-            watchdog_nested_stack=self.watchdog_nested_stack,
-            asg_state_change_hook_nested_stack=self.asg_state_change_hook_nested_stack,
-        )
+                domain_stack=domain_stack,
+                container_nested_stack=self.container_nested_stack,
+                ecs_asg_nested_stack=self.ecs_asg_nested_stack,
+                watchdog_nested_stack=self.watchdog_nested_stack,
+                asg_state_change_hook_nested_stack=self.asg_state_change_hook_nested_stack,
+            )
 
         #####################
         ### cdk_nag stuff ###

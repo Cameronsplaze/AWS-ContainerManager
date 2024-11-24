@@ -2,47 +2,6 @@
 
 I broke out the core architecture into [Nested Stacks](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html), to keep each "chunk" easy to understand and manage. It was becoming a tangled mess of dependencies, and you'd have no idea what would create a circular import otherwise. All of this is still apart of a single "Stack" (The [Main Stack](../README.md#main-stack---mainpy).)
 
-## Dependency Graph
-
-```mermaid
-flowchart LR
-    %% ID's
-    SecurityGroups[SecurityGroups.py]
-    Container[Container.py]
-    Volumes[Volumes.py]
-    EcsAsg[EcsAsg.py]
-    Watchdog[Watchdog.py]
-    AsgStateChangeHook[AsgStateChangeHook.py]
-
-    %% SecurityGroups - Nothing
-    %% Container - Nothing
-
-    %% Volumes
-    SecurityGroups --sg_efs_traffic--> Volumes
-    Container -- task_definition
-                 container
-              --> Volumes
-
-    %% EcsAsg
-    Container --task_definition--> EcsAsg
-    SecurityGroups --sg_container_traffic--> EcsAsg
-    Volumes --  efs_file_system
-            host_access_point
-        --> EcsAsg
-
-    %% Watchdog
-    EcsAsg -- auto_scaling_group
-              scale_down_asg_action
-           --> Watchdog
-
-    %% AsgStateChangeHook
-    EcsAsg -- ecs_cluster
-              ec2_service
-              auto_scaling_group
-           --> AsgStateChangeHook
-    Watchdog --rule_watchdog_trigger--> AsgStateChangeHook
-```
-
 ## Components
 
 ### SecurityGroups

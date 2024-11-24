@@ -113,6 +113,7 @@ class Dashboard(NestedStack):
                 alarms=[
                     watchdog_nested_stack.alarm_asg_instance_left_up,
                     watchdog_nested_stack.alarm_container_activity,
+                    watchdog_nested_stack.alarm_capacity_provider,
                 ],
             ),
 
@@ -154,6 +155,15 @@ class Dashboard(NestedStack):
                 width=6,
                 height=5,
                 alarm=watchdog_nested_stack.alarm_container_activity,
+            ),
+
+            ## Capacity Provider Alarm:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
+            cloudwatch.AlarmWidget(
+                title=f"Alarm: {watchdog_nested_stack.alarm_capacity_provider.alarm_name}",
+                width=6,
+                height=5,
+                alarm=watchdog_nested_stack.alarm_capacity_provider,
             ),
 
             ## Show the Container Logs:
