@@ -63,7 +63,7 @@ class Container(NestedStack):
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher
-            memory_reservation_mib=4*1024,
+            memory_reservation_mib=2*1024,
             ## Add environment variables into the container here:
             environment=container_config["Environment"],
             ## Logging, straight from:
