@@ -25,7 +25,7 @@ source .venv/bin/activate
 make update
 # Setup the env vars
 cp vars.env.example vars.env
-nano vars.env # Use the text editor that's better than vim >:)
+nano vars.env # Use the text editor that's better than vim :)
 ```
 
 ### Deploy the Stack
@@ -61,6 +61,9 @@ nano ./Minecraft.yaml
 make cdk-deploy-leaf config-file=./Minecraft.yaml
 ```
 
+> [!NOTE]
+> You can use GitHub Actions to deploy automatically, or to simplify deploying to AWS. See the [Workflow README](./.github/workflows/README.md) for more info.
+
 ### Connecting to the Container
 
 Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [Different Maturities](#different-maturities) section below.
@@ -94,6 +97,9 @@ Core AWS docs for this are [here](https://docs.aws.amazon.com/systems-manager/la
 (I can't get it automated. Use the SSH method below for now. Details are [here](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/2) if you're interested!).
 
 ### SSH into the Host
+
+> [!NOTE]
+> There likely won't be enough traffic from JUST ssh to stop the container from spinning down. Just connect to the container with whatever client it needs (Minecraft, Valheim, etc) to keep it up.
 
 The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP.
 
@@ -148,6 +154,17 @@ If you have an existing EFS left over from deleting a stack, there's no way to t
 
 - **Using SFTP**: The easiest, but most expensive since the files leave AWS, then come back in. Follow the [ssh guide](#ssh-into-the-host) to setup a SFTP application.
 - **Using DataSync**: Probably the cheapest, but I haven't figured it out yet. If you do this a-lot, it's worth looking into.
+
+---
+
+## Frequently Asked Questions (FAQ)
+
+### What to do if my container stays on too long or randomly spins down?
+
+This likely means the `Threshold` for watching container traffic is too far off. Go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. It'll tell you how much traffic is going into the container in Bytes/Second.
+
+- **If it's staying on too long after people disconnect**, you'll have to raise the threshold. Make sure everyone is disconnected, and wait ~10 minutes. Look at the highest point it reaches in that time, and set the `Threshold` just above that. (If someone *just* disconnected, give the container a bit to become "stable" before starting the 10min count).
+- **If it's spinning down too quickly**, you'll have to lower the threshold. Do the same as above to figure out *where* to set it.
 
 ---
 

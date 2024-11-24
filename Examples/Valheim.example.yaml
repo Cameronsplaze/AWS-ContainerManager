@@ -21,6 +21,7 @@ Container:
     # it up on next launch:
     UPDATE_IF_IDLE: False
     RESTART_IF_IDLE: False
+    UPDATE_CRON: "" # Otherwise it'll flag the watchdog every 15 minutes.
     RESTART_CRON: ""
     # Backups happen in EFS already, no need to do it here too:
     BACKUPS: False
@@ -38,7 +39,6 @@ Volumes:
 
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 
-# Watchdog:
-#   MinutesWithoutConnections: 5
-#   Threshold: 32
-#   Type: "UDP"
+Watchdog:
+  # MinutesWithoutConnections: 5
+  Threshold: 750

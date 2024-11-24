@@ -128,7 +128,6 @@ class ContainerManagerStack(Stack):
             leaf_construct_id=construct_id,
             container_id=container_id,
             watchdog_config=config["Watchdog"],
-            task_definition=self.container_nested_stack.task_definition,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
         )
@@ -142,7 +141,6 @@ class ContainerManagerStack(Stack):
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            rule_watchdog_trigger=self.watchdog_nested_stack.rule_watchdog_trigger,
         )
 
         #######################

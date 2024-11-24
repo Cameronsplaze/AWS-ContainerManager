@@ -53,55 +53,6 @@ class Dashboard(NestedStack):
             unit=cloudwatch.Unit.COUNT,
         )
 
-        ## ASG Traffic In/Out:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        traffic_in_metric = cloudwatch.Metric(
-            label="Network In",
-            metric_name="NetworkIn",
-            namespace="AWS/EC2",
-            dimensions_map={"AutoScalingGroupName": ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name},
-        )
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        traffic_out_metric = cloudwatch.Metric(
-            label="Network Out",
-            metric_name="NetworkOut",
-            namespace="AWS/EC2",
-            dimensions_map={"AutoScalingGroupName": ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name},
-        )
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        total_traffic_metric = cloudwatch.MathExpression(
-            label="Total Network Traffic",
-            expression="t_in + t_out",
-            using_metrics={
-                "t_in": traffic_in_metric,
-                "t_out": traffic_out_metric,
-            },
-        )
-
-        ### ASG Traffic PACKETS In/Out Widget:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        traffic_packets_in_metric = cloudwatch.Metric(
-            label="Network Packets In",
-            metric_name="NetworkPacketsIn",
-            namespace="AWS/EC2",
-            dimensions_map={"AutoScalingGroupName": ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name},
-        )
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        traffic_packets_out_metric = cloudwatch.Metric(
-            label="Network Packets Out",
-            metric_name="NetworkPacketsOut",
-            namespace="AWS/EC2",
-            dimensions_map={"AutoScalingGroupName": ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name},
-        )
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        total_packets_metric = cloudwatch.MathExpression(
-            label="Total Packets Traffic",
-            expression="t_p_in + t_p_out",
-            using_metrics={
-                "t_p_in": traffic_packets_in_metric,
-                "t_p_out": traffic_packets_out_metric,
-            },
-        )
 
         ## EC2 Service Metrics:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
@@ -139,7 +90,7 @@ class Dashboard(NestedStack):
                 right=[metric_asg_lambda_invocation_count],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
-                statistic="Sum",
+                statistic="Maximum",
             ),
 
             ### Show the number of instances, to see when it starts/stops:
@@ -162,7 +113,6 @@ class Dashboard(NestedStack):
                 alarms=[
                     watchdog_nested_stack.alarm_asg_instance_left_up,
                     watchdog_nested_stack.alarm_container_activity,
-                    watchdog_nested_stack.alarm_watchdog_errors,
                 ],
             ),
 
@@ -182,8 +132,11 @@ class Dashboard(NestedStack):
                 # Only show up to an hour ago:
                 height=6,
                 width=12,
-                left=[traffic_packets_in_metric, traffic_packets_out_metric, total_packets_metric],
-                right=[traffic_in_metric, traffic_out_metric, total_traffic_metric],
+                right=[
+                    watchdog_nested_stack.bytes_per_second_in,
+                    watchdog_nested_stack.traffic_dns_metric,
+                    # watchdog_nested_stack.watchdog_traffic_metric,
+                ],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
                 statistic="Sum",
@@ -201,15 +154,6 @@ class Dashboard(NestedStack):
                 width=6,
                 height=5,
                 alarm=watchdog_nested_stack.alarm_container_activity,
-            ),
-
-            ## WatchDog Errors Alarm:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
-            cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_watchdog_errors.alarm_name}",
-                width=6,
-                height=5,
-                alarm=watchdog_nested_stack.alarm_watchdog_errors,
             ),
 
             ## Show the Container Logs:

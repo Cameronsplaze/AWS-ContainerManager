@@ -16,7 +16,7 @@ Container:
     PORT: 8211 # Default
     SERVER_PASSWORD: !ENV ${PALWORLD_PASSWORD}
     RCON_ENABLED: False
-    MULTITHREADING: "TRUE"
+    MULTITHREADING: True
     BACKUP_ENABLED: False # We have this with AWS already.
     # Update when the server turns on, it isn't up 24/7:
     UPDATE_ON_BOOT: True
@@ -28,3 +28,5 @@ Volumes:
   - Paths:
       - Path: /palworld
 
+Watchdog:
+  Threshold: 2000

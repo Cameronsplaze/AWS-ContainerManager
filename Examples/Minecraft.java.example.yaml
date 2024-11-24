@@ -7,13 +7,38 @@ Container:
   Image: itzg/minecraft-server
   Ports:
     - TCP: 25565
+    # Only required for GeyserMC Bedrock connections:
+    - UDP: 19132
   Environment:
-    EULA: "TRUE"
-    TYPE: "PAPER"
-    # From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
-    TUNE_VIRTUALIZED: "TRUE"
-    DIFFICULTY: "hard"
+    EULA: True
+    TYPE: PAPER
+    MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
+    VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.
+
+    ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
+    TUNE_VIRTUALIZED: True
     RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
+    ### Plugins List:
+    # geysermc (geyser and floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
+    #    - Each player needs to follow this guide to use bedrock: https://geysermc.org/wiki/floodgate/linking#what-is-global-linking
+    PLUGINS: |
+      https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
+      https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
+    ### Modrinth Plugins List:
+    # https://modrinth.com/plugins
+    MODRINTH_DOWNLOAD_DEPENDENCIES: required
+    # viaversion + viabackwards: Let clients with different versions connect to server.
+    #      https://modrinth.com/plugin/viaversion
+    #      https://modrinth.com/plugin/viabackwards
+    # sleeper: Not everyone has to sleep to skip the night.
+    #      https://modrinth.com/plugin/sleeper
+    # griefprevention: Claim an area of the world.
+    #      https://modrinth.com/plugin/griefprevention
+    MODRINTH_PROJECTS: |
+      viaversion
+      viabackwards
+      sleeper
+      griefprevention
 
 Volumes:
   - Type: EFS # EFS or (eventually) S3. EFS is the default.
@@ -23,13 +48,11 @@ Volumes:
       - Path: /data
         ReadOnly: False
 
-# # Config options for how to monitor for players:
-# Watchdog:
-#   MinutesWithoutConnections: 5
-#   Type: "TCP"
+## Config options for how to monitor for players:
+# (Only required since we're using BOTH tcp and udp)
+Watchdog:
+  # MinutesWithoutConnections: 5
+  Threshold: 1850
 
 # AlertSubscription:
 #   - Email: Does@Not.Exist
-
-# Dashboard:
-#   IntervalMinutes: 30

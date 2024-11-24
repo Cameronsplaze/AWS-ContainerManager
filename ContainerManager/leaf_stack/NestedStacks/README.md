@@ -9,7 +9,7 @@ flowchart LR
     %% ID's
     SecurityGroups[SecurityGroups.py]
     Container[Container.py]
-    Efs[Efs.py]
+    Volumes[Volumes.py]
     EcsAsg[EcsAsg.py]
     Watchdog[Watchdog.py]
     AsgStateChangeHook[AsgStateChangeHook.py]
@@ -17,21 +17,20 @@ flowchart LR
     %% SecurityGroups - Nothing
     %% Container - Nothing
 
-    %% Efs
-    SecurityGroups --sg_efs_traffic--> Efs
+    %% Volumes
+    SecurityGroups --sg_efs_traffic--> Volumes
     Container -- task_definition
                  container
-              --> Efs
+              --> Volumes
 
     %% EcsAsg
     Container --task_definition--> EcsAsg
     SecurityGroups --sg_container_traffic--> EcsAsg
-    Efs --  efs_file_system
+    Volumes --  efs_file_system
             host_access_point
         --> EcsAsg
 
     %% Watchdog
-    Container --task_definition--> Watchdog
     EcsAsg -- auto_scaling_group
               scale_down_asg_action
            --> Watchdog
@@ -54,7 +53,7 @@ Factored this out to avoid circular imports. This NestedStack contains the secur
 
 This creates the EC2 Task Definition and Container Definition for the stack.
 
-### Efs
+### Volumes
 
 Elastic File System (EFS), is the persistent storage for the leaf_stack. This adds to the container definition, the ability to mount the EFS volume. Backups happen outside of the volume you mount as well, so if someone is able to hack your container somehow, they can't access the backups.
 
@@ -66,8 +65,12 @@ This creates the Ecs Cluster/Service, AutoScaling Group, and EC2 Launch Template
 
 ### Watchdog
 
-This is the component for checking if anyone is connected to the container. It uses a Lambda function to run commands with SSM on the ec2 instance itself (and the commands run against the task on the instance). Once it detects no one is on for X many times, it scales down the ASG.
+This is the component for checking if anyone is connected to the container. It uses the "ec2 traffic IN" metric for this. We ignore OUT because it's too noisy, and the container could just be sending telemetry out. IN will only detect someone trying to talk to the container, or it downloading updates, which is what we want to know. Once it detects no one is on for *X* many times, it scales down the ASG.
 
 ### AsgStateChangeHook
 
 This component will trigger whenever the ASG instance state changes (i.e the one instance either spins up or down). This is used to keep the architecture simple, plus if you update the instance count in the console, everything will naturally update around it.
+
+### Dashboard
+
+This depends on everything, since it shows metrics for everything. Doesn't really add an extra cost, since it's just a dashboard. Easily see what the entire stack is thinking/doing in one place.

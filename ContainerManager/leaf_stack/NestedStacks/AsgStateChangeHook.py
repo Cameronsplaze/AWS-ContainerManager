@@ -34,7 +34,6 @@ class AsgStateChangeHook(NestedStack):
         ecs_cluster: ecs.Cluster,
         ec2_service: ecs.Ec2Service,
         auto_scaling_group: autoscaling.AutoScalingGroup,
-        rule_watchdog_trigger: events.Rule,
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
@@ -85,7 +84,6 @@ class AsgStateChangeHook(NestedStack):
                 "UNAVAILABLE_IP": domain_stack.unavailable_ip,
                 "DNS_TTL": str(domain_stack.dns_ttl),
                 "RECORD_TYPE": domain_stack.record_type.value,
-                "WATCH_INSTANCE_RULE": rule_watchdog_trigger.rule_name,
                 "ECS_CLUSTER_NAME": ecs_cluster.cluster_name,
                 "ECS_SERVICE_NAME": ec2_service.service_name,
             },
@@ -127,17 +125,7 @@ class AsgStateChangeHook(NestedStack):
                 resources=[domain_stack.sub_hosted_zone.hosted_zone_arn],
             )
         )
-        ## Let it enable/disable the cron rule for counting connections:
-        self.asg_state_change_policy.add_statements(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "events:EnableRule",
-                    "events:DisableRule",
-                ],
-                resources=[rule_watchdog_trigger.rule_arn],
-            )
-        )
+
 
         ## EventBridge Rule: This is actually what hooks the Lambda to the ASG/Instance.
         #    Needed to keep the management in sync with if a container is running.
