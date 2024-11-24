@@ -103,9 +103,9 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
     Bytes per Second. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
 
-    To find this number, just set it to `20` to deploy the stack. Then go into (Dashboard) and check the (Name) Graph.
+    To find this number, just set it to `20` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph.
 
-    I couldn't make any default, because it's too different for each game. If I set it to 20, there's a risk of people not reading docs, and having a instance be up 24/7.
+    I couldn't make this have a default, because it's too different for each game. If I set it to 20, there's a risk of people not reading docs, and having a instance be up 24/7.
 
   - `MinutesWithoutConnections`: (Optional, int)
 
