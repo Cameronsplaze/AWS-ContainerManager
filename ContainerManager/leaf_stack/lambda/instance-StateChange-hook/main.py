@@ -26,15 +26,12 @@ if any(missing_vars):
 # Boto3 Clients:
 #    Can get cached if function is reused, keep clients that are used on spin-UP here:
 route53_client = boto3.client('route53') # Used for updating DNS record
-events_client = boto3.client('events')   # Used for enabling/disabling the watchdog lambda
 ecs_client = boto3.client('ecs')         # Used for updating the ECS service
 ec2_client = boto3.client('ec2')         # Used for getting the new instance's IP
 
 def lambda_handler(event: dict, context: dict) -> None:
     """
     Main function of the lambda.
-
-    `update_system` is broken out, to guarantee the event rule is always updated.
     """
     print(json.dumps({"Event": event, "Context": context}, default=str))
 
@@ -42,14 +39,12 @@ def lambda_handler(event: dict, context: dict) -> None:
     if event["detail-type"] == "EC2 Instance Launch Successful":
         update_system(spin_up=True, event=event)
 
-
     ### If the ec2 instance just STARTED to go down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
         ### Safety Check - If another instance is spinning up, just quit:
         exit_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"])
         # Now just update the system like normal:
         update_system(spin_up=False, event=event)
-
 
     ### If the EventBridge filter somehow changed (This should never happen):
     else:
@@ -64,17 +59,16 @@ def update_system(spin_up: bool, event: dict) -> None:
 
     # Update the DNS to the new public IP:
     if spin_up:
-        new_ip = get_instance_ip(instance_id=event["detail"]["EC2InstanceId"])
+        new_ip = get_public_ip(instance_id=event["detail"]["EC2InstanceId"])
     else:
         new_ip = os.environ["UNAVAILABLE_IP"]
     update_dns_zone(new_ip)
 
 
-def get_instance_ip(instance_id: str) -> str:
-    """ Get the instance IP """
+def get_public_ip(instance_id: str) -> str:
+    """ Get the instance's public IP """
     # Since you're supplying an ID, there should always be exactly one:
     instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
-    # Now you have the new ip for the instance:
     return instance_details["PublicIpAddress"]
 
 
@@ -108,13 +102,16 @@ def update_ecs_service(desired_count: int) -> None:
         desiredCount=desired_count,
     )
 
-
+  
 def exit_if_asg_instance_coming_up(asg_name: str) -> None:
-    """ SAFEGUARD: Exit if another instance is coming up in the ASG """
-    # - There's a window where if a instance is coming up as another spins down, it could wipe the
-    # ip of the new instance from route53. This is a safety check to make sure that doesn't happen.
-    # - Normally initializing boto3.client is expensive, but we only
-    # care about spin-*UP* time. This only runs when system is shutting down.
+    """
+    SAFEGUARD: Exit if another instance is coming up in the ASG
+    
+    There's a window where if a instance is coming up as another spins down, the latter could wipe the
+    ip of the new instance from route53. This is a safety check to make sure that doesn't happen.
+    """
+    # asg_client: Normally initializing boto3.client is expensive and this should be global, BUT we only
+    # care about spin-*UP* time. This only runs when system is shutting *down*.
     asg_client = boto3.client('autoscaling')
     # With using asg_name, we guarantee there's only one output:
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])['AutoScalingGroups'][0]
