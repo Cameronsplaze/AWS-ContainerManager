@@ -11,6 +11,8 @@ Container:
     - UDP: 19132
   Environment:
     EULA: True
+    INIT_MEMORY: 7G
+    MAX_MEMORY: 7G
     TYPE: PAPER
     MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
     VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.

@@ -182,7 +182,7 @@ class Dashboard(NestedStack):
             ## ECS Container Utilization:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
             cloudwatch.GraphWidget(
-                title=f"(ECS) Container Utilization - {main_config["Ec2"]["InstanceType"]}",
+                title=f"(ECS) Container Utilization - {main_config['Ec2']['InstanceType']}",
                 # Only show up to an hour ago:
                 height=6,
                 width=12,
