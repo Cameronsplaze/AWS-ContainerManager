@@ -239,5 +239,6 @@ class Watchdog(NestedStack):
                 events_targets.SnsTopic(
                     base_stack_sns_topic,
                 ),
+                # TODO: See if cross-region works, and you can use the trigger-start-system lambda? But I guess you'd have to stop asg instead...
             ],
         )
