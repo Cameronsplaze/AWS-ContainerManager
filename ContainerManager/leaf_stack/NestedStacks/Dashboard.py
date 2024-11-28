@@ -51,6 +51,7 @@ class Dashboard(NestedStack):
         ## ASG State Change Invocation Count:
         metric_asg_lambda_invocation_count = asg_state_change_hook_nested_stack.lambda_asg_state_change_hook.metric_invocations(
             unit=cloudwatch.Unit.COUNT,
+            statistic="Maximum",
         )
 
 
