@@ -8,6 +8,8 @@ from aws_cdk import (
     Duration,
     aws_ecs as ecs,
     aws_sns as sns,
+    aws_events as events,
+    aws_events_targets as events_targets,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
     aws_autoscaling as autoscaling,
@@ -178,34 +180,64 @@ class Watchdog(NestedStack):
         # restart it. (And because you technically started, it won't trip the circuit breaker).
         # This logic will (hopefully) see the task spinning up and down constantly, and spin
         # the ec2 instance to avoid paying for something you're not using.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        metric_capacity_provider = cloudwatch.Metric(
-            label="Capacity Provider Reservation (percent)",
-            metric_name="CapacityProviderReservation",
-            namespace="AWS/ECS/ManagedScaling",
-            dimensions_map={
-                "ClusterName": ecs_cluster.cluster_name,
-                "CapacityProviderName": ecs_capacity_provider.capacity_provider_name,
-            },
-            period=Duration.minutes(1),
-            statistic="Minimum",
-        )
 
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        self.alarm_capacity_provider = metric_capacity_provider.create_alarm(
+
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        # metric_capacity_provider = cloudwatch.Metric(
+        #     label="Capacity Provider Reservation (percent)",
+        #     metric_name="CapacityProviderReservation",
+        #     namespace="AWS/ECS/ManagedScaling",
+        #     dimensions_map={
+        #         "ClusterName": ecs_cluster.cluster_name,
+        #         "CapacityProviderName": ecs_capacity_provider.capacity_provider_name,
+        #     },
+        #     period=Duration.minutes(1),
+        #     statistic="Minimum",
+        # )
+
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        # self.alarm_capacity_provider = metric_capacity_provider.create_alarm(
+        #     self,
+        #     "AlarmCapacityProvider",
+        #     alarm_name=f"Capacity Provider ({leaf_construct_id})",
+        #     alarm_description="Trigger if the container is crashing too often",
+        #     threshold=100,
+        #     comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        #     ## In the last 6 points, 2 must alarm to trigger:
+        #     # (When tasks fail, it creates a zig-zag pattern in the metric).
+        #     datapoints_to_alarm=2,
+        #     evaluation_periods=6,
+        # )
+        # ## Call this if switching to ALARM:
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        # self.alarm_capacity_provider.add_alarm_action(
+        #     cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
+        # )
+
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        self.rule_break_crash_loop = events.Rule(
             self,
-            "AlarmCapacityProvider",
-            alarm_name=f"Capacity Provider ({leaf_construct_id})",
-            alarm_description="Trigger if the container is crashing too often",
-            threshold=100,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-            ## In the last 6 points, 2 must alarm to trigger:
-            # (When tasks fail, it creates a zig-zag pattern in the metric).
-            datapoints_to_alarm=2,
-            evaluation_periods=6,
-        )
-        ## Call this if switching to ALARM:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.alarm_capacity_provider.add_alarm_action(
-            cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
+            "RuleBreakCrashLoop",
+            rule_name=f"{container_id}-rule-break-crash-loop",
+            description="Trigger if the container is crashing too often",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.ecs"],
+                detail_type=["ECS Task State Change"],
+                detail={
+                    "clusterArn": [ecs_cluster.cluster_arn],
+                    "capacityProviderName": [ecs_capacity_provider.capacity_provider_name],
+                    # If the container crashes:
+                    "stopCode": ["EssentialContainerExited"],
+                    "containers": {
+                        "exitCode": [{"anything-but": 0}],
+                    },
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                events_targets.SnsTopic(
+                    base_stack_sns_topic,
+                ),
+            ],
         )
