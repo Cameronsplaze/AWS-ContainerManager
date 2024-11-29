@@ -108,8 +108,6 @@ class ContainerManagerStack(Stack):
             self,
             description=f"Ec2Service Logic for {construct_id}",
             leaf_construct_id=construct_id,
-            container_id=container_id,
-            container_url=domain_stack.sub_domain_name,
             vpc=base_stack.vpc,
             ssh_key_pair=base_stack.ssh_key_pair,
             base_stack_sns_topic=base_stack.sns_notify_topic,
