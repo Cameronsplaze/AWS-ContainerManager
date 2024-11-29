@@ -8,6 +8,7 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     aws_lambda,
+    aws_sns as sns,
     aws_iam as iam,
     aws_logs as logs,
     aws_ecs as ecs,
@@ -30,10 +31,13 @@ class AsgStateChangeHook(NestedStack):
         self,
         scope: Construct,
         container_id: str,
+        container_url: str,
         domain_stack: DomainStack,
         ecs_cluster: ecs.Cluster,
         ec2_service: ecs.Ec2Service,
         auto_scaling_group: autoscaling.AutoScalingGroup,
+        base_stack_sns_topic: sns.Topic,
+        leaf_stack_sns_topic: sns.Topic,
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
@@ -126,22 +130,22 @@ class AsgStateChangeHook(NestedStack):
             )
         )
 
-
         ## EventBridge Rule: This is actually what hooks the Lambda to the ASG/Instance.
         #    Needed to keep the management in sync with if a container is running.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        self.rule_asg_state_change_trigger = events.Rule(
+        message_up = events.RuleTargetInput.from_text(
+            f"Container for '{container_id}' is starting up! Connect to it at: '{container_url}'.",
+        )
+        self.rule_asg_state_change_trigger_up = events.Rule(
             self,
-            "AsgStateChangeTrigger",
-            rule_name=f"{container_id}-rule-ASG-StateChange-hook",
+            "AsgStateChangeTrigger-Up",
+            rule_name=f"{container_id_alpha}-rule-ASG-StateChange-spin-up",
             description="Trigger Lambda whenever the ASG state changes, to keep DNS in sync",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
                 source=["aws.autoscaling"],
                 # "EC2 Instance Launch Successful" -> FINISHES spinning up (has an ip now)
-                # "EC2 Instance-terminate Lifecycle Action" -> STARTS to spin down (shorter
-                #                          wait time than "EC2 Instance Terminate Successful").
-                detail_type=["EC2 Instance Launch Successful", "EC2 Instance-terminate Lifecycle Action"],
+                detail_type=["EC2 Instance Launch Successful"],
                 detail={
                     "AutoScalingGroupName": [auto_scaling_group.auto_scaling_group_name],
                 },
@@ -149,6 +153,33 @@ class AsgStateChangeHook(NestedStack):
             targets=[
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 events_targets.LambdaFunction(self.lambda_asg_state_change_hook),
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                events_targets.SnsTopic(base_stack_sns_topic, message=message_up),
+                events_targets.SnsTopic(leaf_stack_sns_topic, message=message_up),
+            ],
+        )
+        message_down = events.RuleTargetInput.from_text(f"Container for '{container_id}' has stopped.")
+        self.rule_asg_state_change_trigger_down = events.Rule(
+            self,
+            "AsgStateChangeTrigger-Down",
+            rule_name=f"{container_id_alpha}-rule-ASG-StateChange-spin-down",
+            description="Trigger Lambda whenever the ASG state changes, to keep DNS in sync",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.autoscaling"],
+                # "EC2 Instance-terminate Lifecycle Action" -> STARTS to spin down (shorter
+                #                          wait time than "EC2 Instance Terminate Successful").
+                detail_type=["EC2 Instance-terminate Lifecycle Action"],
+                detail={
+                    "AutoScalingGroupName": [auto_scaling_group.auto_scaling_group_name],
+                },
+            ),
+            targets=[
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
+                events_targets.LambdaFunction(self.lambda_asg_state_change_hook),
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                events_targets.SnsTopic(base_stack_sns_topic, message=message_down),
+                events_targets.SnsTopic(leaf_stack_sns_topic, message=message_down),
             ],
         )
 

@@ -52,6 +52,7 @@ class Dashboard(NestedStack):
         metric_asg_lambda_invocation_count = asg_state_change_hook_nested_stack.lambda_asg_state_change_hook.metric_invocations(
             unit=cloudwatch.Unit.COUNT,
             statistic="Maximum",
+            period=Duration.minutes(1),
         )
 
 
@@ -90,8 +91,6 @@ class Dashboard(NestedStack):
                 width=12,
                 right=[metric_asg_lambda_invocation_count],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
-                period=Duration.minutes(1),
-                statistic="Maximum",
             ),
 
             ### Show the number of instances, to see when it starts/stops:
@@ -114,7 +113,7 @@ class Dashboard(NestedStack):
                 alarms=[
                     watchdog_nested_stack.alarm_asg_instance_left_up,
                     watchdog_nested_stack.alarm_container_activity,
-                    # watchdog_nested_stack.alarm_capacity_provider,
+                    watchdog_nested_stack.alarm_break_crash_loop_count,
                 ],
             ),
 
@@ -131,7 +130,6 @@ class Dashboard(NestedStack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
             cloudwatch.GraphWidget(
                 title="(ASG) All Network Traffic",
-                # Only show up to an hour ago:
                 height=6,
                 width=12,
                 right=[
@@ -158,14 +156,14 @@ class Dashboard(NestedStack):
                 alarm=watchdog_nested_stack.alarm_container_activity,
             ),
 
-            # ## Capacity Provider Alarm:
-            # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
-            # cloudwatch.AlarmWidget(
-            #     title=f"Alarm: {watchdog_nested_stack.alarm_capacity_provider.alarm_name}",
-            #     width=6,
-            #     height=5,
-            #     alarm=watchdog_nested_stack.alarm_capacity_provider,
-            # ),
+            ## Crash Loop Alarm:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
+            cloudwatch.AlarmWidget(
+                title=f"Alarm: {watchdog_nested_stack.alarm_break_crash_loop_count.alarm_name}",
+                width=6,
+                height=5,
+                alarm=watchdog_nested_stack.alarm_break_crash_loop_count,
+            ),
 
             ## Show the Container Logs:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.LogQueryWidget.html

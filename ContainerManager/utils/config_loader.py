@@ -93,6 +93,7 @@ def _parse_container(config: dict) -> None:
     if "Image" not in config["Container"]:
         raise_missing_key_error("Container.Image")
     assert isinstance(config["Container"]["Image"], str)
+    config["Container"]["Image"] = config["Container"]["Image"].lower()
 
     ### Parse Container.Ports:
     if "Ports" not in config["Container"]:
