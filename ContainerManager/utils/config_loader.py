@@ -8,10 +8,6 @@ Also modifies data to a better format CDK can digest in places.
 ## Parsing for every possible config option requires a lot of statements:
 # pylint: disable=too-many-statements
 
-# TODO: Clean these up by turning them into a class. Lets each function use
-#        'maturity' without passing it around. Also can factor helper methods
-#        to a base class.
-
 from aws_cdk import (
     Duration,
     RemovalPolicy,

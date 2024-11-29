@@ -102,7 +102,7 @@ def update_ecs_service(desired_count: int) -> None:
         desiredCount=desired_count,
     )
 
-  
+
 def exit_if_asg_instance_coming_up(asg_name: str) -> None:
     """
     SAFEGUARD: Exit if another instance is coming up in the ASG

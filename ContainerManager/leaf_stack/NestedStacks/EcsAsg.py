@@ -13,8 +13,6 @@ from aws_cdk import (
     aws_iam as iam,
     aws_sns as sns,
     aws_efs as efs,
-    aws_events as events,
-    aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct, IConstruct
@@ -24,22 +22,25 @@ from cdk_nag import NagSuppressions
 ### To let you create and delete the stack, if it includes a capacity provider:
 # https://github.com/aws/aws-cdk/issues/19275
 # https://stackoverflow.com/questions/75418420/how-do-i-delete-an-ecs-capacity-provider-which-is-in-use
-## It's because if you set the capacity_provider to use in a ec2_service, it fails to delete the
-## cluster (the capacity_provider is in use). But if you set the service or cluster as a dependent,
-## you'll hit a circular dependency when deploying...
-## (And yes, ec2 clusters require a capacity_provider. You can use the default, but 
-##  that wasn't appearing in the console for some reason.)
 @jsii.implements(IAspect)
-class HotfixCapacityProviderDependencies:
+class HotfixCapacityProviderDependencies: # pylint: disable=too-few-public-methods
+    """
+    If you set the capacity_provider to use in a ec2_service, it fails to delete the
+    cluster (the capacity_provider is in use). But if you set the service or cluster as a dependent,
+    you'll hit a circular dependency when deploying.
+    This lets you set the CapacityProvider as a dependency, without the circular dependency.
+    """
     # Add a dependency from capacity provider association to the cluster
     # and from each service to the capacity provider association
     def visit(self, node: IConstruct) -> None:
-        if type(node) is ecs.Ec2Service:
+        "Apart of the IAspect interface"
+        if isinstance(node, ecs.Ec2Service):
             children = node.cluster.node.find_all()
             for child in children:
-                if type(child) is ecs.CfnClusterCapacityProviderAssociations:
+                if isinstance(child, ecs.CfnClusterCapacityProviderAssociations):
                     child.node.add_dependency(node.cluster)
                     node.node.add_dependency(child)
+
 
 class EcsAsg(NestedStack):
     """
@@ -50,8 +51,6 @@ class EcsAsg(NestedStack):
         self,
         scope: Construct,
         leaf_construct_id: str,
-        container_id: str,
-        container_url: str,
         vpc: ec2.Vpc,
         ssh_key_pair: ec2.KeyPair,
         base_stack_sns_topic: sns.Topic,
