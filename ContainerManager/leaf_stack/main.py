@@ -108,8 +108,6 @@ class ContainerManagerStack(Stack):
             self,
             description=f"Ec2Service Logic for {construct_id}",
             leaf_construct_id=construct_id,
-            container_id=container_id,
-            container_url=domain_stack.sub_domain_name,
             vpc=base_stack.vpc,
             ssh_key_pair=base_stack.ssh_key_pair,
             base_stack_sns_topic=base_stack.sns_notify_topic,
@@ -130,6 +128,7 @@ class ContainerManagerStack(Stack):
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
+            leaf_stack_sns_topic=self.sns_notify_topic,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ecs_capacity_provider=self.ecs_asg_nested_stack.capacity_provider,
         )
@@ -139,10 +138,13 @@ class ContainerManagerStack(Stack):
             self,
             description=f"AsgStateChangeHook Logic for {construct_id}",
             container_id=container_id,
+            container_url=domain_stack.sub_domain_name,
             domain_stack=domain_stack,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
+            leaf_stack_sns_topic=self.sns_notify_topic,
         )
 
         #######################

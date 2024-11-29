@@ -13,8 +13,6 @@ from aws_cdk import (
     aws_iam as iam,
     aws_sns as sns,
     aws_efs as efs,
-    aws_events as events,
-    aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct, IConstruct
@@ -24,22 +22,25 @@ from cdk_nag import NagSuppressions
 ### To let you create and delete the stack, if it includes a capacity provider:
 # https://github.com/aws/aws-cdk/issues/19275
 # https://stackoverflow.com/questions/75418420/how-do-i-delete-an-ecs-capacity-provider-which-is-in-use
-## It's because if you set the capacity_provider to use in a ec2_service, it fails to delete the
-## cluster (the capacity_provider is in use). But if you set the service or cluster as a dependent,
-## you'll hit a circular dependency when deploying...
-## (And yes, ec2 clusters require a capacity_provider. You can use the default, but 
-##  that wasn't appearing in the console for some reason.)
 @jsii.implements(IAspect)
-class HotfixCapacityProviderDependencies:
+class HotfixCapacityProviderDependencies: # pylint: disable=too-few-public-methods
+    """
+    If you set the capacity_provider to use in a ec2_service, it fails to delete the
+    cluster (the capacity_provider is in use). But if you set the service or cluster as a dependent,
+    you'll hit a circular dependency when deploying.
+    This lets you set the CapacityProvider as a dependency, without the circular dependency.
+    """
     # Add a dependency from capacity provider association to the cluster
     # and from each service to the capacity provider association
     def visit(self, node: IConstruct) -> None:
-        if type(node) is ecs.Ec2Service:
+        "Apart of the IAspect interface"
+        if isinstance(node, ecs.Ec2Service):
             children = node.cluster.node.find_all()
             for child in children:
-                if type(child) is ecs.CfnClusterCapacityProviderAssociations:
+                if isinstance(child, ecs.CfnClusterCapacityProviderAssociations):
                     child.node.add_dependency(node.cluster)
                     node.node.add_dependency(child)
+
 
 class EcsAsg(NestedStack):
     """
@@ -50,8 +51,6 @@ class EcsAsg(NestedStack):
         self,
         scope: Construct,
         leaf_construct_id: str,
-        container_id: str,
-        container_url: str,
         vpc: ec2.Vpc,
         ssh_key_pair: ec2.KeyPair,
         base_stack_sns_topic: sns.Topic,
@@ -193,10 +192,10 @@ class EcsAsg(NestedStack):
             ## Since the instances don't live long, this doesn't do anything, and
             # the lambda to spin down the system will trigger TWICE when going down.
             enable_managed_draining=False,
-            ## We need the `CapacityProviderReservation` metric to know when to kill the ec2 instance
-            # if the container exists on startup. (Otherwise the task infinite loops, and since it
-            # successfully started FIRST, the circuit breaker won't stop it).
-            enable_managed_scaling=True,
+            ## We directly manage the ASG, that's how this architecture is designed.
+            # And since we'll ever have 1 or 0 instances, we don't need this. Save on
+            # cloudwatch api calls, and clean up the console instead.
+            enable_managed_scaling=False,
         )
 
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
@@ -213,79 +212,17 @@ class EcsAsg(NestedStack):
             cluster=self.ecs_cluster,
             task_definition=task_definition,
             desired_count=0,
-            circuit_breaker={
-                "rollback": False # Don't keep trying to restart the container if it fails
-            },
+            ## We use the 'spin-down-asg-on-error' lambda to take care of circuit breaker-like
+            ## logic. If we *just* spun down the task, the instance would still be running.
+            ## That'd both charge money, and not let the system "spin back up/reset".
+            # circuit_breaker={
+            #     "rollback": False # Don't keep trying to restart the container if it fails
+            # },
             capacity_provider_strategies=[capacity_provider_strategy],
             ### Puts each task in a particular group, on a different instance:
             ### (Not sure if we want this. Only will ever have one instance, and adds complexity)
             # placement_constraints=[ecs.PlacementConstraint.distinct_instances()],
             # placement_strategies=[ecs.PlacementStrategy.spread_across_instances()],
-        )
-
-
-        ##########################
-        ### Notification Stuff ###
-        ##########################
-
-        ## EventBridge Rule: Send notification to user when ECS Task spins up or down:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        message = events.RuleTargetInput.from_text("\n".join([
-            f"Container for '{container_id}' has started!",
-            f"Connect to it at: '{container_url}'.",
-        ]))
-        self.rule_notify_up = events.Rule(
-            self,
-            "RuleNotifyUp",
-            rule_name=f"{container_id}-rule-notify-up",
-            description="Let user know when system finishes spinning UP",
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
-            event_pattern=events.EventPattern(
-                source=["aws.ecs"],
-                detail_type=["ECS Task State Change"],
-                detail={
-                    "clusterArn": [self.ecs_cluster.cluster_arn],
-                    # You only care if the TASK starts, or the INSTANCE stops:
-                    "lastStatus": ["RUNNING"],
-                    "desiredStatus": ["RUNNING"],
-                },
-            ),
-            targets=[
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
-                events_targets.SnsTopic(
-                    base_stack_sns_topic,
-                    message=message,
-                ),
-                events_targets.SnsTopic(
-                    leaf_stack_sns_topic,
-                    message=message,
-                ),
-            ],
-        )
-
-        ## Same thing, but notify user when task spins down finally:
-        ##   (Can't combine with above target, since we care about different 'detail_type'.
-        ##    Don't want to spam the user sadly.)
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
-        message = events.RuleTargetInput.from_text(f"Container for '{container_id}' has stopped.")
-        self.rule_notify_down = events.Rule(
-            self,
-            "RuleNotifyDown",
-            rule_name=f"{container_id}-rule-notify-down",
-            description="Let user know when system finishes spinning down",
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
-            event_pattern=events.EventPattern(
-                source=["aws.autoscaling"],
-                detail_type=["EC2 Instance-terminate Lifecycle Action"],
-                detail={
-                    "AutoScalingGroupName": [self.auto_scaling_group.auto_scaling_group_name],
-                },
-            ),
-            targets=[
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
-                events_targets.SnsTopic(base_stack_sns_topic, message=message),
-                events_targets.SnsTopic(leaf_stack_sns_topic, message=message),
-            ],
         )
 
         #####################

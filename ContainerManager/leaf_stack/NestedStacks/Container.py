@@ -60,6 +60,7 @@ class Container(NestedStack):
             container_id_alpha,
             image=ecs.ContainerImage.from_registry(container_config["Image"]),
             port_mappings=container_config["Ports"],
+            essential=True,
             ## Hard limit. Won't ever go above this
             # memory_limit_mib=999999999,
             ## Soft limit. Container will go down to this if under heavy load, but can go higher

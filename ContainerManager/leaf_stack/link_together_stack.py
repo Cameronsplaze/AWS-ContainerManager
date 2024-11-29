@@ -39,6 +39,7 @@ class LinkTogetherStack(Stack):
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
         ## Log group for the lambda function:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
@@ -72,7 +73,7 @@ class LinkTogetherStack(Stack):
         self.lambda_start_system = aws_lambda.Function(
             self,
             "StartSystem",
-            description=f"{container_id}-lambda-start-system: Spin up ASG when someone connects.",
+            description=f"{container_id_alpha}-lambda-start-system: Spin up ASG when someone connects.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/trigger-start-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,

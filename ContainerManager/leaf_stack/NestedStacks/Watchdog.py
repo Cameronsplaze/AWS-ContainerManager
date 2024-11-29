@@ -6,8 +6,14 @@ This module contains the Watchdog NestedStack class.
 from aws_cdk import (
     NestedStack,
     Duration,
+    RemovalPolicy,
+    aws_lambda,
+    aws_iam as iam,
     aws_ecs as ecs,
+    aws_logs as logs,
     aws_sns as sns,
+    aws_events as events,
+    aws_events_targets as events_targets,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
     aws_autoscaling as autoscaling,
@@ -27,11 +33,13 @@ class Watchdog(NestedStack):
         watchdog_config: dict,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
+        leaf_stack_sns_topic: sns.Topic,
         ecs_cluster: ecs.Cluster,
         ecs_capacity_provider: ecs.AsgCapacityProvider,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
 
         ## Scale down ASG to 0 if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
@@ -174,38 +182,132 @@ class Watchdog(NestedStack):
         ##########################################
         ## Container Crash-loop Detection Logic ##
         ##########################################
-        # If the task can start, but then something in their entrypoint throws, ecs will just
-        # restart it. (And because you technically started, it won't trip the circuit breaker).
-        # This logic will (hopefully) see the task spinning up and down constantly, and spin
-        # the ec2 instance to avoid paying for something you're not using.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        metric_capacity_provider = cloudwatch.Metric(
-            label="Capacity Provider Reservation (percent)",
-            metric_name="CapacityProviderReservation",
-            namespace="AWS/ECS/ManagedScaling",
-            dimensions_map={
-                "ClusterName": ecs_cluster.cluster_name,
-                "CapacityProviderName": ecs_capacity_provider.capacity_provider_name,
-            },
-            period=Duration.minutes(1),
-            statistic="Minimum",
+        # If either the task can't start, or the container throws after starting, this
+        # will spin down the ASG (which will in-turn spin down the task). Without this,
+        # ECS would try to keep running the task, and it downloading would stop the
+        # Watchdog traffic metric above from spinning down the system.
+
+        ## Log group for the lambda function:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
+        log_group_break_crash_loop = logs.LogGroup(
+            self,
+            "LogGroupStartSystem",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY,
+            log_group_name=f"/aws/lambda/{container_id_alpha}-break-crash-loop",
         )
 
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        self.alarm_capacity_provider = metric_capacity_provider.create_alarm(
+        ## Policy/Role for lambda function:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Role.html
+        role_break_crash_loop = iam.Role(
             self,
-            "AlarmCapacityProvider",
-            alarm_name=f"Capacity Provider ({leaf_construct_id})",
-            alarm_description="Trigger if the container is crashing too often",
-            threshold=100,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-            ## In the last 6 points, 2 must alarm to trigger:
-            # (When tasks fail, it creates a zig-zag pattern in the metric).
-            datapoints_to_alarm=2,
-            evaluation_periods=6,
+            "AsgStateChangeHookRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="Role for the AsgStateChangeHook lambda function.",
         )
-        ## Call this if switching to ALARM:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Policy.html
+        policy_break_crash_loop = iam.Policy(
+            self,
+            "AsgStateChangeHookPolicy",
+            roles=[role_break_crash_loop],
+            # Statements added at the end of this file:
+            statements=[],
+        )
+
+        ## Lambda function spin down ASG if container errors/throws:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+        self.lambda_break_crash_loop = aws_lambda.Function(
+            self,
+            "BreakCrashLoop",
+            description=f"{container_id_alpha}-break-crash-loop: Triggered if container throws, and spins down ASG.",
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/spin-down-asg-on-error/"),
+            handler="main.lambda_handler",
+            runtime=aws_lambda.Runtime.PYTHON_3_12,
+            log_group=log_group_break_crash_loop,
+            role=role_break_crash_loop,
+            environment={
+                "ASG_NAME": auto_scaling_group.auto_scaling_group_name,
+            },
+        )
+        ### Lambda Permissions:
+        # Give it write to it's own log group:
+        log_group_break_crash_loop.grant_write(self.lambda_break_crash_loop)
+        # Give it permissions to update the ASG desired_capacity:
+        policy_break_crash_loop.add_statements(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "autoscaling:UpdateAutoScalingGroup",
+                ],
+                resources=[auto_scaling_group.auto_scaling_group_arn],
+            )
+        )
+
+        ### Check for the Task Failing:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
+        self.rule_break_crash_loop = events.Rule(
+            self,
+            "RuleBreakCrashLoop",
+            rule_name=f"{container_id}-rule-break-crash-loop",
+            description="Spin down the ASG if the container crashes or can't start",
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
+            event_pattern=events.EventPattern(
+                source=["aws.ecs"],
+                detail_type=["ECS Task State Change"],
+                detail={
+                    ## For matching event detail patterns:
+                    # https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-pattern-operators.html
+                    "clusterArn": [ecs_cluster.cluster_arn],
+                    "capacityProviderName": [ecs_capacity_provider.capacity_provider_name],
+                    "desiredStatus": ["STOPPED"],
+                    "$or": [
+                        # If the container doesn't start at all:
+                        {
+                            "stopCode": ["TaskFailedToStart"],
+                        },
+                        # If the container starts, then throws after:
+                        {
+                            "stopCode": ["EssentialContainerExited"],
+                            "containers": {
+                                "exitCode": [{"anything-but": 0}],
+                            },
+                        }
+                    ],
+                },
+            ),
+            targets=[
+                # ## https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
+                # events_targets.SnsTopic(
+                #     base_stack_sns_topic,
+                #     message=events.RuleTargetInput.from_text(" ".join([
+                #         f"Container '{container_id}' has UNEXPECTEDLY STOPPED! See this log group for why:",
+                #         f"{log_group_break_crash_loop.log_group_name}",
+                #     ])),
+                # ),
+                ## https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
+                events_targets.LambdaFunction(self.lambda_break_crash_loop),
+            ],
+        )
+
+        metric_break_crash_loop_count = self.lambda_break_crash_loop.metric_invocations(
+            unit=cloudwatch.Unit.COUNT,
+            statistic="Maximum",
+            period=Duration.minutes(1),
+        )
+        self.alarm_break_crash_loop_count = metric_break_crash_loop_count.create_alarm(
+            self,
+            "AlarmBreakCrashLoop",
+            alarm_name=f"Break Crash Loop ({leaf_construct_id})",
+            alarm_description="Spin down the ASG if the container crashes or can't start",
+            threshold=0,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            evaluation_periods=1,
+        )
+        ## Call these if switching to ALARM:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.alarm_capacity_provider.add_alarm_action(
-            cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
+        self.alarm_break_crash_loop_count.add_alarm_action(
+            cloudwatch_actions.SnsAction(base_stack_sns_topic)
+        )
+        self.alarm_break_crash_loop_count.add_alarm_action(
+            cloudwatch_actions.SnsAction(leaf_stack_sns_topic)
         )
