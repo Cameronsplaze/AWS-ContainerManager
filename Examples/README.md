@@ -144,8 +144,9 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ## Adding a new Example to the Repo
 
-1) Create a new file in this [./Examples](./) directory. Make sure it ends with `*.example.yaml`.
-2) Make sure it correctly Synths. (If you're doing a PR, it'll happen automatically)
-3) Once it Synths, add it to the "Settings -> Branches -> `main` -> Required Status Checks" list. (If you don't have permissions, remind me to inside the PR please).
+1) Ask if it's a game I'll want to support, either by Issues or Discussions. (Even if I don't add it here, I might still help you add it to your fork)
+2) Create a new file in this [./Examples](./) directory. Make sure it ends with `*.example.yaml`.
+3) Make sure it correctly Synths. (If you're doing a PR, it'll happen automatically)
+4) Once it Synths, add it to the "Settings -> Branches -> `main` -> Required Status Checks" list. (If you don't have permissions, remind me to inside the PR please).
 
 And that's it!
