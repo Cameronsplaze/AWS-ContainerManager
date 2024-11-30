@@ -14,6 +14,8 @@ from ContainerManager.leaf_stack.domain_stack import DomainStack
 ## Import the other Nested Stacks:
 from . import Container, EcsAsg, Watchdog, AsgStateChangeHook
 
+TRAFFIC_IN_LABEL = "Traffic In (Bytes/Sec)"
+
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
 class Dashboard(NestedStack):
@@ -73,6 +75,7 @@ class Dashboard(NestedStack):
                 log_group_names=[domain_stack.route53_query_log_group.log_group_name],
                 region=domain_stack.region,
                 width=12,
+                height=4,
                 query_lines=[
                     # The message also contains the timestamp, remove it:
                     "fields @timestamp, substr(@message, 25) as message",
@@ -94,14 +97,16 @@ class Dashboard(NestedStack):
             ),
 
             ### Show the number of instances, to see when it starts/stops:
-            # Should ever only be 0 or 1, and Gauge helps show it's max too.
+            # Should ever only be N/A or 1, and Gauge helps show it's max too.
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GaugeWidget.html
             cloudwatch.GaugeWidget(
                 title="EC2 Instance Count",
-                metrics=[watchdog_nested_stack.metric_asg_num_instances],
+                metrics=[watchdog_nested_stack.instance_is_up],
                 left_y_axis=cloudwatch.YAxisProps(min=0, max=1),
                 width=4,
-                height=5,
+                height=6,
+                # Only look 1 min back:
+                start="-PT1M",
             ),
 
             ## Brief summary of all the alarms, and lets you jump to them directly:
@@ -109,7 +114,9 @@ class Dashboard(NestedStack):
             cloudwatch.AlarmStatusWidget(
                 title="Alarm Summary",
                 width=3,
-                height=5,
+                height=6,
+                # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_cloudwatch/AlarmStatusWidgetSortBy.html#aws_cdk.aws_cloudwatch.AlarmStatusWidgetSortBy
+                sort_by=cloudwatch.AlarmStatusWidgetSortBy.STATE_UPDATED_TIMESTAMP,
                 alarms=[
                     watchdog_nested_stack.alarm_asg_instance_left_up,
                     watchdog_nested_stack.alarm_container_activity,
@@ -122,8 +129,11 @@ class Dashboard(NestedStack):
             cloudwatch.AlarmWidget(
                 title=f"Alarm: {watchdog_nested_stack.alarm_asg_instance_left_up.alarm_name}",
                 width=5,
-                height=5,
+                height=6,
                 alarm=watchdog_nested_stack.alarm_asg_instance_left_up,
+                ## Doesn't show the units anyways:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
+                left_y_axis=cloudwatch.YAxisProps(label="Bool", show_units=False),
             ),
 
             ### All the ASG Traffic in/out
@@ -143,26 +153,28 @@ class Dashboard(NestedStack):
                 ## Left and Right Y-Axis:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
                 # Because of the MetricMath in the graph, units are unknown anyways:
-                left_y_axis=cloudwatch.YAxisProps(label="Traffic Packets", show_units=False),
-                right_y_axis=cloudwatch.YAxisProps(label="Traffic Amount", show_units=False),
-            ),
-
-            ## Container Activity Alarm:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
-            cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_container_activity.alarm_name}",
-                width=6,
-                height=5,
-                alarm=watchdog_nested_stack.alarm_container_activity,
+                right_y_axis=cloudwatch.YAxisProps(label=TRAFFIC_IN_LABEL, show_units=False),
             ),
 
             ## Crash Loop Alarm:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
             cloudwatch.AlarmWidget(
                 title=f"Alarm: {watchdog_nested_stack.alarm_break_crash_loop_count.alarm_name}",
-                width=6,
-                height=5,
+                width=5,
+                height=6,
                 alarm=watchdog_nested_stack.alarm_break_crash_loop_count,
+            ),
+
+            ## Container Activity Alarm:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
+            cloudwatch.AlarmWidget(
+                title=f"Alarm: {watchdog_nested_stack.alarm_container_activity.alarm_name}",
+                width=7,
+                height=6,
+                alarm=watchdog_nested_stack.alarm_container_activity,
+                ## Doesn't show the units anyways:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
+                left_y_axis=cloudwatch.YAxisProps(label=TRAFFIC_IN_LABEL, show_units=False),
             ),
 
             ## Show the Container Logs:
@@ -170,6 +182,7 @@ class Dashboard(NestedStack):
             cloudwatch.LogQueryWidget(
                 title="Container Logs",
                 log_group_names=[container_nested_stack.container_log_group.log_group_name],
+                height=8,
                 width=12,
                 query_lines=[
                     # The message is controlled by code inside the container, no idea if it'll have a timestamp.

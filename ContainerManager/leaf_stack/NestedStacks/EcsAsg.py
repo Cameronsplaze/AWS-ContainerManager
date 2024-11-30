@@ -172,12 +172,6 @@ class EcsAsg(NestedStack):
                 # Let users of this specific stack know the same thing:
                 autoscaling.NotificationConfiguration(topic=leaf_stack_sns_topic, scaling_events=autoscaling.ScalingEvents.ERRORS),
             ],
-            # Make it push number of instances to cloudwatch, so you can warn user if it's up too long:
-            group_metrics=[
-                autoscaling.GroupMetrics(
-                    autoscaling.GroupMetric.IN_SERVICE_INSTANCES,
-                ),
-            ],
         )
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
