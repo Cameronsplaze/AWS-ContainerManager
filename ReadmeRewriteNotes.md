@@ -26,7 +26,13 @@ See `Advanced Deployments` for more specific info.
 
 ## Writing your own Config
 
+See "here" for info on writting config files
+
+### Configurable Alarms in the Stack
+
 Link to the Threshold in Examples/README.md, for how to find/set *that* value. (In that area, explain where to see the alarm going off. Both in the dashboard, and in metrics if dashboard is disbaled.)
+
+And talk about the other two quickly here too. Link to `leaf_stack/README.md#watchdog`'s section once it exists.
 
 ## Cost of Everything
 
