@@ -56,48 +56,6 @@ class Watchdog(NestedStack):
         # Set 0 to inf:
         self.scale_down_asg_action.add_adjustment(adjustment=0, lower_bound=0)
 
-        ################################
-        ## Instance Up too-long Logic ##
-        ################################
-        ## Grab the built-in IN_SERVICE_INSTANCES metric and load into cdk:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        self.metric_asg_num_instances = cloudwatch.Metric(
-            label="Number of Instances",
-            metric_name="GroupInServiceInstances",
-            namespace="AWS/AutoScaling",
-            dimensions_map={
-                "AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name,
-            },
-            period=Duration.minutes(1),
-            statistic="Maximum",
-        )
-        ## And the alarm to flag if the instance is up too long:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-        duration_before_alarm = watchdog_config["InstanceLeftUp"]["DurationHours"].to_minutes()
-        self.alarm_asg_instance_left_up = self.metric_asg_num_instances.create_alarm(
-            self,
-            "AlarmInstanceLeftUp",
-            alarm_name=f"Instance Left Up ({leaf_construct_id})",
-            alarm_description="To warn if the instance is up too long",
-            ### This way if the period changes, this will stay the same duration:
-            # Total Duration = Number of Periods * Period length... so
-            # Number of Periods = Total Duration / Period length
-            evaluation_periods=int(duration_before_alarm / self.metric_asg_num_instances.period.to_minutes()),
-            threshold=1,
-            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.MISSING,
-        )
-        ## Actually email admin if this is triggered:
-        #   (No need to add the other sns_topic too, only admin would ever care about this.)
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-        self.alarm_asg_instance_left_up.add_alarm_action(
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch_actions.SnsAction.html
-            cloudwatch_actions.SnsAction(base_stack_sns_topic)
-        )
-        if watchdog_config["InstanceLeftUp"]["ShouldStop"]:
-            self.alarm_asg_instance_left_up.add_alarm_action(
-                cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
-            )
 
         ############################
         ## Traffic IN Alarm Logic ##
@@ -178,6 +136,55 @@ class Watchdog(NestedStack):
         self.alarm_container_activity.add_alarm_action(
             cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
         )
+
+
+        ################################
+        ## Instance Up too-long Logic ##
+        ################################
+
+        ## Use the `traffic_in_metric` from above. If it has data, the instance is up:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        self.instance_is_up = cloudwatch.MathExpression(
+            # Doing N/A or 1, so alarms are blank if no instance/data:
+            # (save on cloudwatch api calls when system is off)
+            label="Instance is Up (Bool)",
+            expression="network_in >= 0",
+            using_metrics={
+                "network_in": traffic_in_metric,
+            },
+            period=traffic_in_metric.period,
+        )
+
+        ## Trigger if the instance is up too long:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+        duration_before_alarm = watchdog_config["InstanceLeftUp"]["DurationHours"].to_minutes()
+        self.alarm_asg_instance_left_up = self.instance_is_up.create_alarm(
+            self,
+            "AlarmInstanceLeftUp",
+            alarm_name=f"Instance Left Up ({leaf_construct_id})",
+            alarm_description="To warn if the instance is up too long",
+            ### This way if the period changes, this will stay the same duration:
+            # Total Duration = Number of Periods * Period length... so
+            # Number of Periods = Total Duration / Period length
+            evaluation_periods=int(duration_before_alarm / self.instance_is_up.period.to_minutes()),
+            threshold=0,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            # Missing data means instance is off:
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+
+        ## Actually email admin if this is triggered:
+        #   (No need to add the other sns_topic too, only admin would ever care about this.)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+        self.alarm_asg_instance_left_up.add_alarm_action(
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch_actions.SnsAction.html
+            cloudwatch_actions.SnsAction(base_stack_sns_topic)
+        )
+        if watchdog_config["InstanceLeftUp"]["ShouldStop"]:
+            self.alarm_asg_instance_left_up.add_alarm_action(
+                cloudwatch_actions.AutoScalingAction(self.scale_down_asg_action)
+            )
+
 
         ##########################################
         ## Container Crash-loop Detection Logic ##
@@ -276,14 +283,8 @@ class Watchdog(NestedStack):
                 },
             ),
             targets=[
-                # ## https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.SnsTopic.html
-                # events_targets.SnsTopic(
-                #     base_stack_sns_topic,
-                #     message=events.RuleTargetInput.from_text(" ".join([
-                #         f"Container '{container_id}' has UNEXPECTEDLY STOPPED! See this log group for why:",
-                #         f"{log_group_break_crash_loop.log_group_name}",
-                #     ])),
-                # ),
+                ## NOTE: Not doing SNS here since it can trigger 2-4 times before
+                # lambda below finally disables it. Do in alarm instead to only get 1.
                 ## https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 events_targets.LambdaFunction(self.lambda_break_crash_loop),
             ],
@@ -302,6 +303,8 @@ class Watchdog(NestedStack):
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
             evaluation_periods=1,
+            # Missing data means instance is off:
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
         )
         ## Call these if switching to ALARM:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
