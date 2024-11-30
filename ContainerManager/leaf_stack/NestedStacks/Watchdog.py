@@ -124,7 +124,7 @@ class Watchdog(NestedStack):
         self.alarm_container_activity = self.watchdog_traffic_metric.create_alarm(
             self,
             "AlarmContainerActivity",
-            alarm_name=f"Container Activity ({leaf_construct_id})",
+            alarm_name=f"Container Activity - [{leaf_construct_id}]",
             alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
             threshold=self.threshold,
@@ -161,7 +161,7 @@ class Watchdog(NestedStack):
         self.alarm_asg_instance_left_up = self.instance_is_up.create_alarm(
             self,
             "AlarmInstanceLeftUp",
-            alarm_name=f"Instance Left Up ({leaf_construct_id})",
+            alarm_name=f"Instance Left Up - [{leaf_construct_id}]",
             alarm_description="To warn if the instance is up too long",
             ### This way if the period changes, this will stay the same duration:
             # Total Duration = Number of Periods * Period length... so
@@ -298,7 +298,7 @@ class Watchdog(NestedStack):
         self.alarm_break_crash_loop_count = metric_break_crash_loop_count.create_alarm(
             self,
             "AlarmBreakCrashLoop",
-            alarm_name=f"Break Crash Loop ({leaf_construct_id})",
+            alarm_name=f"Break Crash Loop - [{leaf_construct_id}]",
             alarm_description="Spin down the ASG if the container crashes or can't start",
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,

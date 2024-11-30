@@ -60,9 +60,9 @@ class Dashboard(NestedStack):
 
         ## EC2 Service Metrics:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
-        cpu_utilization_metric = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization()
+        cpu_utilization_metric = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization(unit=cloudwatch.Unit.PERCENT)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrmemorywbrutilizationprops
-        memory_utilization_metric = ecs_asg_nested_stack.ec2_service.metric_memory_utilization()
+        memory_utilization_metric = ecs_asg_nested_stack.ec2_service.metric_memory_utilization(unit=cloudwatch.Unit.PERCENT)
 
         ############
         ### Widgets Here. The order here is how they'll appear in the dashboard.
@@ -71,7 +71,7 @@ class Dashboard(NestedStack):
             ## Route53 DNS logs for spinning up the system:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.LogQueryWidget.html
             cloudwatch.LogQueryWidget(
-                title="DNS Traffic - Hook to Start Up System",
+                title=f"(DNS Traffic) Start's Up System - [{domain_stack.region}: {domain_stack.route53_query_log_group.log_group_name}]",
                 log_group_names=[domain_stack.route53_query_log_group.log_group_name],
                 region=domain_stack.region,
                 width=12,
@@ -94,6 +94,9 @@ class Dashboard(NestedStack):
                 width=12,
                 right=[metric_asg_lambda_invocation_count],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
+                ## Only shows units when graph has data. This changes that:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
+                right_y_axis=cloudwatch.YAxisProps(label=metric_asg_lambda_invocation_count.unit.value.title(), show_units=False),
             ),
 
             ### Show the number of instances, to see when it starts/stops:
@@ -105,15 +108,18 @@ class Dashboard(NestedStack):
                 left_y_axis=cloudwatch.YAxisProps(min=0, max=1),
                 width=4,
                 height=6,
-                # Only look 1 min back:
-                start="-PT1M",
+                # As soon as you see data, turn on. We don't care what the data is in this case:
+                live_data=True,
+                # Only look back same as the metric period to get last datapoint:
+                # (needed because "no-data" means 0, it never posts a metric of '0')
+                start=f"-PT{watchdog_nested_stack.instance_is_up.period.to_minutes()}M",
             ),
 
             ## Brief summary of all the alarms, and lets you jump to them directly:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
             cloudwatch.AlarmStatusWidget(
                 title="Alarm Summary",
-                width=3,
+                width=4,
                 height=6,
                 # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_cloudwatch/AlarmStatusWidgetSortBy.html#aws_cdk.aws_cloudwatch.AlarmStatusWidgetSortBy
                 sort_by=cloudwatch.AlarmStatusWidgetSortBy.STATE_UPDATED_TIMESTAMP,
@@ -124,16 +130,13 @@ class Dashboard(NestedStack):
                 ],
             ),
 
-            ## Instance Left Up Alarm:
+            ## Crash Loop Alarm:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
             cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_asg_instance_left_up.alarm_name}",
-                width=5,
+                title=f"(Alarm) {watchdog_nested_stack.alarm_break_crash_loop_count.alarm_name}",
+                width=4,
                 height=6,
-                alarm=watchdog_nested_stack.alarm_asg_instance_left_up,
-                ## Doesn't show the units anyways:
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
-                left_y_axis=cloudwatch.YAxisProps(label="Bool", show_units=False),
+                alarm=watchdog_nested_stack.alarm_break_crash_loop_count,
             ),
 
             ### All the ASG Traffic in/out
@@ -156,20 +159,11 @@ class Dashboard(NestedStack):
                 right_y_axis=cloudwatch.YAxisProps(label=TRAFFIC_IN_LABEL, show_units=False),
             ),
 
-            ## Crash Loop Alarm:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
-            cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_break_crash_loop_count.alarm_name}",
-                width=5,
-                height=6,
-                alarm=watchdog_nested_stack.alarm_break_crash_loop_count,
-            ),
-
             ## Container Activity Alarm:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
             cloudwatch.AlarmWidget(
-                title=f"Alarm: {watchdog_nested_stack.alarm_container_activity.alarm_name}",
-                width=7,
+                title=f"(Alarm) {watchdog_nested_stack.alarm_container_activity.alarm_name}",
+                width=8,
                 height=6,
                 alarm=watchdog_nested_stack.alarm_container_activity,
                 ## Doesn't show the units anyways:
@@ -177,12 +171,24 @@ class Dashboard(NestedStack):
                 left_y_axis=cloudwatch.YAxisProps(label=TRAFFIC_IN_LABEL, show_units=False),
             ),
 
+            ## Instance Left Up Alarm:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmWidget.html
+            cloudwatch.AlarmWidget(
+                title=f"(Alarm) {watchdog_nested_stack.alarm_asg_instance_left_up.alarm_name}",
+                width=4,
+                height=6,
+                alarm=watchdog_nested_stack.alarm_asg_instance_left_up,
+                ## Doesn't show the units anyways:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
+                left_y_axis=cloudwatch.YAxisProps(label="Bool", show_units=False),
+            ),
+
             ## Show the Container Logs:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.LogQueryWidget.html
             cloudwatch.LogQueryWidget(
-                title="Container Logs",
+                title=f"Container's Logs - [{self.region}: {container_nested_stack.container_log_group.log_group_name}]",
                 log_group_names=[container_nested_stack.container_log_group.log_group_name],
-                height=8,
+                height=10,
                 width=12,
                 query_lines=[
                     # The message is controlled by code inside the container, no idea if it'll have a timestamp.
@@ -194,7 +200,7 @@ class Dashboard(NestedStack):
             ## ECS Container Utilization:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
             cloudwatch.GraphWidget(
-                title=f"(ECS) Container Utilization - {main_config['Ec2']['InstanceType']}",
+                title=f"(ECS) Container Utilization - [{main_config['Ec2']['InstanceType']}]",
                 # Only show up to an hour ago:
                 height=6,
                 width=12,
@@ -203,6 +209,9 @@ class Dashboard(NestedStack):
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
                 statistic="Maximum",
+                ## Only shows units when graph has data. This changes that:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
+                right_y_axis=cloudwatch.YAxisProps(label=cpu_utilization_metric.unit.value.title(), show_units=False),
             ),
 
         ]
