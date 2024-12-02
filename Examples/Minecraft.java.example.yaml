@@ -1,5 +1,6 @@
 
 Ec2:
+  # IF you change this, change `INIT_MEMORY` and `MAX_MEMORY` below too (to this - 1G)
   InstanceType: m5.large # 2vCPUs, 8GB RAM
 
 Container:
