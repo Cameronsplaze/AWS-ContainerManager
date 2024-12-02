@@ -1,61 +1,7 @@
-# Base Readme
-
-This should be the minimal to use/start with the project. Don't go into architecture here.
-
-## Quick Start
-
-### Setting up AWS (First Time)
-
-### Deploying the Stacks
-See `Advanced Deployments` for more specific info.
-#### Base Stack
-#### Leaf Stack
-
-### Connecting to the Container
-
-### Cleaning up after
 
 
 
-## Running Commands on the Host / Accessing Files
 
-### SSM Session Manager
-### SSH into the Host
-### Moving files from Old EFS to New
-
-
-## Writing your own Config
-
-See "here" for info on writting config files
-
-### Configurable Alarms in the Stack
-
-Link to the Threshold in Examples/README.md, for how to find/set *that* value. (In that area, explain where to see the alarm going off. Both in the dashboard, and in metrics if dashboard is disbaled.)
-
-And talk about the other two quickly here too. Link to `leaf_stack/README.md#watchdog`'s section once it exists.
-
-## Cost of Everything
-
-## Advanced Deployments
-
-### Deploy / Destroy
-
-Examples with container-id, maturity, and container-id
-
-### Synth
-
-Just link to developing section for this, that's where you'd need it.
-
-### Automating Deployments (See GH/Workflows readme.md)
-
-## Learning / Developing on the Architecture
-
-Link directly to basic architecture diagram.
-
-Go over how docs are structured, with each directory getting a more-specific readme
-
-
----
 `Examples/README.md`
 
 - Make sure to link to utils/config-parser.py somewhere
@@ -63,18 +9,23 @@ Go over how docs are structured, with each directory getting a more-specific rea
 - Rewrite as mentioned in GH issues, lets you link to each key
 - Link `Issues or Discussions` in #1 at the bottom to the GH links
 
+Move over from main README.md:
+
+```
+
+### What to do if my container stays on too long or randomly spins down?
+
+This likely means the `Threshold` for watching container traffic is too far off. Go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. It'll tell you how much traffic is going into the container in Bytes/Second.
+
+- **If it's staying on too long after people disconnect**, you'll have to raise the threshold. Make sure everyone is disconnected, and wait ~10 minutes. Look at the highest point it reaches in that time, and set the `Threshold` just above that. (If someone *just* disconnected, give the container a bit to become "stable" before starting the 10min count).
+- **If it's spinning down too quickly**, you'll have to lower the threshold. Do the same as above to figure out *where* to set it.
+```
+
+
 ---
 `ContainerManager/README.md`
 
-## Go Over Basic Architecture Design (plus leaf_stack picture)
-
-Make sure you're clear leaf_stack's picture is just *it*'s logic.
-
-## Design of Base Stack + Leaf Stack
-
-### Quick overview of files in this direct folder
-
-## Base stack config options
+TODO: Change the `Base Stack Config Options` format to match the new "allow command linking" style. The same as the Examples/README.md is going to use.
 
 ---
 `ContainerManager/leaf_stack/README.md`
@@ -83,6 +34,6 @@ Make sure you're clear leaf_stack's picture is just *it*'s logic.
 
 ## Components
 
-### - Each file has one...
+    ### - Each file has one...
 
 

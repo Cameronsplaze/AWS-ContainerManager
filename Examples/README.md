@@ -135,6 +135,8 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
     Adding it here instead of the base stack, will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
 
+- TODO: Add dashboard section (specifically disable key, note that you only get 3 free dashboards at a time).
+
 ## Gotchas
 
 - Container `Environment Variables` to set when Writing Configs:
