@@ -82,7 +82,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 - (`list`, Optional): Config options for Volumes (Persistent Storage).
 
-Each "block" defines one volume, for example:
+   Each "block" defines one volume, for example:
 
    ```yaml
    Volumes:
