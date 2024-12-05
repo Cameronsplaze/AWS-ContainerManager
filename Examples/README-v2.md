@@ -99,6 +99,12 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
        - Path: /opt/valheim
    ```
 
+### `Volumes[*].Type`
+
+- (`str`, Optional, default=`EFS`): The type of volume to use. Currently only `EFS` is supported.
+
+   I plan to add [`S3` support](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/10) when I get a chance, this is here for future-proofing.
+
 ### `Volumes[*].EnableBackups`
 
 - (`bool`, Optional, default=`True`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups.
