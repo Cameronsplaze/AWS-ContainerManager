@@ -26,202 +26,202 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ### `Ec2`
 
-(`dict`, **Required**): Config options for anything Ec2 related.
+- (`dict`, **Required**): Config options for anything Ec2 related.
 
 ### `Ec2.InstanceType`
 
-(`str`, **Required**): The EC2 instance type to use. I.e `t3.micro`, `m5.large`, etc.
+- (`str`, **Required**): The EC2 instance type to use. I.e `t3.micro`, `m5.large`, etc.
 
-```yaml
-Ec2:
-  InstanceType: m5.large
-```
+   ```yaml
+   Ec2:
+   InstanceType: m5.large
+   ```
 
 ---
 
 ### `Container`
 
-(`dict`, **Required**): Config options for anything Container related.
+- (`dict`, **Required**): Config options for anything Container related.
 
 ### `Container.Image`
 
-(`str`, **Required**): The Docker image to use. I.e `itzg/minecraft-server`, `lloesche/valheim-server`, etc.
+- (`str`, **Required**): The Docker image to use. I.e `itzg/minecraft-server`, `lloesche/valheim-server`, etc.
 
-```yaml
-Container:
-  Image: itzg/minecraft-server
-```
+   ```yaml
+   Container:
+   Image: itzg/minecraft-server
+   ```
 
 ### `Container.Ports`
 
-(`list`, **Required**): The list of ports to expose, in the form of `Type: number`. I.e:
+- (`list`, **Required**): The list of ports to expose, in the form of `Type: number`. I.e:
 
-```yaml
-Container:
-  Ports:
-    - TCP: 25565
-    - UDP: 1234
-    # ...
-```
+   ```yaml
+   Container:
+   Ports:
+     - TCP: 25565
+     - UDP: 1234
+     # ...
+   ```
 
 ### `Container.Environment`
 
-(`dict`, Optional): The environment variables to pass into the container, as key-value pairs.
+- (`dict`, Optional): The environment variables to pass into the container, as key-value pairs.
 
-```yaml
-Container:
-    Environment:
-    EULA: True
-    TYPE: "PAPER"
-    # ...
-```
+   ```yaml
+   Container:
+      Environment:
+      EULA: True
+      TYPE: "PAPER"
+      # ...
+   ```
 
 ---
 
 ### `Volumes`
 
-(`list`, Optional): Config options for Volumes (Persistent Storage).
+- (`list`, Optional): Config options for Volumes (Persistent Storage).
 
 Each "block" defines one volume, for example:
 
-```yaml
-Volumes:
-  ## Minimal Volume:
-  # EnableBackups, and KeepOnDelete are True by default
-  - Paths:
+   ```yaml
+   Volumes:
+   ## Minimal Volume:
+   # EnableBackups, and KeepOnDelete are True by default
+   - Paths:
       - Path: /data
-  ## Or if you wanted something persistent, but not backed up:
-  #     (i.e the path to the valheim server binary. Saves
-  #      on startup time, but not critical if lost.)
-  - EnableBackups: False
-    KeepOnDelete: False
-    Paths:
-      - Path: /opt/valheim
-```
+   ## Or if you wanted something persistent, but not backed up:
+   #     (i.e the path to the valheim server binary. Saves
+   #      on startup time, but not critical if lost.)
+   - EnableBackups: False
+      KeepOnDelete: False
+      Paths:
+       - Path: /opt/valheim
+   ```
 
 ### `Volumes[*].EnableBackups`
 
-(`bool`, Optional, default=`True`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups.
+- (`bool`, Optional, default=`True`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups.
 
 ### `Volumes[*].KeepOnDelete`
 
-(`bool`, Optional, default=`True`): If you should keep the data when the stack is destroyed.
+- (`bool`, Optional, default=`True`): If you should keep the data when the stack is destroyed.
 
 ### `Volumes[*].Paths`
 
-(`list`, **Required**): The list of paths to persist INSIDE the container.
+- (`list`, **Required**): The list of paths to persist INSIDE the container.
 
-For example, if you **didn't** want to backup data directory in the [above example](#volumes), you could add it to the Server Binary's EFS:
+   For example, if you **didn't** want to backup data directory in the [above example](#volumes), you could add it to the Server Binary's EFS:
 
-```yaml
-Volumes:
-  - EnableBackups: False
-    KeepOnDelete: False
-    Paths:
-      - Path: /opt/valheim
-      - Path: /data
-```
+   ```yaml
+   Volumes:
+     - EnableBackups: False
+       KeepOnDelete: False
+       Paths:
+         - Path: /opt/valheim
+         - Path: /data
+   ```
 
 ### `Volumes[*].Paths[*].Path`
 
-(`str`, **Required**): The path inside the container to persist. I.e `/data`, `/opt/valheim`, `/config`, etc.
+- (`str`, **Required**): The path inside the container to persist. I.e `/data`, `/opt/valheim`, `/config`, etc.
 
 ### `Volumes[*].Paths[*].ReadOnly`
 
-(`bool`, Optional, default=`False`): If the path should be read-only.
+- (`bool`, Optional, default=`False`): If the path should be read-only.
 
-```yaml
-Volumes:
-  - Paths:
-    - Path: /config
-      ReadOnly: True
-```
+   ```yaml
+   Volumes:
+     - Paths:
+        - Path: /config
+          ReadOnly: True
+   ```
 
 ---
 
 ### `Watchdog`
 
-(`dict`, **Required**): Config options for how long to wait before shutting down, and what is considered to be "idle".
+- (`dict`, **Required**): Config options for how long to wait before shutting down, and what is considered to be "idle".
 
 ### `Watchdog.Threshold`
 
-(`int`, **Required**): Bytes per Second. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
+- (`int`, **Required**): Bytes per Second. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
 
-**To find this number**: just set it to `20` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. This is low, so it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
+   **To find this number**: just set it to `20` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. This is low, so it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
 
-I couldn't make this have a default, because it's too different for each game. If I default it to 20, there's a risk of people not reading docs, and having a instance left up 24/7.
+   I couldn't make this have a default, because it's too different for each game. If I default it to 20, there's a risk of people not reading docs, and having a instance left up 24/7.
 
 ### `Watchdog.MinutesWithoutConnections`
 
-(`int`, Optional, default=`5`): How many minutes below the [threshold](#watchdogthreshold) before shutting down.
+- (`int`, Optional, default=`5`): How many minutes below the [threshold](#watchdogthreshold) before shutting down.
 
-```yaml
-Watchdog:
-  # If you don't get more than 900 bytes per second for 10 minutes, shut down:
-  Threshold: 900
-  MinutesWithoutConnections: 10
-```
+   ```yaml
+   Watchdog:
+   # If you don't get more than 900 bytes per second for 10 minutes, shut down:
+   Threshold: 900
+   MinutesWithoutConnections: 10
+   ```
 
 ### `Watchdog.InstanceLeftUp`
 
-(`dict`, Optional): Config options for what to do if the instance is left up for a long time.
+- (`dict`, Optional): Config options for what to do if the instance is left up for a long time.
 
-```yaml
-Watchdog:
-  InstanceLeftUp:
-    # If the instance has been up for 12 hours, alert the admin:
-    DurationHours: 12 # Default 8
-    # And shut it down:
-    ShouldStop: True # Default=False
-```
+   ```yaml
+   Watchdog:
+   InstanceLeftUp:
+      # If the instance has been up for 12 hours, alert the admin:
+      DurationHours: 12 # Default=8
+      # And shut it down:
+      ShouldStop: True # Default=False
+   ```
 
 ### `Watchdog.InstanceLeftUp.DurationHours`
 
-(`int`, Optional, default=`8`): How many hours before alarming the instance has been running this long. ALL alerts happen through [AlertSubscription](#alertsubscription).
+- (`int`, Optional, default=`8`): How many hours before alarming the instance has been running this long. ALL alerts happen through [AlertSubscription](#alertsubscription).
 
 
 ### `Watchdog.InstanceLeftUp.ShouldStop`
 
-(`bool`, Optional, default=`False`): When [DurationHours](#watchdoginstanceleftupdurationhours) is reached: Should the container stop?
+- (`bool`, Optional, default=`False`): When [DurationHours](#watchdoginstanceleftupdurationhours) is reached: Should the container stop?
 
 ---
 
 ### `AlertSubscription`
 
-(`list`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e "DoesNotExist@gmail.com")
+- (`list`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e "DoesNotExist@gmail.com")
 
-```yaml
-AlertSubscription:
-  - Email: DoesNotExist1@gmail.com
-  - Email: DoesNotExist2@gmail.com
-```
+   ```yaml
+   AlertSubscription:
+   - Email: DoesNotExist1@gmail.com
+   - Email: DoesNotExist2@gmail.com
+   ```
 
-Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
+   Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
 
-Adding subscriptions here instead of [the base stack](TODO LINK THIS WHEN IT EXISTS), will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
+   Adding subscriptions here instead of [the base stack](TODO LINK THIS WHEN IT EXISTS), will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
 
 ---
 
 ### `Dashboard`
 
-(`dict`, Optional): Config options for the CloudWatch Dashboard.
+- (`dict`, Optional): Config options for the CloudWatch Dashboard.
 
-```yaml
-Dashboard:
-  # Look back an hour by default:
-  IntervalMinutes: 60
-  # If logs already have a timestamp in them:
-  ShowContainerLogTimestamp: False
-```
+   ```yaml
+   Dashboard:
+   # Look back an hour by default:
+   IntervalMinutes: 60
+   # If logs already have a timestamp in them:
+   ShowContainerLogTimestamp: False
+   ```
 
 ### `Dashboard.Enabled`
 
-(`bool`, Optional, default=`True`): If the dashboard should be enabled. You only get 3 free dashboards (per month?), so if you have a lot of stacks, you might want to disable this.
+- (`bool`, Optional, default=`True`): If the dashboard should be enabled. You only get 3 free dashboards (per month?), so if you have a lot of stacks, you might want to disable this.
 
 ### `Dashboard.IntervalMinutes`
 
-(`int`, Optional, default=`30`): When you're viewing the dashboard, the default time to look back for all the graphs.
+- (`int`, Optional, default=`30`): When you're viewing the dashboard, the default time to look back for all the graphs.
 
 ### `Dashboard.ShowContainerLogTimestamp`
 
-(`bool`, Optional, default=`True`): For the Container Log Widget, if you should show the timestamp field or not. (If the container log message already has them, you can disable this one then).
+- (`bool`, Optional, default=`True`): For the Container Log Widget, if you should show the timestamp field or not. (If the container log message already has them, you can disable this one then).
