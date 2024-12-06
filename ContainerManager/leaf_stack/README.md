@@ -2,20 +2,11 @@
 
 This is the core of the Container Manager. It's the AWS Architecture that runs the container, along with spinning it up/down when needed. Multiple `leaf_stack`'s can be deployed together, one for each each container.
 
-## High-Level Architecture
+## CDK Architecture
 
-All the leaf stack components *combined*, form the architecture of managing a container. Below shows the **core** logic of just spinning up and down a container:
+How the leaf stack links together and works:
 
-![picture](../../Resources/AWS-ContainerManager_Basic_Diagram.png)
-<!-- Original board: https://sketchboard.me/REucJJtlrBCi#/ -->
-
-**Not an all inclusive diagram**: There's more not shown, like EFS mounted to both the EC2 Task and ASG Instance, SNS Alerts, etc.
-
-The nice thing about this architecture is **all** based around AutoScalingGroup state changes. You can easily change the ASG's `desired_count` in the console if you need, and the rest of the architecture will follow suit (Including matching the ecs task count).
-
-## Dependency Graph
-
-How each of the leaf stack components link together:
+**TODO: Update and expand heavily:**
 
 ```mermaid
 flowchart LR

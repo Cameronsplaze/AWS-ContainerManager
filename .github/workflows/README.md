@@ -2,7 +2,7 @@
 
 **GitHub Actions Docs/References:**
 
-- The GOOD docs on [writting workflows](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions) that I can never find when I need.
+- The GOOD docs on [writing workflows](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions) that I can never find when I need.
 - Docs on [context](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)'s (i.e ${{ github.* }}, and other built-in variables)
 
 ## Dependabot Auto-Updates

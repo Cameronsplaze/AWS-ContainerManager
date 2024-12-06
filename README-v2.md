@@ -2,7 +2,7 @@
 
 Run Minecraft, Valheim, or any container automatically in AWS!
 
-This CDK project spins up the container when someone connects, then spins it back *down* when they're done automatically! It's a great way to host game/container servers for your friends cheaply, without opening your home network to the world.
+This CDK project spins up the container when someone connects, then spins it back *down* when they're done automatically! It's a great way to host game/container servers for your friends cheaply, **without opening your home network to the outside world.**
 
 ---
 
@@ -166,19 +166,17 @@ If you have an existing EFS left over from deleting a stack, there's no way to t
 
 The config examples are in `./Examples/*.example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](/Examples/README.md#config-file-options).
 
-### If the container is unexpectally Going Down, or Staying Up
+### If the container is unexpectedly Going Down, or Staying Up
 
-There's a few alarms inside the app that are supposed to shut down the system when specific events happen. Check the [Dashboard](https://console.aws.amazon.com/cloudwatch/home#dashboards) to see which alarm is (or isn't) triggering. (If you [disabled the dashboard](TODO LINK THIS WHEN IT EXISTS), view the [Alarms in CloudWatch](https://console.aws.amazon.com/cloudwatch/home#alarmsV2:)).
+There's a few alarms inside the app that are supposed to shut down the system when specific events happen. Check the [Dashboard](https://console.aws.amazon.com/cloudwatch/home#dashboards) to see which alarm is (or isn't) triggering. (If you [disabled the dashboard](/Examples/README.md#dashboardenabled), view the [Alarms in CloudWatch](https://console.aws.amazon.com/cloudwatch/home#alarmsV2:)).
 
-- If the `Container Activity` alarm is the problem, adjust the [watchdog.threshold](TODO LINK THIS WHEN IT EXISTS) config key.
-- If the `Instance Left Up` alarm is triggered, adjust the [whatever](TODO LINK THIS WHEN IT EXISTS) config keys.
-- If the `Break Crash Loop` alarm is triggered, the container either crashed or is refusing to start. View the container in the console to see what's going on. (Select your cluster from [ECS Clusters](https://console.aws.amazon.com/ecs/v2/clusters) -> ` */* Tasks running`. Debug info is likely in either `Logs` or `Events`, depending what is causing this).
-
-Implemnation details for each Alarm is in the [leaf_stack README.md](TODO LINK THIS WHEN IT EXISTS).
+- If the `Container Activity` alarm is the problem, adjust the [Watchdog.Threshold](/Examples/README.md#watchdogthreshold) config key.
+- If the `Instance Left Up` alarm is triggered, adjust the [whatever](/Examples/README.md#watchdoginstanceleftup) config keys.
+- If the `Break Crash Loop` alarm is triggered, the container either crashed or is refusing to start. View the container in the console to see what's going on. (Select your cluster from [ECS Clusters](https://console.aws.amazon.com/ecs/v2/clusters) -> `*/* Tasks running`. Debug info is likely in either `Logs` or `Events`, depending what is causing this).
 
 ## Cost of Everything
 
-- TODO: Create Cost Estimate: https://calculator.aws/#/ (It's not much).
+- TODO: [Create Cost Estimate](https://calculator.aws/#/) (It's not much).
 - Buying a domain from AWS is an extra `$3/year` for the cheapest I could find (`Register domains` -> `Standard pricing` -> `Price` to sort by price).
 - The [EC2 Costs](https://aws.amazon.com/ec2/pricing/on-demand/) aren't included because they're the highest factor. You're only charged while people are actively online, but the bigger instances are also more pricey.
 
@@ -186,7 +184,7 @@ Implemnation details for each Alarm is in the [leaf_stack README.md](TODO LINK T
 
 ### (cdk) Synth / Deploy / Destroy
 
-These are the core commands of cdk. Both deploy and destroy are broken into two for the base and leaf stacks. So in total, you have: `cdk-synth`, `cdk-deploy-base`, `cdk-deploy-leaf`, `cdk-destroy-base`, `cdk-destory-leaf`.
+These are the core commands of cdk. Both deploy and destroy are broken into two for the base and leaf stacks. So in total, you have: `cdk-synth`, `cdk-deploy-base`, `cdk-deploy-leaf`, `cdk-destroy-base`, `cdk-destroy-leaf`.
 
 **With the exception of** the `*-base` commands, the other three commands have three parameters for customization:
 

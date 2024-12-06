@@ -2,7 +2,9 @@
 
 These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft.java.example.yaml` -> `minecraft.java.example.my-domain.com`). See any `*.example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `container_id=` key. See the [CDK Deploy Command](TODO LINK THIS WHEN IT EXISTS) section for more details.)
 
-If you need to jump to '[Config File Options](#config-file-options)'. It's the last section, since it's the longest.
+The code that actually parses these options is in [config_loader.py](/ContainerManager/utils/config_loader.py).
+
+Click here to jump to '[Config File Options](#config-file-options)'. It's the last section, since it's the longest.
 
 ## Gotchas when Writing Configs
 
@@ -155,6 +157,8 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    **To find this number**: just set it to `20` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. This is low, so it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
 
+   If you're having problems with the container spinning down too quickly, you'll have to lower this number. If it's staying up too long, you'll have to raise it.
+
    I couldn't make this have a default, because it's too different for each game. If I default it to 20, there's a risk of people not reading docs, and having a instance left up 24/7.
 
 ### `Watchdog.MinutesWithoutConnections`
@@ -185,7 +189,6 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 - (`int`, Optional, default=`8`): How many hours before alarming the instance has been running this long. ALL alerts happen through [AlertSubscription](#alertsubscription).
 
-
 ### `Watchdog.InstanceLeftUp.ShouldStop`
 
 - (`bool`, Optional, default=`False`): When [DurationHours](#watchdoginstanceleftupdurationhours) is reached: Should the container stop?
@@ -194,7 +197,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ### `AlertSubscription`
 
-- (`list`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e "DoesNotExist@gmail.com")
+- (`list`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e `DoesNotExist@gmail.com`)
 
    ```yaml
    AlertSubscription:
@@ -231,3 +234,5 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 ### `Dashboard.ShowContainerLogTimestamp`
 
 - (`bool`, Optional, default=`True`): For the Container Log Widget, if you should show the timestamp field or not. (If the container log message already has them, you can disable this one then).
+
+---
