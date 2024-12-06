@@ -11,7 +11,11 @@ How the leaf stack links together and works:
 ```mermaid
 flowchart LR
     user-connects[User Connects]
-    subgraph "domain_stack.py (us-east-1)"
+
+    subgraph "
+    domain_stack.py
+    (us-east-1)
+    "
         sub-hosted-zone[Sub Hosted Zone]
         query-log-group[Query Log Group]
 
@@ -19,7 +23,10 @@ flowchart LR
     end
     user-connects --DNS Query--> sub-hosted-zone
 
-    subgraph "link_together_stack.py (us-east-1)"
+    subgraph "
+    link_together_stack.py
+    (us-east-1)
+    "
         subscription-filter[Subscription Filter]
         lambda-start-system[Lambda: Start System]
 
@@ -27,7 +34,10 @@ flowchart LR
     end
     query-log-group --if Log matches Filter--> subscription-filter
 
-    subgraph "leaf_stack.py (any region)"
+    subgraph "
+    leaf_stack.py
+    (any region)
+    "
         sns-notify[SNS: Notify]
 
         subgraph EcsAsg.py
@@ -63,7 +73,7 @@ flowchart LR
         Ec2Instance --Mounts--> persistent-volume
 
         subgraph Container.py
-            container[Container]
+            container[Task / Container]
             task-definition[Task Definition]
 
             task-definition --> container
@@ -82,7 +92,7 @@ flowchart LR
             metric-traffic-in --Bytes/Second--> alarm-container-activity
             metric-traffic-dns --DNS Query Hit--> alarm-container-activity
             alarm-container-activity --If No Traffic--> scale-down-asg-action
-            metric-traffic-in --If ANY traffic for X time--> alarm-instance-up
+            metric-traffic-in --If ANY traffic for VERY long time--> alarm-instance-up
             alarm-instance-up --If Instance Left Up--> scale-down-asg-action
         end
         sub-hosted-zone --Monitors Info--> metric-traffic-dns
