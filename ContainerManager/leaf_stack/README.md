@@ -2,14 +2,14 @@
 
 This is the core of the Container Manager. It's the AWS Architecture that runs the container, along with spinning it up/down when needed. Multiple `leaf_stack`'s can be deployed together, one for each each container.
 
-A simple TLDR can be found back one level in [../README.md](../README.md#leaf-stack-summary)
+A simple TLDR diagram can be found back one level in [../README.md](../README.md#leaf-stack-summary)
 
 ## CDK Architecture
 
 How the leaf stack links together and works:
 
 ```mermaid
-flowchart LR
+flowchart TD
     %% Colors:
     %% fill=background, color=font, stroke=border
     classDef blue fill:#C5DEF5,color:#000,stroke:#333;
