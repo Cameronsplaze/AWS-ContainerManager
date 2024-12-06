@@ -77,8 +77,8 @@ flowchart TD
 
         Asg --Instance Start--> events-rule-asg-up
         Asg --Instance Stop--> events-rule-asg-down
-        events-rule-asg-up --Alert--> sns-notify
-        events-rule-asg-down --Alert--> sns-notify
+        events-rule-asg-up -.Alert..-> sns-notify
+        events-rule-asg-down -.Alert..-> sns-notify
         lambda-asg-StateChange --Updates DNS Record--> sub-hosted-zone
         lambda-asg-StateChange --Updates Task Count--> Ec2Service
 
@@ -112,14 +112,15 @@ flowchart TD
             metric-traffic-in --If ANY traffic for VERY long time--> alarm-instance-up
             alarm-instance-up --If Instance Left Up--> scale-down-asg-action
         end
+        click Watchdog.py "https://github.com/Cameronsplaze/AWS-ContainerManager/blob/chore/docs-rewrite/ContainerManager/leaf_stack/NestedStacks/Watchdog.py" "Test link"
         class Watchdog.py purple
         sub-hosted-zone --Monitors Info--> metric-traffic-dns
         container --Monitors Info--> metric-traffic-in
         scale-down-asg-action --Stops--> Asg
-        alarm-instance-up --Alert--> sns-notify
+        alarm-instance-up -.Alert..-> sns-notify
         container --Crashes--> lambda-break-crash-loop
         lambda-break-crash-loop --Stops--> Asg
-        lambda-break-crash-loop --Alert--> sns-notify
+        lambda-break-crash-loop -.Alert..-> sns-notify
 
     end
     class leaf_stack red
