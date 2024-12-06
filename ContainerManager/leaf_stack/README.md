@@ -10,6 +10,7 @@ How the leaf stack links together and works:
 
 ```mermaid
 %% Solid docs on Mermaid: https://content.mermaidchart.com/diagram-syntax/flowchart/
+%%{init: {"flowchart": {'defaultRenderer': 'elk'}}}%%
 flowchart TD
     %% Colors:
     %% fill=background, color=font, stroke=border
