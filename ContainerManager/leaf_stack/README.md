@@ -11,10 +11,10 @@ How the leaf stack links together and works:
 ```mermaid
 flowchart LR
     %% Colors:
-    classDef blue fill:#4285f4,color:#fff,stroke:#333;
-    classDef red fill:#db4437,color:#fff,stroke:#333;
+    classDef blue fill:#4285f4,color:#000,stroke:#333;
+    classDef red fill:#db4437,color:#000,stroke:#333;
     classDef cyan fill:#a2eeef,color:#000,stroke:#333;
-    classDef green fill:#0f9d58,color:#fff,stroke:#333;
+    classDef green fill:#0f9d58,color:#000,stroke:#333;
 
     user-connects["🧑‍🤝‍🧑 User Connects"]
 
