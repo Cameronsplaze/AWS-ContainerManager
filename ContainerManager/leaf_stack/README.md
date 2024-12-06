@@ -11,10 +11,11 @@ How the leaf stack links together and works:
 ```mermaid
 flowchart LR
     %% Colors:
-    classDef blue fill:#4285f4,color:#000,stroke:#333;
-    classDef red fill:#db4437,color:#000,stroke:#333;
-    classDef cyan fill:#a2eeef,color:#000,stroke:#333;
-    classDef green fill:#0f9d58,color:#000,stroke:#333;
+    %% fill=background, color=font, stroke=border
+    classDef blue fill:#C5DEF5,color:#000,stroke:#333;
+    classDef red fill:#E99695,color:#000,stroke:#333;
+    classDef purple fill:#D4C5F9,color:#000,stroke:#333;
+    classDef green fill:#C2E0C6,color:#000,stroke:#333;
 
     user-connects["🧑‍🤝‍🧑 User Connects"]
 
@@ -61,7 +62,7 @@ flowchart LR
             Asg --Connects--> EcsCapacityProvider
             EcsCapacityProvider --Connects--> Ec2Service
         end
-        class EcsAsg.py cyan
+        class EcsAsg.py purple
 
         subgraph AsgStateChangeHook.py
             events-rule-asg-up[Events Rule: ASG Up]
@@ -71,7 +72,7 @@ flowchart LR
             events-rule-asg-up --Trigger--> lambda-asg-StateChange
             events-rule-asg-down --Trigger--> lambda-asg-StateChange
         end
-        class AsgStateChangeHook.py cyan
+        class AsgStateChangeHook.py purple
 
 
         Asg --Instance Start--> events-rule-asg-up
@@ -84,7 +85,7 @@ flowchart LR
         subgraph Volumes.py
             persistent-volume[Persistent Volume]
         end
-        class Volumes.py cyan
+        class Volumes.py purple
         Ec2Instance --Mounts--> persistent-volume
 
         subgraph Container.py
