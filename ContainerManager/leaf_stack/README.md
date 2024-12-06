@@ -2,6 +2,8 @@
 
 This is the core of the Container Manager. It's the AWS Architecture that runs the container, along with spinning it up/down when needed. Multiple `leaf_stack`'s can be deployed together, one for each each container.
 
+A simple TLDR can be found back one level in [../README.md](../README.md#leaf-stack-summary)
+
 ## CDK Architecture
 
 How the leaf stack links together and works:
@@ -32,8 +34,11 @@ flowchart LR
             Asg[AutoScalingGroup]
             Ec2Service[EC2 Service]
             Ec2Instance[EC2 Instance]
+            EcsCapacityProvider[ECS Capacity Provider]
 
             Asg --Starts/Stops--> Ec2Instance
+            Asg --Connects--> EcsCapacityProvider
+            EcsCapacityProvider --Connects--> Ec2Service
         end
 
         subgraph AsgStateChangeHook.py
@@ -65,6 +70,28 @@ flowchart LR
         end
         Ec2Service --> task-definition
         container --Mounts--> persistent-volume
+
+        subgraph Watchdog.py
+            metric-traffic-in[CloudWatch Metric: Traffic]
+            metric-traffic-dns[CloudWatch Metric: DNS]
+            scale-down-asg-action[Scale Down ASG Action]
+            alarm-container-activity[Alarm: Container Activity]
+            alarm-instance-up[Alarm: Instance Left Up]
+            lambda-break-crash-loop[Lambda: Break Crash Loop]
+
+            metric-traffic-in --Bytes/Second--> alarm-container-activity
+            metric-traffic-dns --DNS Query Hit--> alarm-container-activity
+            alarm-container-activity --If No Traffic--> scale-down-asg-action
+            metric-traffic-in --If ANY traffic for X time--> alarm-instance-up
+            alarm-instance-up --If Instance Left Up--> scale-down-asg-action
+        end
+        sub-hosted-zone --Monitors Info--> metric-traffic-dns
+        container --Monitors Info--> metric-traffic-in
+        scale-down-asg-action --Stops--> Asg
+        alarm-instance-up --Alert--> sns-notify
+        container --Crashes--> lambda-break-crash-loop
+        lambda-break-crash-loop --Stops--> Asg
+        lambda-break-crash-loop --Alert--> sns-notify
 
     end
     lambda-start-system --Starts--> Asg
