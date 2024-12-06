@@ -19,27 +19,36 @@ flowchart LR
     user-connects["🧑‍🤝‍🧑 User Connects"]
 
     %% DOMAIN STACK SUBGRAPH
-    subgraph domain_stack.py
+    subgraph domain_stack["
+    **domain_stack.py**
+    (us-east-1)
+    "]
         sub-hosted-zone[Sub Hosted Zone]
         query-log-group[Query Log Group]
 
         sub-hosted-zone --Writes Log--> query-log-group
     end
-    class domain_stack.py blue
+    class domain_stack blue
     user-connects --DNS Query--> sub-hosted-zone
 
     %% LINK TOGETHER STACK SUBGRAPH
-    subgraph link_together_stack.py
+    subgraph link_together_stack["
+    **link_together_stack.py**
+    (us-east-1)
+    "]
         subscription-filter[Subscription Filter]
         lambda-start-system[Lambda: Start System]
 
         subscription-filter --trigger--> lambda-start-system
     end
-    class link_together_stack.py green
+    class link_together_stack green
     query-log-group --if Log matches Filter--> subscription-filter
 
     %% LEAF STACK SUBGRAPH
-    subgraph leaf_stack.py
+    subgraph leaf_stack["
+    **leaf_stack.py**
+    (Any Region)
+    "]
         sns-notify[SNS: Notify]
 
         subgraph EcsAsg.py
@@ -112,7 +121,7 @@ flowchart LR
         lambda-break-crash-loop --Alert--> sns-notify
 
     end
-    class leaf_stack.py red
+    class leaf_stack red
     lambda-start-system --Starts--> Asg
 ```
 
