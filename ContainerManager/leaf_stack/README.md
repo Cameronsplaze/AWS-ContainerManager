@@ -10,34 +10,36 @@ How the leaf stack links together and works:
 
 ```mermaid
 flowchart LR
-    user-connects[User Connects]
+    %% Colors:
+    classDef blue fill:#4285f4,color:#fff,stroke:#333;
+    classDef red fill:#db4437,color:#fff,stroke:#333;
+    classDef cyan fill:#a2eeef,color:#fff,stroke:#333;
+    classDef green fill:#0f9d58,color:#fff,stroke:#333;
 
-    subgraph "
-    domain_stack.py
-    (us-east-1)
-    "
+    user-connects["🧑‍🤝‍🧑 User Connects"]
+
+    %% DOMAIN STACK SUBGRAPH
+    subgraph domain_stack.py
         sub-hosted-zone[Sub Hosted Zone]
         query-log-group[Query Log Group]
 
         sub-hosted-zone --Writes Log--> query-log-group
     end
+    class domain_stack.py blue
     user-connects --DNS Query--> sub-hosted-zone
 
-    subgraph "
-    link_together_stack.py
-    (us-east-1)
-    "
+    %% LINK TOGETHER STACK SUBGRAPH
+    subgraph link_together_stack.py
         subscription-filter[Subscription Filter]
         lambda-start-system[Lambda: Start System]
 
         subscription-filter --trigger--> lambda-start-system
     end
+    class link_together_stack.py green
     query-log-group --if Log matches Filter--> subscription-filter
 
-    subgraph "
-    leaf_stack.py
-    (any region)
-    "
+    %% LEAF STACK SUBGRAPH
+    subgraph leaf_stack.py
         sns-notify[SNS: Notify]
 
         subgraph EcsAsg.py
@@ -50,6 +52,7 @@ flowchart LR
             Asg --Connects--> EcsCapacityProvider
             EcsCapacityProvider --Connects--> Ec2Service
         end
+        class EcsAsg.py cyan
 
         subgraph AsgStateChangeHook.py
             events-rule-asg-up[Events Rule: ASG Up]
@@ -59,6 +62,8 @@ flowchart LR
             events-rule-asg-up --Trigger--> lambda-asg-StateChange
             events-rule-asg-down --Trigger--> lambda-asg-StateChange
         end
+        class AsgStateChangeHook.py cyan
+
 
         Asg --Instance Start--> events-rule-asg-up
         Asg --Instance Stop--> events-rule-asg-down
@@ -70,6 +75,7 @@ flowchart LR
         subgraph Volumes.py
             persistent-volume[Persistent Volume]
         end
+        class Volumes.py cyan
         Ec2Instance --Mounts--> persistent-volume
 
         subgraph Container.py
@@ -78,6 +84,7 @@ flowchart LR
 
             task-definition --> container
         end
+        class Container.py cyan
         Ec2Service --> task-definition
         container --Mounts--> persistent-volume
 
@@ -95,6 +102,7 @@ flowchart LR
             metric-traffic-in --If ANY traffic for VERY long time--> alarm-instance-up
             alarm-instance-up --If Instance Left Up--> scale-down-asg-action
         end
+        class Watchdog.py cyan
         sub-hosted-zone --Monitors Info--> metric-traffic-dns
         container --Monitors Info--> metric-traffic-in
         scale-down-asg-action --Stops--> Asg
@@ -104,6 +112,7 @@ flowchart LR
         lambda-break-crash-loop --Alert--> sns-notify
 
     end
+    class leaf_stack.py red
     lambda-start-system --Starts--> Asg
 ```
 
