@@ -13,7 +13,7 @@ flowchart LR
     %% Colors:
     classDef blue fill:#4285f4,color:#fff,stroke:#333;
     classDef red fill:#db4437,color:#fff,stroke:#333;
-    classDef cyan fill:#a2eeef,color:#fff,stroke:#333;
+    classDef cyan fill:#a2eeef,color:#000,stroke:#333;
     classDef green fill:#0f9d58,color:#fff,stroke:#333;
 
     user-connects["🧑‍🤝‍🧑 User Connects"]
