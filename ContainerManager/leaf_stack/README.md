@@ -117,7 +117,7 @@ flowchart TD
             end
             class Watchdog.py purple
             sub-hosted-zone --Monitors Info--> metric-traffic-dns
-            container --" Monitors Info "--> metric-traffic-in
+            container --Monitors Info--> metric-traffic-in
             scale-down-asg-action --Stops--> Asg
             alarm-instance-up -.Alert..-> sns-notify
             container --If Crashes--> lambda-break-crash-loop
