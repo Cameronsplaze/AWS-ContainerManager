@@ -69,7 +69,7 @@ flowchart LR
     end
     lambda-start-system --Starts--> Asg
 ```
-<!-- 
+
 ```mermaid
 flowchart LR
     subgraph Servers
@@ -127,7 +127,7 @@ flowchart LR
     main -- auto_scaling_group
                 watchdog_nested_stack (All metric info)
          --> link_together_stack
-``` -->
+```
 
 ## Components
 
