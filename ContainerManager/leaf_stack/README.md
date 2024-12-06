@@ -14,11 +14,11 @@ flowchart TD
     %% Colors:
     %% fill=background, color=font, stroke=border
     classDef blue_inner fill:#C5DEF5,color:#000,stroke:#333;
-    classDef blue_outer fill:#1D76DB,color:#000,stroke:#333;
+    classDef blue_outer fill:#1D76DB,color:#fff,stroke:#333;
     classDef red_inner fill:#E99695,color:#000,stroke:#333;
-    classDef red_outer fill:#B60205,color:#000,stroke:#333;
+    classDef red_outer fill:#B60205,color:#fff,stroke:#333;
     classDef green_inner fill:#C2E0C6,color:#000,stroke:#333;
-    classDef green_outer fill:#0E8A16,color:#000,stroke:#333;
+    classDef green_outer fill:#0E8A16,color:#fff,stroke:#333;
 
     classDef purple fill:#D4C5F9,color:#000,stroke:#333;
 
