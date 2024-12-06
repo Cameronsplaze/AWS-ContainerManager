@@ -77,8 +77,8 @@ flowchart LR
 
         Asg --Instance Start--> events-rule-asg-up
         Asg --Instance Stop--> events-rule-asg-down
-        events-rule-asg-up --> sns-notify
-        events-rule-asg-down --> sns-notify
+        events-rule-asg-up --Alert--> sns-notify
+        events-rule-asg-down --Alert--> sns-notify
         lambda-asg-StateChange --Updates DNS Record--> sub-hosted-zone
         lambda-asg-StateChange --Updates Task Count--> Ec2Service
 
@@ -94,7 +94,7 @@ flowchart LR
 
             task-definition --> container
         end
-        class Container.py cyan
+        class Container.py purple
         Ec2Service --> task-definition
         container --Mounts--> persistent-volume
 
@@ -112,7 +112,7 @@ flowchart LR
             metric-traffic-in --If ANY traffic for VERY long time--> alarm-instance-up
             alarm-instance-up --If Instance Left Up--> scale-down-asg-action
         end
-        class Watchdog.py cyan
+        class Watchdog.py purple
         sub-hosted-zone --Monitors Info--> metric-traffic-dns
         container --Monitors Info--> metric-traffic-in
         scale-down-asg-action --Stops--> Asg
@@ -124,65 +124,6 @@ flowchart LR
     end
     class leaf_stack red
     lambda-start-system --Starts--> Asg
-```
-
-```mermaid
-flowchart LR
-    subgraph Servers
-        Server1
-        Server2
-    end
-    subgraph Storage
-        disk1[("Disk1")]
-        disk2[("Disk2")]
-    end
-    subgraph Network
-        subgraph TEST
-            disk3[("Disk3")]
-        end
-        VPN
-        Internet
-    end
-    web["🕸️ Website"]
-    users["🧑‍🤝‍🧑 Users"]
-    Servers --> Storage
-    Servers --> VPN
-    VPN --> Internet
-    Internet --> web
-    users --> web
-    %% Google brand
-    classDef blue fill:#4285f4,color:#fff,stroke:#333;
-    classDef red fill:#db4437,color:#fff,stroke:#333;
-    classDef yellow fill:#f4b400,color:#fff,stroke:#333;
-    classDef green fill:#0f9d58,color:#fff,stroke:#333;
-    class Servers,Storage blue
-    class web green
-    class Network red
-    class users yellow
-    class TEST green
-```
-
-```mermaid
-flowchart LR
-    %% ID's
-    domain_stack[domain_stack.py]
-    main[main.py]
-    link_together_stack[link_together_stack.py]
-
-    domain_stack -- sub_domain_name
-                    sub_hosted_zone
-                    unavailable_ip
-                    dns_ttl
-                    record_type
-                 --> main
-
-    domain_stack -- route53_query_log_group
-                        sub_domain_name
-                 --> link_together_stack
-
-    main -- auto_scaling_group
-                watchdog_nested_stack (All metric info)
-         --> link_together_stack
 ```
 
 ## Components
