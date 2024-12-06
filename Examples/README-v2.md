@@ -36,7 +36,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Ec2:
-   InstanceType: m5.large
+     InstanceType: m5.large
    ```
 
 ---
@@ -51,7 +51,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Container:
-   Image: itzg/minecraft-server
+     Image: itzg/minecraft-server
    ```
 
 ### `Container.Ports`
@@ -60,10 +60,10 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Container:
-   Ports:
-     - TCP: 25565
-     - UDP: 1234
-     # ...
+     Ports:
+       - TCP: 25565
+       - UDP: 1234
+       # ...
    ```
 
 ### `Container.Environment`
@@ -72,9 +72,9 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Container:
-      Environment:
-      EULA: True
-      TYPE: "PAPER"
+     Environment:
+       EULA: True
+       TYPE: "PAPER"
       # ...
    ```
 
@@ -88,17 +88,17 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Volumes:
-   ## Minimal Volume:
-   # EnableBackups, and KeepOnDelete are True by default
-   - Paths:
-      - Path: /data
-   ## Or if you wanted something persistent, but not backed up:
-   #     (i.e the path to the valheim server binary. Saves
-   #      on startup time, but not critical if lost.)
-   - EnableBackups: False
-      KeepOnDelete: False
-      Paths:
-       - Path: /opt/valheim
+     ## Minimal Volume:
+     # EnableBackups, and KeepOnDelete are True by default
+     - Paths:
+       - Path: /data
+     ## Or if you wanted something persistent, but not backed up:
+     #     (i.e the path to the valheim server binary. Saves
+     #      on startup time, but not critical if lost.)
+     - EnableBackups: False
+       KeepOnDelete: False
+       Paths:
+         - Path: /opt/valheim
    ```
 
 ### `Volumes[*].Type`
@@ -167,9 +167,9 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Watchdog:
-   # If you don't get more than 900 bytes per second for 10 minutes, shut down:
-   Threshold: 900
-   MinutesWithoutConnections: 10
+     # If you don't get more than 900 bytes per second for 10 minutes, shut down:
+     Threshold: 900
+     MinutesWithoutConnections: 10
    ```
 
 ### `Watchdog.InstanceLeftUp`
@@ -178,11 +178,11 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Watchdog:
-   InstanceLeftUp:
-      # If the instance has been up for 12 hours, alert the admin:
-      DurationHours: 12 # Default=8
-      # And shut it down:
-      ShouldStop: True # Default=False
+     InstanceLeftUp:
+       # If the instance has been up for 12 hours, alert the admin:
+       DurationHours: 12 # Default=8
+       # And shut it down:
+       ShouldStop: True # Default=False
    ```
 
 ### `Watchdog.InstanceLeftUp.DurationHours`
@@ -217,10 +217,10 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    ```yaml
    Dashboard:
-   # Look back an hour by default:
-   IntervalMinutes: 60
-   # If logs already have a timestamp in them:
-   ShowContainerLogTimestamp: False
+     # Look back an hour by default:
+     IntervalMinutes: 60
+     # If logs already have a timestamp in them:
+     ShowContainerLogTimestamp: False
    ```
 
 ### `Dashboard.Enabled`
