@@ -134,9 +134,9 @@ class EcsAsg(NestedStack):
 
         ## Contains the configuration information to launch an instance, and stores launch parameters
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
-        self.launch_template = ec2.LaunchTemplate(
+        asg_launch_template = ec2.LaunchTemplate(
             self,
-            "LaunchTemplate",
+            "AsgLaunchTemplate",
             instance_type=ec2.InstanceType(ec2_config["InstanceType"]),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
@@ -159,7 +159,7 @@ class EcsAsg(NestedStack):
             self,
             "Asg",
             vpc=vpc,
-            launch_template=self.launch_template,
+            launch_template=asg_launch_template,
             # desired_capacity=0,
             min_capacity=0,
             max_capacity=1,
