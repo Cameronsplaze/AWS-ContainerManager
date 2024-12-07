@@ -11,7 +11,6 @@ How the leaf stack links together and works:
 ```mermaid
 %% Solid docs on Mermaid: https://content.mermaidchart.com/diagram-syntax/flowchart/
 flowchart TD
-    linkStyle default interpolate basis
     %% Colors:
     %% fill=background, color=font, stroke=border
     classDef blue_inner fill:#C5DEF5,color:#000,stroke:#333;
@@ -125,7 +124,7 @@ flowchart TD
             container --" Monitors Info "--> metric-traffic-in
             scale-down-asg-action --" Stops "--> Asg
             alarm-instance-up -." Alert "..-> sns-notify
-            container --" If Crashes "--> lambda-break-crash-loop
+            container --" Event Rule: If Crashes "--> lambda-break-crash-loop
             alarm-break-crash-loop -." Alert "..-> sns-notify
         end
     end
