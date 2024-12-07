@@ -60,10 +60,13 @@ flowchart TD
                 Ec2Service[EC2 Service]
                 Ec2Instance[EC2 Instance]
                 EcsCapacityProvider[ECS Capacity Provider]
+                ECSCluster[ECS Cluster]
 
-                Asg --" Starts/Stops "--> Ec2Instance
+                Asg --" Controls "--> Ec2Instance
                 Asg --" Connects "--> EcsCapacityProvider
                 EcsCapacityProvider --" Connects "--> Ec2Service
+                ECSCluster --" Connects "--> Ec2Service
+                ECSCluster --" Connects "--> EcsCapacityProvider
             end
             class EcsAsg.py purple
 
@@ -122,7 +125,7 @@ flowchart TD
             class Watchdog.py purple
             sub-hosted-zone --" Monitors Info "--> metric-traffic-dns
             container --" Monitors Info "--> metric-traffic-in
-            scale-down-asg-action --" Stops Instance "--> Asg
+            scale-down-asg-action --" Stop Instance "--> Asg
             alarm-instance-up -." Alert "..-> sns-notify
             container --" Event Rule: If Crashes "--> lambda-break-crash-loop
             alarm-break-crash-loop -." Alert "..-> sns-notify
@@ -130,7 +133,7 @@ flowchart TD
     end
     class nested_stacks red_outer
     class nested_stacks_inner red_inner
-    lambda-start-system --" Starts Instance "--> Asg
+    lambda-start-system --" Start Instance "--> Asg
 ```
 
 ## Stack Summaries
