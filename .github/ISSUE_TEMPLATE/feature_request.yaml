@@ -1,9 +1,9 @@
 ---
 name: 🚀 Feature/Optimization Request
-about: Suggest a way to Improve this Project
+description: Suggest a way to Improve this Project
 title: "[Feature/Optimization] "
 labels: [ enhancement ]
-assignees: ''
+assignees: []
 
 body:
   - type: textarea
