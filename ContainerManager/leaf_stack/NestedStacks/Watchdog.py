@@ -284,7 +284,7 @@ class Watchdog(NestedStack):
             ),
             targets=[
                 ## NOTE: Not doing SNS here since it can trigger 2-4 times before
-                # lambda below finally disables it. Do in alarm instead to only get 1.
+                # lambda below finally disables it. Do in alarm instead to only get 1 email/alert.
                 ## https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 events_targets.LambdaFunction(self.lambda_break_crash_loop),
             ],

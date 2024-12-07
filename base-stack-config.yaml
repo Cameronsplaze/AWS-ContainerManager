@@ -1,3 +1,4 @@
+# See `./ContainerManager/README.md` for config options
 
 Vpc:
   MaxAZs: 1

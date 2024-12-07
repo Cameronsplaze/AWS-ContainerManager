@@ -193,7 +193,7 @@ class Dashboard(NestedStack):
                 query_lines=[
                     # The message is controlled by code inside the container, no idea if it'll have a timestamp.
                     # Let the user remove the built-in one if it has one, but show it otherwise:
-                    f"fields {'@timestamp,' if dashboard_config['ShowContainerTimestamp'] else ''} @message",
+                    f"fields {'@timestamp,' if dashboard_config['ShowContainerLogTimestamp'] else ''} @message",
                 ],
             ),
 

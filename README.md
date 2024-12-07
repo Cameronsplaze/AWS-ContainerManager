@@ -1,59 +1,67 @@
 # AWS Container Manager
 
-Run Minecraft, Valheim, or any container in AWS!
+Run Minecraft, Valheim, or any container automatically in AWS!
 
-This CDK project spins up the container when someone connects, then spins it back *down* when they're done automatically! It's a great way to save money on your game/container servers, without opening your home network to the world.
+This CDK project spins up the container when someone connects, then spins it back *down* when they're done automatically! It's a great way to host game/container servers for your friends cheaply, **without opening your home network to the outside world.**
 
 ---
 
 ## Quick Start
 
-### First time setup
+### First Time Setup - Configure AWS
 
-First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
+- First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
+- Setup your [./aws/credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) file, along with the region you want to deploy to.
+- Run [make cdk-bootstrap](#cdk-bootstrap) to [bootstrap cdk to your account](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html) in both the region from the last step, and `us-east-1` (which is [required for Route53](/ContainerManager/leaf_stack/README.md#stack-summaries)).
 
-Once you have `python3` and `npm` installed, run `make update` to get everything to the latest version. (As dependabot upgrades stuff, you'll want to run this to stay up-to-date once in a while too).
+### First Time Setup - This Project
 
-- If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/55274930) to let non-sudo work.
-  - (I couldn't get the `~/.profile` line working with vscode, so I added it to `~/.bashrc` instead).
+- Make sure `python3` and `npm` are installed in your system.
+- Setup a python environment with:
+
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  ```
+
+- Update/Install everything with `make update`.
+  - Note: If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/55274930) to let non-sudo work. (I couldn't get the `~/.profile` line working with vscode, so I added it to `~/.bashrc` instead).
+
+> [!NOTE]
+> Now that you have it setup, you'll only have to do `source .venv/bin/activate` on new shells from here on out. (And `make update` once in a while to get the latest packages).
+
+### Deploying the App (Manually)
+
+There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/***should*** use the *same* base stack to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+
+First setup your Environment Variables used for deploying, and just delete any sections you're not using:
 
 ```bash
-# Setup the venv
-python3 -m venv .venv
 source .venv/bin/activate
-# update all npm and python packages
-make update
-# Setup the env vars
 cp vars.env.example vars.env
 nano vars.env # Use the text editor that's better than vim :)
+source vars.env # Do this after every edit you make too!
 ```
 
-### Deploy the Stack
-
-There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/should use the **same** base stack. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+**For more Advanced Customization while Deploying**, see [(cdk) Synth / Deploy / Destroy](#cdk-synth--deploy--destroy) below.
 
 #### Base Stack
 
-The config options for the stack are in [./base-stack-config.yaml](./base-stack-config.yaml). Info on each option is in [./ContainerManager/README.md](./ContainerManager/README.md#editing-the-base-stack-config).
+The config options for the stack are in [./base-stack-config.yaml](/base-stack-config.yaml). Info on each option is in [./ContainerManager/README.md](./ContainerManager/README.md#editing-the-base-stack-config).
 
-If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/).
+If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/), then copy the Id from the console. (AWS won't let you automate this step).
 
 ```bash
-# IF a new shell
-source .venv/bin/activate
-source vars.env
-# Actually deploy:
 make cdk-deploy-base
 ```
 
 #### Leaf Stack
 
-The config examples are in `./Examples/*.example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](./Examples/README.md). For a quickstart, just run:
+The config examples are in `./Examples/*.example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](/Examples/README.md#config-file-options).
+
+For a QuickStart example, if you're running Minecraft, just run:
 
 ```bash
-# IF a new shell
-source .venv/bin/activate
-source vars.env
 # Edit the config to what you want:
 cp ./Examples/Minecraft.java.example.yaml ./Minecraft.yaml
 nano ./Minecraft.yaml
@@ -61,23 +69,20 @@ nano ./Minecraft.yaml
 make cdk-deploy-leaf config-file=./Minecraft.yaml
 ```
 
-> [!NOTE]
-> You can use GitHub Actions to deploy automatically, or to simplify deploying to AWS. See the [Workflow README](./.github/workflows/README.md) for more info.
-
 ### Connecting to the Container
 
-Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [Different Maturities](#different-maturities) section below.
+Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [container-id](#container-id) section below.
 
 > [!NOTE]
-> It takes ~2 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
+> It takes ~2-4 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
 
-If it's downloading updates, keep spamming refresh. It sees those connection attempts and resets the time before spinning down.
+If it's installing updates, keep spamming refresh. It sees those connection attempts, and resets the watchdog threshold (time before spinning down).
 
 ### Cleanup / Destroying the Stacks
 
 You have to clean up all the leaf stacks first, then the base stack.
 
-If your config has `Volume.RemovalPolicy` set to `RETAIN`, it'll keep your data inside AWS but still remove the stack.
+If your config has [Volume.KeepOnDelete](/Examples/README.md#volumeskeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
 
 ```bash
 # Destroying one leaf:
@@ -101,7 +106,7 @@ Core AWS docs for this are [here](https://docs.aws.amazon.com/systems-manager/la
 > [!NOTE]
 > There likely won't be enough traffic from JUST ssh to stop the container from spinning down. Just connect to the container with whatever client it needs (Minecraft, Valheim, etc) to keep it up.
 
-The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP.
+The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP/SSH/etc.
 
 To connect to the container:
 
@@ -157,42 +162,42 @@ If you have an existing EFS left over from deleting a stack, there's no way to t
 
 ---
 
-## Frequently Asked Questions (FAQ)
+## Writing your own Config
 
-### What to do if my container stays on too long or randomly spins down?
+The config examples are in `./Examples/*.example.yaml`. Info on each config option and writing your own config is in [./Examples/README.md](/Examples/README.md#config-file-options).
 
-This likely means the `Threshold` for watching container traffic is too far off. Go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. It'll tell you how much traffic is going into the container in Bytes/Second.
+### If the container is unexpectedly Going Down, or Staying Up
 
-- **If it's staying on too long after people disconnect**, you'll have to raise the threshold. Make sure everyone is disconnected, and wait ~10 minutes. Look at the highest point it reaches in that time, and set the `Threshold` just above that. (If someone *just* disconnected, give the container a bit to become "stable" before starting the 10min count).
-- **If it's spinning down too quickly**, you'll have to lower the threshold. Do the same as above to figure out *where* to set it.
+There's a few alarms inside the app that are supposed to shut down the system when specific events happen. Check the [Dashboard](https://console.aws.amazon.com/cloudwatch/home#dashboards) to see which alarm is (or isn't) triggering. (If you [disabled the dashboard](/Examples/README.md#dashboardenabled), view the [Alarms in CloudWatch](https://console.aws.amazon.com/cloudwatch/home#alarmsV2:)). Details on each alarm is also in the [leaf_stack Watchdog README](/ContainerManager/leaf_stack/NestedStacks/README.md#watchdog)
 
----
+- If the `Container Activity` alarm is the problem, adjust the [Watchdog.Threshold](/Examples/README.md#watchdogthreshold) config key.
+- If the `Instance Left Up` alarm is triggered, adjust the [whatever](/Examples/README.md#watchdoginstanceleftup) config keys.
+- If the `Break Crash Loop` alarm is triggered, the container either crashed or is refusing to start. View the container in the console to see what's going on. (Select your cluster from [ECS Clusters](https://console.aws.amazon.com/ecs/v2/clusters) -> `*/* Tasks running`. Debug info is likely in either `Logs` or `Events`, depending what is causing this).
 
-## Docs and Extra Info
+## Cost of Everything
 
-How the docs work in this project, is each directory has a `README.md` that explains what's in that directory. The farther you get down a path, the more detailed the info gets. This `README.md` in the root of the project is a high-level overview of the project.
+- TODO: [Create Cost Estimate](https://calculator.aws/#/) (It's not much).
+- Buying a domain from AWS is an extra `$3/year` for the cheapest I could find (`Register domains` -> `Standard pricing` -> `Price` to sort by price).
+- The [EC2 Costs](https://aws.amazon.com/ec2/pricing/on-demand/) aren't included because they're the highest factor. You're only charged while people are actively online, but the bigger instances are also more pricey.
 
-### AWS Architecture
+## Makefile Commands
 
-See [./ContainerManager/README.md](./ContainerManager/README.md#how-the-stack-works) for a overview of the architecture.
+### (cdk) Synth / Deploy / Destroy
 
-Or [./ContainerManager/leaf_stack/README.md](./ContainerManager/leaf_stack/README.md#high-level-architecture) for a aws architecture diagram of the core/leaf stack.
+These are the core commands of cdk. Both deploy and destroy are broken into two for the base and leaf stacks. So in total, you have: `cdk-synth`, `cdk-deploy-base`, `cdk-deploy-leaf`, `cdk-destroy-base`, `cdk-destroy-leaf`.
 
----
+**With the exception of** the `*-base` commands, the other three commands have three parameters for customization:
 
-## Devel Stuff
+> ![NOTE]
+> When deploying/destroying a stack, all three parameters must be exactly the same as the first deployment.
+>
+> If you change *one* and deploy again, you'll create a new stack. If the `cdk-destroy-leaf` command doesn't have the same params as the `cdk-deploy-leaf` did, it won't be able to find a stack to delete.
 
-If you're looking for *why* I made some decisions over others, check out the [DESIGN.md](./DESIGN.md) file.
+#### config-file
 
-### Development Tricks
+This controls which "leaf stack" you're working on. It's a path to the config yaml.
 
-Pylint is baked into the makefile, just use this to lint everything:
-
-```bash
-make pylint
-```
-
-If you make changes, and would like to `cdk synth`, there are `make` commands to help. Use:
+Optional for `cdk-synth`:
 
 ```bash
 # Just lint the base stack:
@@ -201,15 +206,28 @@ make cdk-synth
 make cdk-synth config-file=./Examples/<MyConfig>.yaml
 ```
 
-You can also quickly check which aws account you're configured to use, before you accidentally deploy to the wrong account:
+**Required** for both `*-leaf` commands:
 
 ```bash
-make aws-whoami
+make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml
+# Domain will be: `minecraft.java.example.<YOUR_DOMAIN>`
 ```
 
-### Different Maturities
+#### container-id
 
-There's currently two maturities you can set, `devel` and `prod` (prod being the default). `devel` has defaults for developing (i.e removes any storage with it when deleted). It also keeps the containers you're testing with, separate from any games you're activity running. For example, you can:
+Optional for all three commands. This fixes two issues:
+
+- The `container-id` has to be unique per **aws account**. If you want to deploy two of the same yaml to your account, at least one will need to set this.
+- This overrides the domain prefix. If you want a descriptive yaml name, but small domain name, use this.
+
+```bash
+make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml container-id=minecraft
+# Domain will be: `minecraft.<YOUR_DOMAIN>`
+```
+
+#### maturity
+
+There's currently two maturities you can set, `devel` and `prod` (prod being the default). `devel` has defaults for developing (i.e removes any storage with it when deleted). It also keeps the containers you're testing with, separate from any games you're activity running.
 
 ```bash
 # Create the devel base stack:
@@ -221,23 +239,42 @@ make cdk-destroy-leaf maturity=devel config-file=<FILE>
 # And never touch the stuff in the normal stacks!
 ```
 
-> [!WARNING]
-> The `container-id` has to be unique per ACCOUNT. To help with this, you can use the cli flag to override it to something else if the other maturity-stack is already using it. (By default, `container-id` is the filename of the config without the extension).
+### pylint
 
-For example, you can have GH Actions deploy to prod, but use devel locally. Both can still be in the same AWS account:
+Lints all python files. Useful when developing.
 
 ```bash
-# To deploy to prod, it'll look like:
-#    (You can have `maturity=prod` if you want, but it's the default).
-make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml container-id=Minecraft
-# And then manually deploying to devel could look like:
-make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml maturity=devel
+make pylint
 ```
 
-This would still give you two stacks, each with a different base stack. They won't conflict since the *first command* got overridden to `minecraft`, and the *second one* is using the default `minecraft.java.example` from the filename:
+### aws-whoami
 
-- `minecraft.<DOMAIN>`: On the normal prod stack.
-- `minecraft.java.example.<DOMAIN>`: In the devel stack.
+Prints your current user arn, including account id. Useful for checking if aws-cli is setup correctly, and if you're using the right aws account before deploying.
 
-> [!NOTE]
-> If you want to update an existing stack, you MUST pass in the same exact flags you deployed with! Otherwise it's going to try to create a new stack entirely.
+### update
+
+Updates both `npm` and `python pip` packages.
+
+```bash
+make update
+```
+
+### cdk-bootstrap
+
+For setting up cdk into your AWS Account. See the [AWS QuickStart](#first-time-setup---configure-aws) section at the top for more details.
+
+## Automatic Deployments with GitHub Actions
+
+To automatically deploy your stack with the latest cdk changes as they come out, see the [workflows docs](/.github/workflows/README.md).
+
+## Learning or Developing on the Architecture
+
+See [./ContainerManager/README.md](/ContainerManager/README.md#leaf-stack-summary) for diagrams and an overview of the app's architecture.
+
+### Docs and Extra Info
+
+In each directory has a `README.md` that explains what's in that directory. The farther you get down a path, the more detailed the info gets. This `README.md` in the root of the project is a high-level overview of the project.
+
+### Develop with Multiple Maturities
+
+I made a [maturity key](#maturity) when deploying to specifically help developers. There's a few other nice commands in [the Makefile](#makefile-commands) too to help out!

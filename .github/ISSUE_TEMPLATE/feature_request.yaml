@@ -1,0 +1,46 @@
+---
+name: 🚀 Feature/Optimization Request
+about: Suggest a way to Improve this Project
+title: "[Feature/Optimization] "
+labels: [ enhancement ]
+assignees: ''
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Is your feature request related to a problem? Please describe.
+      description: |
+        A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: |
+        Suggest how to implement the addition or change. Please include prototype/workaround/sketch/reference implementation.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: |
+        Any alternative solutions or features you considered, a more detailed explanation, stack traces, related issues, links for context, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I may be able to implement this feature request
+          required: false
+        - label: This feature might incur a breaking change
+          required: false
+
+---
