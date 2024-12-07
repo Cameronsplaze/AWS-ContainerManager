@@ -61,9 +61,8 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: |
-        Environment details (OS name and version, etc.)
-
+      label: Environment details (OS name and version, etc.)
+      description: |
           - OS: [e.g. Ubuntu 20.04]
           - CDK Version `cdk --version`
           - Python Version `python --version`
