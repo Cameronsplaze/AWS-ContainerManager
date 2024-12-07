@@ -116,6 +116,8 @@ flowchart TD
                 metric-traffic-in --" If ANY traffic for VERY long time "--> alarm-instance-up
                 alarm-instance-up --" If Instance Left Up "--> scale-down-asg-action
                 lambda-break-crash-loop --" Invoke Count > 0 "--> alarm-break-crash-loop
+                lambda-break-crash-loop --" If triggered "--> scale-down-asg-action
+
             end
             class Watchdog.py purple
             sub-hosted-zone --" Monitors Info "--> metric-traffic-dns
@@ -123,7 +125,6 @@ flowchart TD
             scale-down-asg-action --" Stops "--> Asg
             alarm-instance-up -." Alert "..-> sns-notify
             container --" If Crashes "--> lambda-break-crash-loop
-            lambda-break-crash-loop --" Stops "--> Asg
             alarm-break-crash-loop -." Alert "..-> sns-notify
         end
     end
