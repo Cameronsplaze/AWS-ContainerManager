@@ -12,7 +12,7 @@ from aws_cdk import (
 from constructs import Construct
 from cdk_nag import NagSuppressions
 
-from ContainerManager.base_stack import ContainerManagerBaseStack
+from ContainerManager.base_stack import BaseStackMain
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 # from ContainerManager.utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
@@ -42,7 +42,7 @@ class ContainerManagerStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        base_stack: ContainerManagerBaseStack,
+        base_stack_main: BaseStackMain,
         domain_stack: DomainStack,
         application_id: str,
         container_id: str,
@@ -78,7 +78,7 @@ class ContainerManagerStack(Stack):
             self,
             description=f"Security Group Logic for {construct_id}",
             leaf_construct_id=construct_id,
-            vpc=base_stack.vpc,
+            vpc=base_stack_main.vpc,
             container_id=container_id,
             container_ports_config=config["Container"]["Ports"],
         )
@@ -96,7 +96,7 @@ class ContainerManagerStack(Stack):
         self.volumes_nested_stack = NestedStacks.Volumes(
             self,
             description=f"Volume Logic for {construct_id}",
-            vpc=base_stack.vpc,
+            vpc=base_stack_main.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
             volumes_config=config["Volumes"],
@@ -108,9 +108,9 @@ class ContainerManagerStack(Stack):
             self,
             description=f"Ec2Service Logic for {construct_id}",
             leaf_construct_id=construct_id,
-            vpc=base_stack.vpc,
-            ssh_key_pair=base_stack.ssh_key_pair,
-            base_stack_sns_topic=base_stack.sns_notify_topic,
+            vpc=base_stack_main.vpc,
+            ssh_key_pair=base_stack_main.ssh_key_pair,
+            base_stack_sns_topic=base_stack_main.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
@@ -127,7 +127,7 @@ class ContainerManagerStack(Stack):
             container_id=container_id,
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            base_stack_sns_topic=base_stack.sns_notify_topic,
+            base_stack_sns_topic=base_stack_main.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ecs_capacity_provider=self.ecs_asg_nested_stack.capacity_provider,
@@ -142,7 +142,7 @@ class ContainerManagerStack(Stack):
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            base_stack_sns_topic=base_stack.sns_notify_topic,
+            base_stack_sns_topic=base_stack_main.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
         )
 

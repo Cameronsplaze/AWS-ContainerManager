@@ -13,7 +13,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from ContainerManager.base_stack import ContainerManagerBaseStack
+from ContainerManager.base_stack import BaseStackMain
 
 class DomainStack(Stack):
     """
@@ -24,7 +24,7 @@ class DomainStack(Stack):
         scope: Construct,
         construct_id: str,
         container_id: str,
-        base_stack: ContainerManagerBaseStack,
+        base_stack_main: BaseStackMain,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -36,12 +36,13 @@ class DomainStack(Stack):
         # (Since the container is constantly changing, update DNS asap)
         self.dns_ttl = 1
         self.record_type = route53.RecordType.A
-        self.sub_domain_name = f"{container_id}.{base_stack.root_hosted_zone.zone_name}".lower()
+        self.sub_domain_name = f"{container_id}.{base_stack_main.root_hosted_zone.zone_name}".lower()
         # Spaces on the ends to not match sub-domains like "_tcp.*" that shows up in logs.
         # The record_type is because BOTH A and AAAA appear, even if my ISP only supports one.
         self.log_dns_filter = f" {self.sub_domain_name} {self.record_type.value} "
 
         ## Log group for the Route53 DNS logs:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
         self.route53_query_log_group = logs.LogGroup(
             self,
             "QueryLogGroup",
@@ -72,7 +73,7 @@ class DomainStack(Stack):
         self.ns_record = route53.NsRecord(
             self,
             "NsRecord",
-            zone=base_stack.root_hosted_zone,
+            zone=base_stack_main.root_hosted_zone,
             values=self.sub_hosted_zone.hosted_zone_name_servers,
             record_name=self.sub_domain_name,
         )

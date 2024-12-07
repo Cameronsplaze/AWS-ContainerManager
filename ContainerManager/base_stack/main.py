@@ -16,9 +16,9 @@ from aws_cdk import (
 from cdk_nag import NagSuppressions
 
 # from .utils.get_param import get_param
-from .utils.sns_subscriptions import add_sns_subscriptions
+from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
-class ContainerManagerBaseStack(Stack):
+class BaseStackMain(Stack):
     """
     Contains shared resources for all leaf stacks.
     Most importantly, the VPC and SNS.
@@ -161,4 +161,28 @@ class ContainerManagerBaseStack(Stack):
                     "reason": "Flow logs cost a lot, and the average user won't need them.",
                 },
             ],
+        )
+
+
+        # ### TESTING
+        # ## Add a record set that uses the base hosted zone
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
+        # from aws_cdk import Duration
+        # self.unavailable_ip = "0.0.0.0"
+        # self.dns_ttl = 1
+        # self.record_type = route53.RecordType.A
+        # self.sub_domain_name = f"testing.{self.root_hosted_zone.zone_name}".lower()
+        # self.dns_record = route53.RecordSet(
+        #     self,
+        #     "DnsRecord",
+        #     zone=self.root_hosted_zone,
+        #     record_name=self.sub_domain_name,
+        #     record_type=self.record_type,
+        #     target=route53.RecordTarget.from_values(self.unavailable_ip),
+        #     ttl=Duration.seconds(self.dns_ttl),
+        # )
+        self.sub_hosted_zone = route53.PublicHostedZone(
+            self,
+            "SubHostedZone",
+            zone_name=self.root_hosted_zone.zone_name,
         )

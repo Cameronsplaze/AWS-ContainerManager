@@ -14,7 +14,7 @@ from aws_cdk import (
 )
 import cdk_nag
 
-from ContainerManager.base_stack import ContainerManagerBaseStack
+from ContainerManager.base_stack import BaseStackMain
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.domain_stack import DomainStack
 from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
@@ -40,11 +40,11 @@ us_east_1_env = Environment(
     region="us-east-1",
 )
 
-### Create the Base Stack for ALL applications:
+### Create the Base Stack VPC for ALL leaf stacks:
 base_config = load_base_config("./base-stack-config.yaml")
-base_stack = ContainerManagerBaseStack(
+base_stack = BaseStackMain(
     app,
-    app.node.get_context("_base_stack_name"),
+    f"{app.node.get_context('_base_stack_name')}-Vpc",
     description="The base VPC for all other ContainerManage stacks to use.",
     cross_region_references=True,
     env=main_env,
