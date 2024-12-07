@@ -278,7 +278,3 @@ In each directory has a `README.md` that explains what's in that directory. The 
 ### Develop with Multiple Maturities
 
 I made a [maturity key](#maturity) when deploying to specifically help developers. There's a few other nice commands in [the Makefile](#makefile-commands) too to help out!
-
-### Design Choices of the Project
-
-If you're looking for *why* I made some decisions over others, check out the [DESIGN_CHOICES.md](./DESIGN_CHOICES.md) file. If it's not there, feel free to open an Issue or Discussion! I'm always looking for ways to improve this project, no matter how minor.

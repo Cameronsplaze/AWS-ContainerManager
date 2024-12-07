@@ -23,7 +23,7 @@ See the [leaf_stack README.md](./leaf_stack/README.md) for more info.
 
 The [base stack](./base_stack.py) is the common architecture that different containers can share. Most notably:
 
-- **VPC**: The overall network for all the containers and EFS.
+- **VPC**: The overall network for all the containers and EFS. We used a public VPC, because private cost ~$32/month per subnet (because of the NAT). WITH ec2 costs, I want to shoot for about than $100/year with solid usage.
 - **SSH Key Pair**: The key pair to SSH into the EC2 instances. Keeping it here lets you get into all the leaf_stacks without having to log into AWS each time you deploy a new leaf. If you destroy and re-build the leaf, this keeps the key consistent too.
 - **SNS Notify Logic**: Designed for things admin would care about. This tells you whenever the instance spins up or down, if it runs into errors, etc.
 - **Route53**: The base domain name for all stacks to build from.
