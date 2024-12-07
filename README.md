@@ -12,7 +12,7 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 - First install [aws_cdk](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
 - Setup your [./aws/credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) file, along with the region you want to deploy to.
-- Run `make cdk-bootstrap` to [bootstrap cdk to your account](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html), in both the region from the last step, and `us-east-1` ([required for Route53](TODO LINK THIS WHEN IT EXISTS)).
+- Run [make cdk-bootstrap](#cdk-bootstrap) to [bootstrap cdk to your account](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html) in both the region from the last step, and `us-east-1` (which is [required for Route53](/ContainerManager/leaf_stack/README.md#stack-summaries)).
 
 ### First Time Setup - This Project
 
@@ -43,7 +43,7 @@ nano vars.env # Use the text editor that's better than vim :)
 source vars.env # Do this after every edit you make too!
 ```
 
-**For more Advanced Customization while Deploying**, see [Advanced Deployments](TODO LINK THIS WHEN IT EXISTS).
+**For more Advanced Customization while Deploying**, see [(cdk) Synth / Deploy / Destroy](#cdk-synth--deploy--destroy) below.
 
 #### Base Stack
 
@@ -71,7 +71,7 @@ make cdk-deploy-leaf config-file=./Minecraft.yaml
 
 ### Connecting to the Container
 
-Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [Deploy / Destroy](TODO LINK THIS WHEN IT EXISTS) section below.
+Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [container-id](#container-id) section below.
 
 > [!NOTE]
 > It takes ~2-4 minutes for the game to spin up when it sees the first DNS connection come in. Just spam refresh.
@@ -82,7 +82,7 @@ If it's installing updates, keep spamming refresh. It sees those connection atte
 
 You have to clean up all the leaf stacks first, then the base stack.
 
-If your config has [Volume.RemovalPolicy](TODO LINK THIS WHEN IT EXISTS) set to `RETAIN` (the default), it'll keep the server files inside AWS but still remove the stack.
+If your config has [Volume.KeepOnDelete](/Examples/README.md#volumeskeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
 
 ```bash
 # Destroying one leaf:
@@ -168,7 +168,7 @@ The config examples are in `./Examples/*.example.yaml`. Info on each config opti
 
 ### If the container is unexpectedly Going Down, or Staying Up
 
-There's a few alarms inside the app that are supposed to shut down the system when specific events happen. Check the [Dashboard](https://console.aws.amazon.com/cloudwatch/home#dashboards) to see which alarm is (or isn't) triggering. (If you [disabled the dashboard](/Examples/README.md#dashboardenabled), view the [Alarms in CloudWatch](https://console.aws.amazon.com/cloudwatch/home#alarmsV2:)).
+There's a few alarms inside the app that are supposed to shut down the system when specific events happen. Check the [Dashboard](https://console.aws.amazon.com/cloudwatch/home#dashboards) to see which alarm is (or isn't) triggering. (If you [disabled the dashboard](/Examples/README.md#dashboardenabled), view the [Alarms in CloudWatch](https://console.aws.amazon.com/cloudwatch/home#alarmsV2:)). Details on each alarm is also in the [leaf_stack Watchdog README](/ContainerManager/leaf_stack/NestedStacks/README.md#watchdog)
 
 - If the `Container Activity` alarm is the problem, adjust the [Watchdog.Threshold](/Examples/README.md#watchdogthreshold) config key.
 - If the `Instance Left Up` alarm is triggered, adjust the [whatever](/Examples/README.md#watchdoginstanceleftup) config keys.
@@ -261,15 +261,15 @@ make update
 
 ### cdk-bootstrap
 
-For setting up cdk into your AWS Account. See the [AWS QuickStart](#first-time-setup---configure-aws) section for more details.
+For setting up cdk into your AWS Account. See the [AWS QuickStart](#first-time-setup---configure-aws) section at the top for more details.
 
 ## Automatic Deployments with GitHub Actions
 
-To automatically deploy your stack with the lastest cdk changes as they come out, see the [workflows docs](/.github/workflows/README.md).
+To automatically deploy your stack with the latest cdk changes as they come out, see the [workflows docs](/.github/workflows/README.md).
 
 ## Learning or Developing on the Architecture
 
-See [./ContainerManager/README.md](TODO LINK THIS WHEN IT EXISTS) for diagrams and an overview of the app's architecture.
+See [./ContainerManager/README.md](/ContainerManager/README.md#leaf-stack-summary) for diagrams and an overview of the app's architecture.
 
 ### Docs and Extra Info
 

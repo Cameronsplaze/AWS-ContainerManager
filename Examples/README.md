@@ -1,6 +1,6 @@
 # Creating or Modifying Config Files
 
-These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft.java.example.yaml` -> `minecraft.java.example.my-domain.com`). See any `*.example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `container_id=` key. See the [CDK Deploy Command](TODO LINK THIS WHEN IT EXISTS) section for more details.)
+These are config options when you deploy, for a single leaf. (The file's name becomes the sub-domain for the stack, so one file for one stack. I.e `Minecraft.java.example.yaml` -> `minecraft.java.example.my-domain.com`). See any `*.example.yaml` in this directory for examples. (If you need to override the domain name to something new when deploying, use the `container_id=` key. See the [CDK Deploy Command](/README.md#container-id) section for more details.)
 
 The code that actually parses these options is in [config_loader.py](/ContainerManager/utils/config_loader.py).
 
@@ -207,7 +207,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
    Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
 
-   Adding subscriptions here instead of [the base stack](TODO LINK THIS WHEN IT EXISTS), will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
+   Adding subscriptions here instead of [the base stack config](/ContainerManager/README.md#alertsubscription), will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
 
 ---
 

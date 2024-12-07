@@ -79,7 +79,7 @@ These are config options for when you deploy the base stack, to fine-tune it to 
      - Email: DoesNotExist2@gmail.com
    ```
 
-   This is to get notified for ANY leaf stack events. Intended for admin to keep an eye on everything without having to subscribe to every [leaf stack's AlertSubscription](TODO LINK THIS WHEN IT EXISTS)
+   This is to get notified for ANY leaf stack events. Intended for admin to keep an eye on everything without having to subscribe to every [leaf stack config's AlertSubscription](/Examples/README.md#alertsubscription)
 
    Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
 
