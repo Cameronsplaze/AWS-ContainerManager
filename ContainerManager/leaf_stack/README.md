@@ -51,8 +51,8 @@ flowchart TD
     query-log-group --" if Log matches Filter "--> subscription-filter
 
     %% LEAF STACK SUBGRAPH
-    subgraph leaf_stack["**leaf_stack.py**"]
-        subgraph leaf_stack_inner["(Any Region)"]
+    subgraph nested_stacks["**./NestedStacks/**"]
+        subgraph nested_stacks_inner["(Any Region)"]
             sns-notify[SNS: Notify]
 
             subgraph EcsAsg.py
@@ -108,12 +108,14 @@ flowchart TD
                 alarm-container-activity[Alarm: Container Activity]
                 alarm-instance-up[Alarm: Instance Left Up]
                 lambda-break-crash-loop[Lambda: Break Crash Loop]
+                alarm-break-crash-loop[Alarm: Break Crash Loop]
 
                 metric-traffic-in --" Bytes/Second "--> alarm-container-activity
                 metric-traffic-dns --" DNS Query Hit "--> alarm-container-activity
                 alarm-container-activity --" If No Traffic "--> scale-down-asg-action
                 metric-traffic-in --" If ANY traffic for VERY long time "--> alarm-instance-up
                 alarm-instance-up --" If Instance Left Up "--> scale-down-asg-action
+                lambda-break-crash-loop --" Invoke Count > 0 "--> alarm-break-crash-loop
             end
             class Watchdog.py purple
             sub-hosted-zone --" Monitors Info "--> metric-traffic-dns
@@ -122,26 +124,28 @@ flowchart TD
             alarm-instance-up -." Alert "..-> sns-notify
             container --" If Crashes "--> lambda-break-crash-loop
             lambda-break-crash-loop --" Stops "--> Asg
-            lambda-break-crash-loop -." Alert "..-> sns-notify
+            alarm-break-crash-loop -." Alert "..-> sns-notify
         end
     end
-    class leaf_stack red_outer
-    class leaf_stack_inner red_inner
+    class nested_stacks red_outer
+    class nested_stacks_inner red_inner
     lambda-start-system --" Starts "--> Asg
 ```
 
-## Components
+## Stack Summaries
 
-### Domain Stack - [./domain_stack.py](./domain_stack.py)
+### [./domain_stack.py](./domain_stack.py) Stack (Blue)
 
 This sets up the Hosted Zone and DNS for the leaf_stack. This stack MUST be deployed to `us-east-1` since that's where AWS houses Route53.
 
-### Main Stack - [./main.py](./main.py)
+### [./NestedStacks](./NestedStacks/) Stack (Red)
 
-This handles seeing if people are connected to the container, along with how to spin DOWN the container when no one is connected. (Spinning up is the Domain Stack, just setting ASG count to one).
+All of the nested stacks are combined into one stack at [./main.py](./main.py). They're broken into Nested Stack chunks, to keep each chunk easy to read/manage. For more information, see the [NestedStack's README](./NestedStacks/README.md).
 
-This is broken into Nested Stack chunks, to keep each chunk easy to read/manage. For more information, see the [NestedStack's README](./NestedStacks/README.md). It also sets up a SNS for if you just want to subscribe to events of this specific container, and not any others. This stack can be deployed to any region.
+This stack handles seeing if people are connected to the container, along with how to spin DOWN the container when no one is connected. (Spinning **up** is the Domain Stack, which justs set ASG count to one).
 
-### Link Together Stack - [./link_together_stack.py](./link_together_stack.py)
+It also sets up a SNS for if you just want to subscribe to events of this specific container, and not any others. This stack can be deployed to any region.
 
-This is what actually spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from the Domain Stack, so it HAS to be in `us-east-1`. It also needs to know the Main Stacks ASG to spin it up when the query log is hit, so it HAS to be deployed after that stack. We have to make this stack it's own thing then to avoid circular import errors.
+### [./link_together_stack.py](./link_together_stack.py) Stack (Green)
+
+This is what actually spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from the Domain Stack, so it HAS to be in `us-east-1`. It also needs to know the Main Stacks ASG to spin it up when the query log is hit, so it HAS to be deployed after that stack. We had to make this stack it's own thing then to avoid circular import errors.
