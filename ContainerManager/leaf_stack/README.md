@@ -22,7 +22,7 @@ flowchart TD
 
     classDef purple fill:#D4C5F9,color:#000,stroke:#333;
 
-    user-connects["🧑‍🤝‍🧑 User Connects"]
+    user-connects["🧑‍🤝‍🧑 User Connects 🧑‍🤝‍🧑"]
 
     %% DOMAIN STACK SUBGRAPH
     subgraph domain_stack["**domain_stack.py**"]
