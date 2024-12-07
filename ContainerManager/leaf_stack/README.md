@@ -78,8 +78,8 @@ flowchart TD
             class AsgStateChangeHook.py purple
 
 
-            Asg --" Instance Start "--> events-rule-asg-up
-            Asg --" Instance Stop "--> events-rule-asg-down
+            Asg --" On Instance Start "--> events-rule-asg-up
+            Asg --" On Instance Stop "--> events-rule-asg-down
             events-rule-asg-up -." Alert "..-> sns-notify
             events-rule-asg-down -." Alert "..-> sns-notify
             lambda-asg-StateChange --" Updates DNS Record "--> sub-hosted-zone
@@ -122,7 +122,7 @@ flowchart TD
             class Watchdog.py purple
             sub-hosted-zone --" Monitors Info "--> metric-traffic-dns
             container --" Monitors Info "--> metric-traffic-in
-            scale-down-asg-action --" Stops "--> Asg
+            scale-down-asg-action --" Stops Instance "--> Asg
             alarm-instance-up -." Alert "..-> sns-notify
             container --" Event Rule: If Crashes "--> lambda-break-crash-loop
             alarm-break-crash-loop -." Alert "..-> sns-notify
@@ -130,7 +130,7 @@ flowchart TD
     end
     class nested_stacks red_outer
     class nested_stacks_inner red_inner
-    lambda-start-system --" Starts "--> Asg
+    lambda-start-system --" Starts Instance "--> Asg
 ```
 
 ## Stack Summaries

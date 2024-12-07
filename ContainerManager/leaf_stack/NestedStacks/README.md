@@ -42,6 +42,8 @@ If the task fails to start, or if the container crashes/throws, ECS will normall
 
 This alarm will detect if the container unexpectedly stops for whatever reason, and spins down the ASG. It'll also alert you to check the logs to see what happened. This one has no customization, since I can't think of any customization options that'd be useful.
 
+The reason why we trigger sns off alarm, instead of the event rule directly, is because the rule can be triggered ~4 times before the lambda call finally spins down the ASG. That'd be ~4 emails at once. Also by having an alarm, we can add it to the dashboard for easy monitoring.
+
 ### AsgStateChangeHook
 
 This component will trigger whenever the ASG instance state changes (i.e the one instance either spins up or down). This is used to keep the architecture simple, plus if you update the instance count in the console, everything will naturally update around it.
