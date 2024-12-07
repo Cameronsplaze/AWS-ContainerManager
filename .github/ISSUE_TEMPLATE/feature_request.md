@@ -1,5 +1,5 @@
 ---
-name: Feature/Optimization Request
+name: 🚀 Feature/Optimization Request
 about: Suggest a way to Improve this Project
 title: "[Feature/Optimization] "
 labels: enhancement
