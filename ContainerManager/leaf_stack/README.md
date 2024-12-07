@@ -61,12 +61,14 @@ flowchart TD
                 Ec2Instance[EC2 Instance]
                 EcsCapacityProvider[ECS Capacity Provider]
                 ECSCluster[ECS Cluster]
+                AsgLaunchTemplate[Asg Launch Template]
 
                 Asg --" Controls "--> Ec2Instance
                 Asg --" Connects "--> EcsCapacityProvider
                 EcsCapacityProvider --" Connects "--> Ec2Service
                 ECSCluster --" Connects "--> Ec2Service
                 ECSCluster --" Connects "--> EcsCapacityProvider
+                AsgLaunchTemplate --" Defines "--> Ec2Instance
             end
             class EcsAsg.py purple
 
