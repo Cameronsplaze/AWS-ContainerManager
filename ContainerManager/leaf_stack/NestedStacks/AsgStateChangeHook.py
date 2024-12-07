@@ -31,7 +31,6 @@ class AsgStateChangeHook(NestedStack):
         self,
         scope: Construct,
         container_id: str,
-        container_url: str,
         domain_stack: DomainStack,
         ecs_cluster: ecs.Cluster,
         ec2_service: ecs.Ec2Service,
@@ -134,7 +133,7 @@ class AsgStateChangeHook(NestedStack):
         #    Needed to keep the management in sync with if a container is running.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         message_up = events.RuleTargetInput.from_text(
-            f"Container for '{container_id}' is starting up! Connect to it at: '{container_url}'.",
+            f"Container for '{container_id}' is starting up! Connect to it at: '{domain_stack.sub_domain_name}'.",
         )
         self.rule_asg_state_change_trigger_up = events.Rule(
             self,

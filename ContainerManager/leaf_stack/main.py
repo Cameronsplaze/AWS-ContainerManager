@@ -138,7 +138,6 @@ class ContainerManagerStack(Stack):
             self,
             description=f"AsgStateChangeHook Logic for {construct_id}",
             container_id=container_id,
-            container_url=domain_stack.sub_domain_name,
             domain_stack=domain_stack,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
