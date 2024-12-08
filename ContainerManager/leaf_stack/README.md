@@ -24,30 +24,30 @@ flowchart TD
 
     user-connects["🧑‍🤝‍🧑 User Connects 🧑‍🤝‍🧑"]
 
-    %% DOMAIN STACK SUBGRAPH
-    subgraph domain_stack["**domain_stack.py**"]
-        subgraph domain_stack_inner["(us-east-1)"]
+    %% BASE STACK DOMAIN SUBGRAPH
+    subgraph base_stack_domain["**BaseStack-Domain**"]
+        subgraph base_stack_domain_inner["(us-east-1)"]
             sub-hosted-zone[Sub Hosted Zone]
             query-log-group[Query Log Group]
 
             sub-hosted-zone --" Writes Log "--> query-log-group
         end
     end
-    class domain_stack blue_outer
-    class domain_stack_inner blue_inner
+    class base_stack_domain blue_outer
+    class base_stack_domain_inner blue_inner
     user-connects --" DNS Query "--> sub-hosted-zone
 
-    %% LINK TOGETHER STACK SUBGRAPH
-    subgraph link_together_stack["**link_together_stack.py**"]
-        subgraph link_together_stack_inner["(us-east-1)"]
+    %% START SYSTEM STACK SUBGRAPH
+    subgraph start_system["**start_system.py**"]
+        subgraph start_system_inner["(us-east-1)"]
             subscription-filter[Subscription Filter]
             lambda-start-system[Lambda: Start System]
 
             subscription-filter --" trigger "--> lambda-start-system
         end
     end
-    class link_together_stack green_outer
-    class link_together_stack_inner green_inner
+    class start_system green_outer
+    class start_system_inner green_inner
     query-log-group --" if Log matches Filter "--> subscription-filter
 
     %% LEAF STACK SUBGRAPH
@@ -140,9 +140,9 @@ flowchart TD
 
 ## Stack Summaries
 
-### [./domain_stack.py](./domain_stack.py) Stack (Blue)
+### [Base Stack Domain](../base_stack/README.md) (Blue)
 
-This sets up the Hosted Zone and DNS for the leaf_stack. This stack MUST be deployed to `us-east-1` since that's where AWS houses Route53.
+This is apart of the base stack, but heavily used here. Follow that link to read more.
 
 ### [./NestedStacks](./NestedStacks/) Stack (Red)
 
@@ -152,6 +152,6 @@ This stack handles seeing if people are connected to the container, along with h
 
 It also sets up a SNS for if you just want to subscribe to events of this specific container, and not any others. This stack can be deployed to any region.
 
-### [./link_together_stack.py](./link_together_stack.py) Stack (Green)
+### [./start_system.py](./start_system.py) Stack (Green)
 
-This is what actually spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from the Domain Stack, so it HAS to be in `us-east-1`. It also needs to know the Main Stacks ASG to spin it up when the query log is hit, so it HAS to be deployed after that stack. We had to make this stack it's own thing then to avoid circular import errors.
+This is what actually adds the DNS records to `Base Stack Domain` above, and spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from `Base Stack Domain`, so it HAS to be in `us-east-1`. It also needs to know the `NestedStacks` ASG to spin it up when the query log is hit, so it HAS to be deployed after that stack. And thus, it's it's own stack.

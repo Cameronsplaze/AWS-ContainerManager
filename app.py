@@ -111,7 +111,7 @@ if file_path:
 
     leaf_stack_start_system = LeafStackStartSystem(
         app,
-        f"{application_id}-{container_id_alpha}-LinkTogetherStack",
+        f"{application_id}-{container_id_alpha}-StartSystemStack",
         description="Everything for spinning up the container when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
