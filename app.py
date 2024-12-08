@@ -66,7 +66,7 @@ base_stack_main = BaseStackMain(
 base_stack_domain = BaseStackDomain(
     app,
     f"{app.node.get_context('_base_stack_prefix')}-Domain",
-    description="The base Domain for all other ContainerManage stacks to use.",
+    description="The base HostedZone for all other ContainerManage stacks to use.",
     cross_region_references=True,
     env=us_east_1_env,
     config=base_config,
@@ -95,7 +95,7 @@ if file_path:
     leaf_stack_manager = ContainerManagerStack(
         app,
         f"{application_id}-{container_id_alpha}-Stack",
-        description="For automatically managing a single container.",
+        description="For automatically managing and spinning down the container.",
         # cross_region_references lets this stack reference the domain_stacks
         # variables, since that one is ONLY in us-east-1
         cross_region_references=True,
@@ -112,7 +112,7 @@ if file_path:
     leaf_stack_start_system = LeafStackStartSystem(
         app,
         f"{application_id}-{container_id_alpha}-LinkTogetherStack",
-        description="Everything for starting the system UP when someone connects.",
+        description="Everything for spinning up the container when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
         base_stack_domain=base_stack_domain,
