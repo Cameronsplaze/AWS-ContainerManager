@@ -30,7 +30,7 @@ This creates the Ecs Cluster/Service, AutoScaling Group, and EC2 Launch Template
 
 ### Watchdog
 
-This monitors the container, and will spin down the ASG if any of it's alarms goes off. There are three alarms that trigger the scaling down of the ASG:
+This monitors the container, and will spin down the ASG if any of it's alarms goes off.
 
 There are three alarms that trigger the scaling down of the ASG:
 
@@ -49,6 +49,8 @@ If the task fails to start, or if the container crashes/throws, ECS will normall
 This alarm will detect if the container unexpectedly stops for whatever reason, and spins down the ASG. It'll also alert you to check the logs to see what happened. This one has no customization, since I can't think of any customization options that'd be useful.
 
 The reason why we trigger sns off alarm, instead of the event rule directly, is because the rule can be triggered ~4 times before the lambda call finally spins down the ASG. That'd be ~4 emails at once. Also by having an alarm, we can add it to the dashboard for easy monitoring.
+
+**NOTE:** The Mermaid graph shows this triggering by using the `Scale Down ASG Action`. I couldn't figure out how to make the lambda call an existing action, so instead it just spins down the ASG directly with a [boto3 set_desired_capacity](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/set_desired_capacity.html) call. It's easier to follow the graph if all three "scale down" actions are the same, and it's basically the same logic anyways. (I'm open to a PR if the logic ends up being simple. I think you might have to use a [put_scaling_policy](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/put_scaling_policy.html)? But idk how to actually trigger an existing one. What would be REALLY nice is if [Events Rule Target](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.IRuleTarget.html) added support for ASG desired count, and we could remove the lambda function all together.)
 
 ### AsgStateChangeHook
 

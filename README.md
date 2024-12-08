@@ -32,7 +32,7 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 ### Deploying the App (Manually)
 
-There's two stacks, the 'base' stack and the 'leaf' stack. Multiple leaf stacks can/***should*** use the *same* base stack to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+There's two commands: one for the 'base' stacks, and the 'leaf' stacks. You should only have to deploy the 'base' once. Multiple leaf's can/***should*** use the *same* base to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
 
 First setup your Environment Variables used for deploying, and just delete any sections you're not using:
 
@@ -43,7 +43,7 @@ nano vars.env # Use the text editor that's better than vim :)
 source vars.env # Do this after every edit you make too!
 ```
 
-**For more Advanced Customization while Deploying**, see [(cdk) Synth / Deploy / Destroy](#cdk-synth--deploy--destroy) below.
+- **For more Advanced Customization while Deploying**: see [(cdk) Synth / Deploy / Destroy](#cdk-synth--deploy--destroy) below.
 
 #### Base Stack
 
@@ -69,6 +69,8 @@ nano ./Minecraft.yaml
 make cdk-deploy-leaf config-file=./Minecraft.yaml
 ```
 
+- **Info on how it Works behind the scenes**: see the `./ContainerManager`'s [README.md](/ContainerManager/README.md#leaf-stack-summary).
+
 ### Connecting to the Container
 
 Now your game should be live at `<FileName>.<DOMAIN_NAME>`! (So `minecraft.<DOMAIN_NAME>` in this case. No ".yaml"). This means one file per stack. If you want to override this, see the [container-id](#container-id) section below.
@@ -80,7 +82,7 @@ If it's installing updates, keep spamming refresh. It sees those connection atte
 
 ### Cleanup / Destroying the Stacks
 
-You have to clean up all the leaf stacks first, then the base stack.
+You have to clean up all the 'leaf stacks' first, *then* the 'base stack'.
 
 If your config has [Volume.KeepOnDelete](/Examples/README.md#volumeskeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
 
@@ -177,8 +179,21 @@ There's a few alarms inside the app that are supposed to shut down the system wh
 ## Cost of Everything
 
 - TODO: [Create Cost Estimate](https://calculator.aws/#/) (It's not much).
+
+### Base Stack Costs
+
+The point of the base stack, is exactly to combine resources to save costs. You only have to count the following **once**:
+
 - Buying a domain from AWS is an extra `$3/year` for the cheapest I could find (`Register domains` -> `Standard pricing` -> `Price` to sort by price).
+- The Hosted Zone that holds that domain is `$0.50/month` (or `$6/year`).
+
+### Leaf Stack Costs
+
 - The [EC2 Costs](https://aws.amazon.com/ec2/pricing/on-demand/) aren't included because they're the highest factor. You're only charged while people are actively online, but the bigger instances are also more pricey.
+- The [EFS Costs](https://aws.amazon.com/efs/pricing/) are `$0.30/GB/month`.
+- The [Backup](https://aws.amazon.com/backup/pricing/) costs are `$0.05/GB/month`.
+
+Those are the only charges I've seen of note in my account.
 
 ## Makefile Commands
 
@@ -262,6 +277,10 @@ make update
 ### cdk-bootstrap
 
 For setting up cdk into your AWS Account. See the [AWS QuickStart](#first-time-setup---configure-aws) section at the top for more details.
+
+```bash
+make cdk-bootstrap
+```
 
 ## Automatic Deployments with GitHub Actions
 

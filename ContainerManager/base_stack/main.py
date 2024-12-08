@@ -1,14 +1,12 @@
 
 """
-This module contains the ContainerManagerBaseStack class.
+This module contains the BaseStackMain class.
 """
 
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    RemovalPolicy,
     aws_ec2 as ec2,
-    aws_route53 as route53,
     aws_sns as sns,
     aws_iam as iam,
 )
@@ -16,9 +14,9 @@ from aws_cdk import (
 from cdk_nag import NagSuppressions
 
 # from .utils.get_param import get_param
-from .utils.sns_subscriptions import add_sns_subscriptions
+from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
-class ContainerManagerBaseStack(Stack):
+class BaseStackMain(Stack):
     """
     Contains shared resources for all leaf stacks.
     Most importantly, the VPC and SNS.
@@ -33,13 +31,6 @@ class ContainerManagerBaseStack(Stack):
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        ### Fact-check the maturity, and save it for leaf stacks:
-        # (Makefile defaults to prod if not set. We want to fail-fast
-        # here, so throw if it doesn't exist)
-        self.maturity = self.node.get_context("maturity")
-        supported_maturities = ["devel", "prod"]
-        assert self.maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
 
         #################
         ### VPC STUFF ###
@@ -101,34 +92,6 @@ class ContainerManagerBaseStack(Stack):
             )
         )
         add_sns_subscriptions(self, self.sns_notify_topic, config["AlertSubscription"])
-
-
-        #####################
-        ### Route53 STUFF ###
-        #####################
-        # domain_name is imported to other stacks, so save it to this one:
-        self.domain_name = config["Domain"]["Name"]
-        self.root_hosted_zone_id = config["Domain"].get("HostedZoneId")
-
-        if config["Domain"]["HostedZoneId"]:
-            ## Import the existing Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
-            self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
-                self,
-                "RootHostedZone",
-                hosted_zone_id=config["Domain"]["HostedZoneId"],
-                zone_name=self.domain_name,
-            )
-        else:
-            ## Create a Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
-            self.root_hosted_zone = route53.PublicHostedZone(
-                self,
-                "RootHostedZone",
-                zone_name=self.domain_name,
-                comment=f"Hosted zone for {construct_id}: {self.domain_name}",
-            )
-            self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
 
         #####################
         ### Export Values ###
