@@ -144,7 +144,7 @@ flowchart TD
 
 This is apart of the base stack, but heavily used here. Follow that link to read more.
 
-### [./NestedStacks](./NestedStacks/) Stack (Red)
+### [./NestedStacks](./NestedStacks/) Leaf Stack (Red)
 
 All of the nested stacks are combined into one stack at [./main.py](./main.py). They're broken into Nested Stack chunks, to keep each chunk easy to read/manage. For more information, see the [NestedStack's README](./NestedStacks/README.md).
 
@@ -152,6 +152,6 @@ This stack handles seeing if people are connected to the container, along with h
 
 It also sets up a SNS for if you just want to subscribe to events of this specific container, and not any others. This stack can be deployed to any region.
 
-### [./start_system.py](./start_system.py) Stack (Green)
+### [./start_system.py](./start_system.py) Leaf Stack (Green)
 
 This is what actually adds the DNS records to `Base Stack Domain` above, and spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from `Base Stack Domain`, so it HAS to be in `us-east-1`. It also needs to know the `NestedStacks` ASG to spin it up when the query log is hit, so it HAS to be deployed after that stack. And thus, it's it's own stack.
