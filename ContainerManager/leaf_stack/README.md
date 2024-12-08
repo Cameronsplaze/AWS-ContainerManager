@@ -43,12 +43,12 @@ flowchart TD
             subscription-filter[Subscription Filter]
             lambda-start-system[Lambda: Start System]
 
-            subscription-filter --" trigger "--> lambda-start-system
+            subscription-filter --" if Log matches Filter "--> lambda-start-system
         end
     end
     class start_system green_outer
     class start_system_inner green_inner
-    query-log-group --" if Log matches Filter "--> subscription-filter
+    query-log-group --" Reads From "--> subscription-filter
 
     %% LEAF STACK SUBGRAPH
     subgraph nested_stacks["**./NestedStacks/**"]
