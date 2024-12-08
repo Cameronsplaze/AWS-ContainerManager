@@ -1,6 +1,6 @@
 
 """
-This module contains the ContainerManagerBaseStack class.
+This module contains the BaseStackMain class.
 """
 
 from constructs import Construct
@@ -33,13 +33,6 @@ class BaseStackMain(Stack):
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        ### Fact-check the maturity, and save it for leaf stacks:
-        # (Makefile defaults to prod if not set. We want to fail-fast
-        # here, so throw if it doesn't exist)
-        self.maturity = self.node.get_context("maturity")
-        supported_maturities = ["devel", "prod"]
-        assert self.maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
 
         #################
         ### VPC STUFF ###
@@ -102,34 +95,6 @@ class BaseStackMain(Stack):
         )
         add_sns_subscriptions(self, self.sns_notify_topic, config["AlertSubscription"])
 
-
-        #####################
-        ### Route53 STUFF ###
-        #####################
-        # domain_name is imported to other stacks, so save it to this one:
-        self.domain_name = config["Domain"]["Name"]
-        self.root_hosted_zone_id = config["Domain"].get("HostedZoneId")
-
-        if config["Domain"]["HostedZoneId"]:
-            ## Import the existing Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
-            self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
-                self,
-                "RootHostedZone",
-                hosted_zone_id=config["Domain"]["HostedZoneId"],
-                zone_name=self.domain_name,
-            )
-        else:
-            ## Create a Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
-            self.root_hosted_zone = route53.PublicHostedZone(
-                self,
-                "RootHostedZone",
-                zone_name=self.domain_name,
-                comment=f"Hosted zone for {construct_id}: {self.domain_name}",
-            )
-            self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
-
         #####################
         ### Export Values ###
         #####################
@@ -161,28 +126,4 @@ class BaseStackMain(Stack):
                     "reason": "Flow logs cost a lot, and the average user won't need them.",
                 },
             ],
-        )
-
-
-        # ### TESTING
-        # ## Add a record set that uses the base hosted zone
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
-        # from aws_cdk import Duration
-        # self.unavailable_ip = "0.0.0.0"
-        # self.dns_ttl = 1
-        # self.record_type = route53.RecordType.A
-        # self.sub_domain_name = f"testing.{self.root_hosted_zone.zone_name}".lower()
-        # self.dns_record = route53.RecordSet(
-        #     self,
-        #     "DnsRecord",
-        #     zone=self.root_hosted_zone,
-        #     record_name=self.sub_domain_name,
-        #     record_type=self.record_type,
-        #     target=route53.RecordTarget.from_values(self.unavailable_ip),
-        #     ttl=Duration.seconds(self.dns_ttl),
-        # )
-        self.sub_hosted_zone = route53.PublicHostedZone(
-            self,
-            "SubHostedZone",
-            zone_name=self.root_hosted_zone.zone_name,
         )

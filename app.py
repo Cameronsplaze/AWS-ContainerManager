@@ -7,17 +7,16 @@ CDK Application for managing containers in AWS
 import os
 
 from aws_cdk import (
-    Aspects,
+    # Aspects,
     App,
     Environment,
     Tags,
 )
-import cdk_nag
+# import cdk_nag
 
-from ContainerManager.base_stack import BaseStackMain
+from ContainerManager.base_stack import BaseStackMain, BaseStackDomain
 from ContainerManager.leaf_stack.main import ContainerManagerStack
-from ContainerManager.leaf_stack.domain_stack import DomainStack
-from ContainerManager.leaf_stack.link_together_stack import LinkTogetherStack
+from ContainerManager.leaf_stack.start_system import LeafStackStartSystem
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
 
@@ -28,6 +27,14 @@ APPLICATION_ID_TAG_NAME = "ApplicationId"
 ### TODO: Finish going through all the cdk_nag checks:
 # Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
 Tags.of(app).add(APPLICATION_ID_TAG_NAME, application_id)
+
+### Fact-check the maturity, and save it for leaf stacks:
+# (Makefile defaults to prod if not set. We want to fail-fast
+# here, so throw if it doesn't exist)
+maturity = app.node.get_context("maturity")
+supported_maturities = ["devel", "prod"]
+assert maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
+
 
 # Lets you reference self.account and self.region in your CDK code
 # if you need to:
@@ -40,11 +47,14 @@ us_east_1_env = Environment(
     region="us-east-1",
 )
 
-### Create the Base Stack VPC for ALL leaf stacks:
+##################
+### Base Stack ###
+##################
 base_config = load_base_config("./base-stack-config.yaml")
-base_stack = BaseStackMain(
+### Create the Base Stack VPC for ALL leaf stacks:
+base_stack_main = BaseStackMain(
     app,
-    f"{app.node.get_context('_base_stack_name')}-Vpc",
+    f"{app.node.get_context('_base_stack_prefix')}-Vpc",
     description="The base VPC for all other ContainerManage stacks to use.",
     cross_region_references=True,
     env=main_env,
@@ -52,11 +62,23 @@ base_stack = BaseStackMain(
     application_id_tag_name=APPLICATION_ID_TAG_NAME,
     application_id_tag_value=application_id,
 )
+### Create the Base Stack Domain for ALL leaf stacks:
+base_stack_domain = BaseStackDomain(
+    app,
+    f"{app.node.get_context('_base_stack_prefix')}-Domain",
+    description="The base Domain for all other ContainerManage stacks to use.",
+    cross_region_references=True,
+    env=us_east_1_env,
+    config=base_config,
+)
 
+##################
+### Leaf Stack ###
+##################
 ### Create the application for ONE Container:
 file_path = app.node.try_get_context("config-file")
 if file_path:
-    leaf_config = load_leaf_config(file_path, maturity=base_stack.maturity)
+    leaf_config = load_leaf_config(file_path, maturity=maturity)
     # You can override container_id if you need to:
     container_id = app.node.try_get_context("container-id")
     if not container_id:
@@ -70,19 +92,7 @@ if file_path:
         "StackId": f"{application_id}-{container_id_alpha}",
     }
 
-    domain_stack = DomainStack(
-        app,
-        f"{application_id}-{container_id_alpha}-DomainStack",
-        description=f"Route53 for '{container_id}', since it MUST be in us-east-1",
-        cross_region_references=True,
-        env=us_east_1_env,
-        container_id=container_id,
-        base_stack=base_stack,
-    )
-    for key, val in stack_tags.items():
-        Tags.of(domain_stack).add(key, val)
-
-    manager_stack = ContainerManagerStack(
+    leaf_stack_manager = ContainerManagerStack(
         app,
         f"{application_id}-{container_id_alpha}-Stack",
         description="For automatically managing a single container.",
@@ -90,26 +100,26 @@ if file_path:
         # variables, since that one is ONLY in us-east-1
         cross_region_references=True,
         env=main_env,
-        base_stack=base_stack,
-        domain_stack=domain_stack,
+        base_stack_main=base_stack_main,
+        base_stack_domain=base_stack_domain,
         application_id=application_id,
         container_id=container_id,
         config=leaf_config,
     )
     for key, val in stack_tags.items():
-        Tags.of(manager_stack).add(key, val)
+        Tags.of(leaf_stack_manager).add(key, val)
 
-    link_together_stack = LinkTogetherStack(
+    leaf_stack_start_system = LeafStackStartSystem(
         app,
         f"{application_id}-{container_id_alpha}-LinkTogetherStack",
-        description=f"To avoid a circular dependency, and connect '{manager_stack.stack_name}' and '{domain_stack.stack_name}' together.",
+        description="Everything for starting the system UP when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
-        domain_stack=domain_stack,
-        manager_stack=manager_stack,
+        base_stack_domain=base_stack_domain,
+        leaf_stack_manager=leaf_stack_manager,
         container_id=container_id,
     )
     for key, val in stack_tags.items():
-        Tags.of(link_together_stack).add(key, val)
+        Tags.of(leaf_stack_start_system).add(key, val)
 
 app.synth()

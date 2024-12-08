@@ -10,7 +10,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from ContainerManager.leaf_stack.domain_stack import DomainStack
+from ContainerManager.base_stack import BaseStackDomain
 ## Import the other Nested Stacks:
 from . import Container, EcsAsg, Watchdog, AsgStateChangeHook
 
@@ -31,7 +31,8 @@ class Dashboard(NestedStack):
         container_id: str,
         main_config: dict,
 
-        domain_stack: DomainStack,
+        base_stack_domain: BaseStackDomain,
+        dns_log_query_filter: str,
         container_nested_stack: Container,
         ecs_asg_nested_stack: EcsAsg,
         watchdog_nested_stack: Watchdog,
@@ -71,9 +72,9 @@ class Dashboard(NestedStack):
             ## Route53 DNS logs for spinning up the system:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.LogQueryWidget.html
             cloudwatch.LogQueryWidget(
-                title=f"(DNS Traffic) Start's Up System - [{domain_stack.region}: {domain_stack.route53_query_log_group.log_group_name}]",
-                log_group_names=[domain_stack.route53_query_log_group.log_group_name],
-                region=domain_stack.region,
+                title=f"(DNS Traffic) Start's Up System - [{base_stack_domain.region}: {base_stack_domain.route53_query_log_group.log_group_name}]",
+                log_group_names=[base_stack_domain.route53_query_log_group.log_group_name],
+                region=base_stack_domain.region,
                 width=12,
                 height=4,
                 query_lines=[
@@ -81,7 +82,7 @@ class Dashboard(NestedStack):
                     "fields @timestamp, substr(@message, 25) as message",
                     # Spaces on either side, just like SubscriptionFilter, to not
                     # trigger on the "_tcp" query that pairs with the normal one:
-                    f"filter @message like /{domain_stack.log_dns_filter}/",
+                    f"filter @message like /{dns_log_query_filter}/",
                 ],
             ),
 

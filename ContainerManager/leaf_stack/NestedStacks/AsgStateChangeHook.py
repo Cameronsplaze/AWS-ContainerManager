@@ -20,7 +20,7 @@ from constructs import Construct
 
 from cdk_nag import NagSuppressions
 
-from ContainerManager.leaf_stack.domain_stack import DomainStack
+from ContainerManager.base_stack import BaseStackDomain
 
 class AsgStateChangeHook(NestedStack):
     """
@@ -31,7 +31,8 @@ class AsgStateChangeHook(NestedStack):
         self,
         scope: Construct,
         container_id: str,
-        domain_stack: DomainStack,
+        container_url: str,
+        base_stack_domain: BaseStackDomain,
         ecs_cluster: ecs.Cluster,
         ec2_service: ecs.Ec2Service,
         auto_scaling_group: autoscaling.AutoScalingGroup,
@@ -82,11 +83,11 @@ class AsgStateChangeHook(NestedStack):
             log_group=self.log_group_asg_statechange_hook,
             role=self.asg_state_change_role,
             environment={
-                "HOSTED_ZONE_ID": domain_stack.sub_hosted_zone.hosted_zone_id,
-                "DOMAIN_NAME": domain_stack.sub_domain_name,
-                "UNAVAILABLE_IP": domain_stack.unavailable_ip,
-                "DNS_TTL": str(domain_stack.dns_ttl),
-                "RECORD_TYPE": domain_stack.record_type.value,
+                "HOSTED_ZONE_ID": base_stack_domain.hosted_zone.hosted_zone_id,
+                "DOMAIN_NAME": container_url,
+                "UNAVAILABLE_IP": base_stack_domain.unavailable_ip,
+                "DNS_TTL": str(base_stack_domain.dns_ttl),
+                "RECORD_TYPE": base_stack_domain.record_type.value,
                 "ECS_CLUSTER_NAME": ecs_cluster.cluster_name,
                 "ECS_SERVICE_NAME": ec2_service.service_name,
             },
@@ -120,12 +121,12 @@ class AsgStateChangeHook(NestedStack):
                 resources=[ec2_service.service_arn],
             )
         )
-        ## Let it update the DNS record of this stack:
+        ## Let it update the DNS record of the base stack:
         self.asg_state_change_policy.add_statements(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["route53:ChangeResourceRecordSets"],
-                resources=[domain_stack.sub_hosted_zone.hosted_zone_arn],
+                resources=[base_stack_domain.hosted_zone.hosted_zone_arn],
             )
         )
 
@@ -133,7 +134,7 @@ class AsgStateChangeHook(NestedStack):
         #    Needed to keep the management in sync with if a container is running.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         message_up = events.RuleTargetInput.from_text(
-            f"Container for '{container_id}' is starting up! Connect to it at: '{domain_stack.sub_domain_name}'.",
+            f"Container for '{container_id}' is starting up! Connect to it at: '{container_url}'.",
         )
         self.rule_asg_state_change_trigger_up = events.Rule(
             self,
