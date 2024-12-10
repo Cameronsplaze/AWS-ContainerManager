@@ -7,6 +7,7 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     RemovalPolicy,
+    Fn,
     aws_route53 as route53,
     aws_logs as logs,
     aws_iam as iam,
@@ -70,20 +71,10 @@ class BaseStackDomain(Stack):
         )
 
         ## If you bought a domain through AWS, and have an existing Hosted Zone. We can't
-        #   modify it, so we import it and tie ours to the existing one:
+        #   modify it, so we import it and tie ours to the existing one (inside leaf-stack start-system):
+        self.imported_hosted_zone_id = None
         if config["Domain"]["HostedZoneId"]:
-            ## Import the existing Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
-            self.imported_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
-                self,
-                "RootHostedZone",
-                hosted_zone_id=config["Domain"]["HostedZoneId"],
-                zone_name=self.domain_name,
-            )
-        else:
-            # This is checked in the leaf stack, to see if it needs to add
-            # a NS record to this hosted zone.
-            self.imported_hosted_zone = None
+            self.imported_hosted_zone_id = config["Domain"]["HostedZoneId"]
 
         #####################
         ### Export Values ###
@@ -91,7 +82,13 @@ class BaseStackDomain(Stack):
         ## To stop cdk from trying to delete the exports when cdk is deployed by
         ## itself, but still has leaf stacks attached to it.
         # https://blogs.thedevs.co/aws-cdk-export-cannot-be-deleted-as-it-is-in-use-by-stack-5c205b8004b4
-        self.export_value(self.hosted_zone.hosted_zone_name_servers)
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.ExportValueOptions.html
+        # https://github.com/aws/aws-cdk/blob/v1-main/packages/@aws-cdk/core/README.md#removing-automatic-cross-stack-references
         self.export_value(self.route53_query_log_group.log_group_arn)
         self.export_value(self.hosted_zone.hosted_zone_id)
         self.export_value(self.route53_query_log_group.log_group_name)
+        # Had to do this one manually, because of https://github.com/aws/aws-cdk/issues/32420
+        self.export_hosted_zone_ns = self.export_value(
+            Fn.join("||", self.hosted_zone.hosted_zone_name_servers),
+            name=f"{construct_id}-HostedZoneNameServers",
+        )
