@@ -10,7 +10,6 @@ import json
 
 from aws_cdk import (
     Stack,
-    Fn,
     Duration,
     RemovalPolicy,
     aws_route53 as route53,

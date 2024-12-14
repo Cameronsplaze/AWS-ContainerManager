@@ -7,7 +7,6 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     RemovalPolicy,
-    Fn,
     aws_route53 as route53,
     aws_logs as logs,
     aws_iam as iam,

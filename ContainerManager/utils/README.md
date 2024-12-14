@@ -16,7 +16,7 @@ Technically there is one spot I can use `cross_region_references` in this projec
 
 ### Cross-Region: Moving Values between the Base and Leaf Stacks
 
-On the **base_stack** side: use [export_cross_zone_var.py](./export_cross_zone_var.py) to create the export in the region you want to use it. (Originally I did the other method, of *importing* it from other regions. The problem is the stack consuming it can't see when it's updated. So to get around it, it has to have a part with datetime.now(), and change *every single update*. [More details here](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/core/adr/cross-region-stack-references.md#alternatives)).
+On the **base_stack** side: use [export_cross_zone_var.py](./export_cross_zone_var.py) to create the export (ssm parameter) in the region you want to use it. (Originally I did the other method, of *importing* it from other regions. The problem is the stack consuming it can't see when it's updated. So to get around it, it has to have a part with datetime.now(), and change *every single update*. [More details here](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/core/adr/cross-region-stack-references.md#alternatives)).
 
 On the **leaf_stack** side: Use [ssm.StringParameter.value_from_lookup](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html#static-valuewbrfromwbrlookupscope-parametername-defaultvalue). This is the best one because it'll re-fetch the value every synth. Because you're going between the base and leaf stacks, the base stack exists and this succeeds. (It'll just hang if the stack doesn't exists on synth. Doesn't matter if it's "about" to be deployed.)
 

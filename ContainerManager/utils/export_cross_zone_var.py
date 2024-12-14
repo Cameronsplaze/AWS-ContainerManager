@@ -11,9 +11,14 @@ from aws_cdk import(
 from constructs import Construct
 
 class ExportCrossZoneVar(cr.AwsCustomResource):
+    """
+    For exporting values across regions, but still be able to deploy the stack this is declared in after.
+    (More details in ./utils/README.md)
+    """
     ### Modified/Combined from:
     # - https://stackoverflow.com/questions/59774627/cloudformation-cross-region-reference
     # - https://github.com/pepperize/cdk-ssm-parameters-cross-region/blob/main/src/string-parameter.ts
+    # - https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/core/adr/cross-region-stack-references.md
     def __init__(
             self,
             scope: Construct,
