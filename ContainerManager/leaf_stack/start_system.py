@@ -74,9 +74,6 @@ class LeafStackStartSystem(Stack):
         ## And if you have a imported hosted zone, add NS to link the two zones:
         ## Tie the two hosted zones together:
         if base_stack_domain.imported_hosted_zone_id:
-            # Import this one manually, because of https://github.com/aws/aws-cdk/issues/32420
-            base_stack_name_servers = [Fn.import_value(f"{base_stack_domain.stack_name}-HostedZoneNameServers")]
-
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.HostedZone.html#static-fromwbrhostedwbrzonewbrattributesscope-id-attrs
             imported_hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
                 self,
@@ -90,7 +87,7 @@ class LeafStackStartSystem(Stack):
                 self,
                 "NsRecord",
                 zone=imported_hosted_zone,
-                values=base_stack_name_servers,
+                values=base_stack_domain.hosted_zone.hosted_zone_name_servers,
                 record_name=leaf_stack_manager.container_url,
             )
             self.ns_record.apply_removal_policy(RemovalPolicy.DESTROY)

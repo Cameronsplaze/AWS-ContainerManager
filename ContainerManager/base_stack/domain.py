@@ -89,11 +89,7 @@ class BaseStackDomain(Stack):
         self.export_value(self.route53_query_log_group.log_group_arn)
         self.export_value(self.hosted_zone.hosted_zone_id)
         self.export_value(self.route53_query_log_group.log_group_name)
-        # # Had to do this one manually, because of https://github.com/aws/aws-cdk/issues/32420
-        self.export_hosted_zone_ns = self.export_value(
-            Fn.join("||", self.hosted_zone.hosted_zone_name_servers),
-            name=f"{construct_id}-HostedZoneNameServers",
-        )
+        self.export_string_list_value(self.hosted_zone.hosted_zone_name_servers)
         ## And these are exports for leaf-stacks in different regions:
         ExportCrossZoneVar(
             self,
