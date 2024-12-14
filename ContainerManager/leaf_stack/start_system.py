@@ -15,6 +15,7 @@ from aws_cdk import (
     RemovalPolicy,
     aws_route53 as route53,
     aws_iam as iam,
+    aws_ssm as ssm,
     aws_logs as logs,
     aws_logs_destinations as logs_destinations,
     aws_lambda as aws_lambda,
@@ -42,6 +43,19 @@ class LeafStackStartSystem(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
         container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html#static-fromwbrstringwbrparameterwbrattributesscope-id-attrs
+        asg_name = ssm.StringParameter.from_string_parameter_attributes(
+            self,
+            "Import-AsgName",
+            parameter_name=f"/{leaf_stack_manager.stack_name}/AsgName",
+            simple_name=False,
+        )
+        asg_arn = ssm.StringParameter.from_string_parameter_attributes(
+            self,
+            "Import-AsgArn",
+            parameter_name=f"/{leaf_stack_manager.stack_name}/AsgArn",
+            simple_name=False,
+        )
 
         ### Create the DNS record to trigger the lambda:
         # (Nothing actually referenced it directly)
@@ -63,12 +77,12 @@ class LeafStackStartSystem(Stack):
             # Import this one manually, because of https://github.com/aws/aws-cdk/issues/32420
             base_stack_name_servers = [Fn.import_value(f"{base_stack_domain.stack_name}-HostedZoneNameServers")]
 
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.HostedZone.html#static-fromwbrlookupscope-id-query
-            imported_hosted_zone = route53.HostedZone.from_lookup(
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.HostedZone.html#static-fromwbrhostedwbrzonewbrattributesscope-id-attrs
+            imported_hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
                 self,
                 "ImportHostedZone",
-                domain_name=base_stack_domain.domain_name,
-                private_zone=False,
+                zone_name=base_stack_domain.domain_name,
+                hosted_zone_id=base_stack_domain.imported_hosted_zone_id,
             )
             ## Point the imported zone to the hosted zone we can have query logs in:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.NsRecord.html
@@ -121,7 +135,7 @@ class LeafStackStartSystem(Stack):
             log_group=self.log_group_start_system,
             role=self.start_system_role,
             environment={
-                "ASG_NAME": leaf_stack_manager.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name,
+                "ASG_NAME": asg_name.string_value,
                 "MANAGER_STACK_REGION": leaf_stack_manager.region,
                 ## Metric info to let the system know someone is trying to connect, and don't spin down:
                 "METRIC_NAMESPACE": leaf_stack_manager.watchdog_nested_stack.metric_namespace,
@@ -172,7 +186,7 @@ class LeafStackStartSystem(Stack):
                 actions=[
                     "autoscaling:UpdateAutoScalingGroup",
                 ],
-                resources=[leaf_stack_manager.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
+                resources=[asg_arn.string_value],
             )
         )
 

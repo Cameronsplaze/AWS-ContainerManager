@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_logs as logs,
     aws_iam as iam,
 )
+from ContainerManager.utils import ExportCrossZoneVar
 
 # from cdk_nag import NagSuppressions
 
@@ -26,6 +27,7 @@ class BaseStackDomain(Stack):
         scope: Construct,
         construct_id: str,
         config: dict,
+        main_stack_region: str,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -87,8 +89,23 @@ class BaseStackDomain(Stack):
         self.export_value(self.route53_query_log_group.log_group_arn)
         self.export_value(self.hosted_zone.hosted_zone_id)
         self.export_value(self.route53_query_log_group.log_group_name)
-        # Had to do this one manually, because of https://github.com/aws/aws-cdk/issues/32420
+        # # Had to do this one manually, because of https://github.com/aws/aws-cdk/issues/32420
         self.export_hosted_zone_ns = self.export_value(
             Fn.join("||", self.hosted_zone.hosted_zone_name_servers),
             name=f"{construct_id}-HostedZoneNameServers",
+        )
+        ## And these are exports for leaf-stacks in different regions:
+        ExportCrossZoneVar(
+            self,
+            "Export-HostedZoneId",
+            param_name=f"/{construct_id}/HostedZoneId",
+            param_value=self.hosted_zone.hosted_zone_id,
+            param_region=main_stack_region,
+        )
+        ExportCrossZoneVar(
+            self,
+            "Export-QueryLogGroupName",
+            param_name=f"/{construct_id}/QueryLogGroupName",
+            param_value=self.route53_query_log_group.log_group_name,
+            param_region=main_stack_region,
         )

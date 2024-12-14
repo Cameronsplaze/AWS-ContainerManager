@@ -17,7 +17,7 @@ from aws_cdk import (
 from ContainerManager.base_stack import BaseStackMain, BaseStackDomain
 from ContainerManager.leaf_stack.main import ContainerManagerStack
 from ContainerManager.leaf_stack.start_system import LeafStackStartSystem
-from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
+from ContainerManager.utils import load_base_config, load_leaf_config
 
 
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
@@ -56,7 +56,7 @@ base_stack_main = BaseStackMain(
     app,
     f"{app.node.get_context('_base_stack_prefix')}-Vpc",
     description="The base VPC for all other ContainerManage stacks to use.",
-    cross_region_references=True,
+    # cross_region_references=True,
     env=main_env,
     config=base_config,
     application_id_tag_name=APPLICATION_ID_TAG_NAME,
@@ -67,9 +67,10 @@ base_stack_domain = BaseStackDomain(
     app,
     f"{app.node.get_context('_base_stack_prefix')}-Domain",
     description="The base HostedZone for all other ContainerManage stacks to use.",
-    cross_region_references=True,
+    # cross_region_references=True,
     env=us_east_1_env,
     config=base_config,
+    main_stack_region=main_env.region,
 )
 
 ##################
@@ -96,9 +97,7 @@ if file_path:
         app,
         f"{application_id}-{container_id_alpha}-Stack",
         description="For automatically managing and spinning down the container.",
-        # cross_region_references lets this stack reference the domain_stacks
-        # variables, since that one is ONLY in us-east-1
-        cross_region_references=True,
+        # cross_region_references=True,
         env=main_env,
         base_stack_main=base_stack_main,
         base_stack_domain=base_stack_domain,
@@ -113,7 +112,7 @@ if file_path:
         app,
         f"{application_id}-{container_id_alpha}-StartSystemStack",
         description="Everything for spinning up the container when someone connects.",
-        cross_region_references=True,
+        # cross_region_references=True,
         env=us_east_1_env,
         base_stack_domain=base_stack_domain,
         leaf_stack_manager=leaf_stack_manager,

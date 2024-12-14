@@ -12,15 +12,16 @@ from aws_cdk import (
     aws_iam as iam,
     aws_logs as logs,
     aws_ecs as ecs,
+    aws_ssm as ssm,
     aws_events as events,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
-
 from cdk_nag import NagSuppressions
 
 from ContainerManager.base_stack import BaseStackDomain
+from ContainerManager.utils import ExportCrossZoneVar
 
 class AsgStateChangeHook(NestedStack):
     """
@@ -42,6 +43,13 @@ class AsgStateChangeHook(NestedStack):
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
         container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
+        ## Get the hosted zone id from the other stack:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html#static-valuewbrfromwbrlookupscope-parametername-defaultvalue
+        hosted_zone_id = ssm.StringParameter.value_from_lookup(
+            self,
+            parameter_name=f"/{base_stack_domain.stack_name}/HostedZoneId",
+        )
+
 
         ## Log group for the lambda function:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
@@ -83,7 +91,7 @@ class AsgStateChangeHook(NestedStack):
             log_group=self.log_group_asg_statechange_hook,
             role=self.asg_state_change_role,
             environment={
-                "HOSTED_ZONE_ID": base_stack_domain.hosted_zone.hosted_zone_id,
+                "HOSTED_ZONE_ID": hosted_zone_id,
                 "DOMAIN_NAME": container_url,
                 "UNAVAILABLE_IP": base_stack_domain.unavailable_ip,
                 "DNS_TTL": str(base_stack_domain.dns_ttl),
@@ -126,7 +134,7 @@ class AsgStateChangeHook(NestedStack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["route53:ChangeResourceRecordSets"],
-                resources=[base_stack_domain.hosted_zone.hosted_zone_arn],
+                resources=[f"arn:aws:route53:::hostedzone/{hosted_zone_id}"],
             )
         )
 
@@ -181,6 +189,24 @@ class AsgStateChangeHook(NestedStack):
                 events_targets.SnsTopic(base_stack_sns_topic, message=message_down),
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message_down),
             ],
+        )
+
+        ############################
+        ### Cross Region Exports ###
+        ############################
+        ExportCrossZoneVar(
+            self,
+            "Export-AsgName",
+            param_name=f"/{scope.stack_name}/AsgName",
+            param_value=auto_scaling_group.auto_scaling_group_name,
+            param_region=base_stack_domain.region,
+        )
+        ExportCrossZoneVar(
+            self,
+            "Export-AsgArn",
+            param_name=f"/{scope.stack_name}/AsgArn",
+            param_value=auto_scaling_group.auto_scaling_group_arn,
+            param_region=base_stack_domain.region,
         )
 
         #####################

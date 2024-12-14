@@ -50,7 +50,7 @@ class ContainerManagerStack(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
         ### Container-Specific Domain Variables:
-        self.container_url = f"{container_id}.{base_stack_domain.hosted_zone.zone_name}".lower()
+        self.container_url = f"{container_id}.{base_stack_domain.domain_name}".lower()
         # Spaces on the ends to not match sub-domains like "_tcp.*" that shows up in logs.
         # The record_type is because BOTH A and AAAA appear, even if my ISP only supports one.
         # (And to not trigger on 'java.minecraft.<domain>' vs 'minecraft.<domain>')

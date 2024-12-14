@@ -21,6 +21,10 @@ The system is designed all around the Auto Scaling Group (ASG). This way, if the
 
 See the [leaf_stack'S README.md](./leaf_stack/README.md) for more info.
 
+## Moving Variables between the Stacks
+
+This section is has been moved to the [utils README](./utils/README.md#moving-variables-between-the-stacks).
+
 ## Base Stack Summary
 
 The [base stack](./base_stack/README.md) is broken into two components (or "stacks"). One *must* be in us-east-1 for Route53, and the other has to be in the same region as you want to run the containers from.

@@ -7,6 +7,7 @@ from aws_cdk import (
     NestedStack,
     Duration,
     aws_cloudwatch as cloudwatch,
+    aws_ssm as ssm,
 )
 from constructs import Construct
 
@@ -47,6 +48,12 @@ class Dashboard(NestedStack):
         #######################
         # Config options for specifically this stack:
         dashboard_config = main_config["Dashboard"]
+        ## Import the log_group name from the other stack:
+        query_log_group_name = ssm.StringParameter.value_from_lookup(
+            self,
+            parameter_name=f"/{base_stack_domain.stack_name}/QueryLogGroupName",
+        )
+
 
         ############
         ### Metrics used in the Widgets below:
@@ -72,8 +79,8 @@ class Dashboard(NestedStack):
             ## Route53 DNS logs for spinning up the system:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.LogQueryWidget.html
             cloudwatch.LogQueryWidget(
-                title=f"(DNS Traffic) Start's Up System - [{base_stack_domain.region}: {base_stack_domain.route53_query_log_group.log_group_name}]",
-                log_group_names=[base_stack_domain.route53_query_log_group.log_group_name],
+                title=f"(DNS Traffic) Start's Up System - [{base_stack_domain.region}: {query_log_group_name}]",
+                log_group_names=[query_log_group_name],
                 region=base_stack_domain.region,
                 width=12,
                 height=4,
