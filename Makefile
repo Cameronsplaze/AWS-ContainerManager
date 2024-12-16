@@ -134,9 +134,15 @@ aws-whoami:
 		--output text
 
 .PHONY := update-npm
+# n: node version manager
+# hash -r: use the latest node version
 update-npm:
 	echo "Updating NPM Stuff..."
-	npm install -g npm@latest aws-cdk@latest
+	mkdir -p ~/.npm-global
+	npm config set prefix '~/.npm-global'
+	npm install -g npm@latest aws-cdk@latest n@latest
+	N_PREFIX=~/.npm-global n latest
+	hash -r
 	echo ""
 
 .PHONY := update-python
