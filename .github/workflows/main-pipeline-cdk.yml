@@ -126,12 +126,6 @@ jobs:
           secrets: ${{ toJson(secrets) }}
           vars: ${{ toJson(vars) }}
 
-      ## Log into AWS:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
-
       ## Deploy the Base Stack:
       - name: Deploy Base Stack
         run: make cdk-deploy-base
@@ -162,12 +156,6 @@ jobs:
         with:
           secrets: ${{ toJson(secrets) }}
           vars: ${{ toJson(vars) }}
-
-      ## Log into AWS:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.AWS_DEPLOY_ROLE }}"
 
       ## Deploy the Leaf Stack:
       - name: "Deploying: ${{ matrix.deploy-config }}"
