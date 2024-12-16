@@ -29,6 +29,11 @@ on:
 
 env:
   EXAMPLES_PATH: ./Examples # No trailing slash plz!
+# You can declare this for specific jobs too, but almost all here
+# need this anyways. The one that doesn't, doesn't use external actions..
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   setup-matrix:
@@ -102,9 +107,6 @@ jobs:
     needs:
       - setup-matrix
       - cdk-synth
-    permissions:
-      id-token: write
-      contents: read
     steps:
       ## Moved this check away from the job-level 'if', so it actually fails if you're
       # not on main. Failure is easier to see than a skipped job.
@@ -151,9 +153,6 @@ jobs:
       matrix:
         deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
     environment: "${{ matrix.deploy-config }}"
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
 
