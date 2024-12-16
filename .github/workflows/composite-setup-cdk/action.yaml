@@ -37,8 +37,8 @@ runs:
       uses: ./.github/workflows/composite-setup-python
 
     - uses: actions/setup-node@v4
-      # with:
-      #   node-version: 'latest'
+      with:
+        node-version: 'stable'
 
     - name: Install NPM Stuff (aws-cdk)
       shell: bash
