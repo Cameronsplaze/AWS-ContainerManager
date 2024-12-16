@@ -1,5 +1,5 @@
-aws-cdk-lib==2.172.0
-boto3==1.35.76
-cdk-nag==2.34.20
+aws-cdk-lib==2.173.1
+boto3==1.35.81
+cdk-nag==2.34.23
 constructs>=10.0.0,<11.0.0
 pyaml-env==1.2.1
