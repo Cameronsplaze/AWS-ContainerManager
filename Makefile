@@ -143,7 +143,7 @@ update-npm:
 	echo "## Updating Node Stuff..."
 	npm install -g n@latest
 	N_PREFIX=~/.npm-global n latest
-	hash -r
+	reset
 	node --version
 	echo "## Updating NPM Stuff..."
 	npm install -g npm@latest aws-cdk@latest
