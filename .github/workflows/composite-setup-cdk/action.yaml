@@ -38,7 +38,7 @@ runs:
 
     - uses: actions/setup-node@v4
       with:
-        node-version: 'stable'
+        node-version: 'lts/*'
 
     - name: Install NPM Stuff (aws-cdk)
       shell: bash
