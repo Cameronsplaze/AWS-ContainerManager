@@ -135,7 +135,7 @@ aws-whoami:
 
 .PHONY := update-npm
 # n: node version manager
-# hash -r: use the latest node version
+# hash -r: Refresh shell to use the latest node version
 update-npm:
 	echo "## Setting up non-root Install..."
 	mkdir -p ~/.npm-global
@@ -144,6 +144,7 @@ update-npm:
 	npm install -g n@latest
 	N_PREFIX=~/.npm-global n latest
 	hash -r
+	node --version
 	echo "## Updating NPM Stuff..."
 	npm install -g npm@latest aws-cdk@latest
 	echo ""
