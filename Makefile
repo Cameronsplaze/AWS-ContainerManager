@@ -140,11 +140,6 @@ update-npm:
 	echo "## Setting up non-root Install..."
 	mkdir -p ~/.npm-global
 	npm config set prefix '~/.npm-global'
-	echo "## Updating Node Stuff..."
-	npm install -g n@latest
-	N_PREFIX=~/.npm-global n latest
-	reset
-	node --version
 	echo "## Updating NPM Stuff..."
 	npm install -g npm@latest aws-cdk@latest
 	echo ""
