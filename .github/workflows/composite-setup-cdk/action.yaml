@@ -38,6 +38,7 @@ runs:
 
     - uses: actions/setup-node@v4
       with:
+        # Get the latest even-numbered version (their LTS):
         node-version: 'lts/*'
 
     - name: Install NPM Stuff (aws-cdk)
