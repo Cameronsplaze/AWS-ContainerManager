@@ -155,7 +155,6 @@ class LeafStackStartSystem(Stack):
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
             # Spaces on either side, so it doesn't match the "_tcp" query that pairs with it:
             filter_pattern=logs.FilterPattern.any_term(leaf_stack_manager.dns_log_query_filter),
-            # filter_name="TriggerLambdaOnConnect",
         )
 
 
