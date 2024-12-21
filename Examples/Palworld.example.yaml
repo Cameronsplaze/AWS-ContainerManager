@@ -29,4 +29,4 @@ Volumes:
       - Path: /palworld
 
 Watchdog:
-  Threshold: 2000
+  Threshold: 3250
