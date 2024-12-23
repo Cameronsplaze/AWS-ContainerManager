@@ -81,8 +81,9 @@ I specifically designed all the automation, so that if it's forked, you can re-u
     - **AWS_REGION**: The region to deploy to. (Some HAS to be deployed to `us-east-1`, this is everything else that's not restricted).
     - **DEPLOY_EXAMPLES**: The list of container config paths to deploy, each on their own line. (See '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for details).
 
-5) **Secrets and variables: *Dependabot Secrets***: These are only accessible to dependabot, BUT dependabot can't access any of the github secrets above.
+5) **Secrets and variables: *Dependabot Secrets***: These are only accessible to dependabot, BUT dependabot can't access any of the github secrets above. This all will be duplicates of the above section.
 
+    - **AWS_ACCOUNT_ID**: Your AWS Account ID.
     - **PAT_AUTOMERGE_PR**: A *classic* PAT with ONLY `repo:public_repo` permissions. (Has to be classic until [this issue](https://github.com/cli/cli/issues/9166) is fixed. You'll get permission denied otherwise.) Create this under `Account` -> `Settings` -> `Developer Settings` -> `Personal Access Tokens` -> `Tokens (classic)`
 
 6) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
