@@ -1,0 +1,38 @@
+name: Dispatch - Deploy Leaf Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "The leaf stack to DESTROY"
+        type: environment
+        required: true
+
+env:
+  EXAMPLES_PATH: ./Examples # No trailing slash plz!
+
+jobs:
+  cdk-deploy-leaf:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: "${{ inputs.environment }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      ## Install Everything / Setup Env Vars:
+      - name: Setup CDK
+        uses: ./.github/workflows/composite-setup-cdk
+        with:
+          secrets: ${{ toJson(secrets) }}
+          vars: ${{ toJson(vars) }}
+
+      ## Deploy the Leaf Stack:
+      # CONTAINER_ID: If not defined in Environment, default to everything before the first period in the filename.
+      - name: "Deploying: ${{ inputs.environment }}"
+        run: |
+          CONTAINER_ID=${CONTAINER_ID:=$(echo "${{ inputs.environment }}" | sed 's/\..*//i')}
+          make cdk-deploy-leaf \
+            config-file="${{ env.EXAMPLES_PATH }}/${{ inputs.environment }}" \
+            container-id=${CONTAINER_ID}
