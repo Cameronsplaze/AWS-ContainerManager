@@ -15,12 +15,12 @@ Container:
     PLAYERS: 32 # Max allowed in Palworld
     PORT: 8211 # Default
     SERVER_PASSWORD: !ENV ${PALWORLD_PASSWORD}
-    RCON_ENABLED: False
+    RCON_ENABLED: True # Required for automatic updates
     MULTITHREADING: True
     BACKUP_ENABLED: False # We have this with AWS already.
     # Update when the server turns on, it isn't up 24/7:
     UPDATE_ON_BOOT: True
-    AUTO_UPDATE_ENABLED: False
+    AUTO_UPDATE_ENABLED: True
     AUTO_REBOOT_ENABLED: True
     AUTO_REBOOT_EVEN_IF_PLAYERS_ONLINE: True
 
