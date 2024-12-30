@@ -100,6 +100,7 @@ class Watchdog(NestedStack):
             using_metrics={
                 "b_in": traffic_in_metric,
             },
+            period=Duration.minutes(1),
         )
 
         ## Combine two metrics here before creating the alarm:
