@@ -16,17 +16,21 @@ Container:
     PORT: 8211 # Default
     SERVER_PASSWORD: !ENV ${PALWORLD_PASSWORD}
     RCON_ENABLED: False # Makes logs noisy, and might be extra network traffic keeping the container up
-    MULTITHREADING: True
+    MULTITHREADING: False # Do the threads talk over sockets???
     BACKUP_ENABLED: False # We have this with AWS already.
+    ENABLE_PLAYER_LOGGING: False # Maybe this is what's too noisy for watching traffic?
     # Update when the server turns on, it isn't up 24/7:
     UPDATE_ON_BOOT: True
-    AUTO_UPDATE_ENABLED: True
+    AUTO_UPDATE_ENABLED: False
     AUTO_REBOOT_ENABLED: True
     AUTO_REBOOT_EVEN_IF_PLAYERS_ONLINE: True
+    ### From https://palworld-server-docker.loef.dev/getting-started/configuration/game-settings
+    # They assume servers are up 24/7 when setting these numbers. Tone down a bit since our's isn't:
+    PAL_EGG_DEFAULT_HATCHING_TIME: 1.000000
 
 Volumes:
   - Paths:
       - Path: /palworld
 
 Watchdog:
-  Threshold: 130000
+  Threshold: 30000
