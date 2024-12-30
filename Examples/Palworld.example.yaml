@@ -30,3 +30,6 @@ Volumes:
 
 Watchdog:
   Threshold: 130000
+  # Hot fix until I can figure out why Threshold increases on older worlds
+  DurationHours: 4
+  ShouldStop: True
