@@ -41,4 +41,7 @@ Volumes:
 ##   (Currently the default anyways...) 
 Watchdog:
   # MinutesWithoutConnections: 5
-  Threshold: 750
+  Threshold: 400
+  InstanceLeftUp:
+    DurationHours: 8
+    ShouldStop: True

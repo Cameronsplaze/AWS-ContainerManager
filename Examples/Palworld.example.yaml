@@ -16,7 +16,7 @@ Container:
     PORT: 8211 # Default
     SERVER_PASSWORD: !ENV ${PALWORLD_PASSWORD}
     RCON_ENABLED: False # Makes logs noisy, and might be extra network traffic keeping the container up
-    MULTITHREADING: False # Do the threads talk over sockets???
+    MULTITHREADING: True # Do the threads talk over sockets???
     BACKUP_ENABLED: False # We have this with AWS already.
     ENABLE_PLAYER_LOGGING: False # Maybe this is what's too noisy for watching traffic?
     # Update when the server turns on, it isn't up 24/7:
@@ -33,7 +33,7 @@ Volumes:
       - Path: /palworld
 
 Watchdog:
-  Threshold: 30000
-  # Hot fix until I can figure out why Threshold increases on older worlds
-  DurationHours: 4
-  ShouldStop: True
+  Threshold: 2950
+  InstanceLeftUp:
+    DurationHours: 8
+    ShouldStop: True

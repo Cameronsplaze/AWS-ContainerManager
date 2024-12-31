@@ -5,9 +5,11 @@ This module contains the Volumes NestedStack class.
 
 from aws_cdk import (
     NestedStack,
+    Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_efs as efs,
+    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
@@ -41,11 +43,13 @@ class Volumes(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
         self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
         self.efs_file_systems = []
+        traffic_out_metrics = {}
         # i: each construct must have a different name inside the for-loop.
         for i, volume_config in enumerate(volumes_config, start=1):
             if not volume_config["Type"] == "EFS":
                 continue
 
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
             efs_file_system = efs.FileSystem(
                 self,
                 f"Efs-{i}",
@@ -97,3 +101,25 @@ class Volumes(NestedStack):
                         read_only=read_only,
                     )
                 )
+                ## EFS Traffic Out:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+                traffic_out_metrics[f"efs_out_{i}"] = cloudwatch.Metric(
+                    label="EFS Traffic Out",
+                    metric_name="DataReadIOBytes",
+                    namespace="AWS/EFS",
+                    dimensions_map={"FileSystemId": efs_file_system.file_system_id},
+                    period=Duration.minutes(1),
+                    statistic="Sum",
+                )
+
+        ## Get total traffic out:
+        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        self.data_out_per_second = cloudwatch.MathExpression(
+            label="(EFS) Bytes OUT per Second",
+            # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
+            # Had to add together manually, "METRICS()" wasn't behaving, and grabbing other values it shouldn't,
+            expression=f"({'+'.join(traffic_out_metrics.keys())})/60",
+            using_metrics=traffic_out_metrics,
+            period=Duration.minutes(1),
+        )

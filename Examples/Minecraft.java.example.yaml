@@ -55,7 +55,10 @@ Volumes:
 # (Only required since we're using BOTH tcp and udp)
 Watchdog:
   # MinutesWithoutConnections: 5
-  Threshold: 1850
+  Threshold: 1175
+  InstanceLeftUp:
+    DurationHours: 8
+    ShouldStop: True
 
 # AlertSubscription:
 #   - Email: Does@Not.Exist

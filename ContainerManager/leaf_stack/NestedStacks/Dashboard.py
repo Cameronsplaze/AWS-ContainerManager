@@ -13,7 +13,7 @@ from constructs import Construct
 
 from ContainerManager.base_stack import BaseStackDomain
 ## Import the other Nested Stacks:
-from . import Container, EcsAsg, Watchdog, AsgStateChangeHook
+from . import Container, Volumes, EcsAsg, Watchdog, AsgStateChangeHook
 
 TRAFFIC_IN_LABEL = "Traffic In (Bytes/Sec)"
 
@@ -35,6 +35,7 @@ class Dashboard(NestedStack):
         base_stack_domain: BaseStackDomain,
         dns_log_query_filter: str,
         container_nested_stack: Container,
+        volumes_nested_stack: Volumes,
         ecs_asg_nested_stack: EcsAsg,
         watchdog_nested_stack: Watchdog,
         asg_state_change_hook_nested_stack: AsgStateChangeHook,
@@ -154,9 +155,9 @@ class Dashboard(NestedStack):
                 height=6,
                 width=12,
                 right=[
-                    watchdog_nested_stack.bytes_per_second_in,
+                    watchdog_nested_stack.bytes_in_per_second,
                     watchdog_nested_stack.traffic_dns_metric,
-                    # watchdog_nested_stack.watchdog_traffic_metric,
+                    volumes_nested_stack.data_out_per_second,
                 ],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),

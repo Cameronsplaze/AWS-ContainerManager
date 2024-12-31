@@ -36,7 +36,8 @@ class Container(NestedStack):
         self.task_definition = ecs.Ec2TaskDefinition(
             self,
             "TaskDefinition",
-
+            # For some reason, docker might be considered "outside" the container, and add to the NetworkIn Metric?:
+            network_mode=ecs.NetworkMode.HOST,
             # execution_role= ecs **agent** permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
         )
