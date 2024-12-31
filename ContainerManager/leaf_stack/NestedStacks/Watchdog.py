@@ -113,8 +113,10 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.watchdog_traffic_metric = cloudwatch.MathExpression(
             label="Watchdog Container Traffic",
-            # expression="ABS(traffic_in - volumes_out) + dns_hit",
-            expression="IF(traffic_in - volumes_out > 0, traffic_in - volumes_out, 0) + dns_hit",
+            # Only push data if positive. Also don't push anything otherwise: This happens when efs
+            # is accessed at the end of one poll, and it's traffic_in is in the next poll. Garbage
+            # anyways, so ignore it. (If you need to add it back, put '0' as a third augment to IF)
+            expression="IF(traffic_in - volumes_out > 0, traffic_in - volumes_out) + dns_hit",
             using_metrics={
                 # Traffic in (to container) minus volumes out (of efs), to get traffic only from clients:
                 "traffic_in": self.bytes_in_per_second,
