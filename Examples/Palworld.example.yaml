@@ -31,6 +31,8 @@ Container:
     COOP_PLAYER_MAX_NUM: 32
     # Default is 10, very low for trusted players:
     CHAT_POST_LIMIT_PER_MINUTE: 120
+    # 15 pals is too low...
+    BASE_CAMP_WORKER_MAX_NUM: 20
 
 Volumes:
   - Paths:
