@@ -92,4 +92,3 @@ class DomainStack(Stack):
         # Make sure the record is removed BEFORE you try to remove the zone
         #     idk why this isn't the default....
         self.dns_record.node.add_dependency(self.sub_hosted_zone)
-
