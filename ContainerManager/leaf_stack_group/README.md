@@ -1,12 +1,14 @@
-# Leaf Stack - Container Manager Core
+# Leaf Stack Group - Container Manager Core
 
-This is the core of the Container Manager. It's the AWS Architecture that runs the container, along with spinning it up/down when needed. Multiple `leaf_stack`'s can be deployed together, one for each each container.
+This is the core of the Container Manager. It's the AWS Architecture that runs the container, along with spinning it up/down when needed. Multiple `leaf_stack_group`'s can be deployed together, one for each each container.
+
+Each `leaf_stack_group` is made up of three stacks, working together to manage a single container.
 
 A simple TLDR diagram can be found back one level in [../README.md](../README.md#leaf-stack-summary)
 
 ## CDK Architecture
 
-How the leaf stack links together and works:
+How the leaf stack links together and work (View this in GitHub directly for zoom controls and everything):
 
 ```mermaid
 %% Solid docs on Mermaid: https://content.mermaidchart.com/diagram-syntax/flowchart/
@@ -24,17 +26,17 @@ flowchart TD
 
     user-connects["🧑‍🤝‍🧑 User Connects 🧑‍🤝‍🧑"]
 
-    %% BASE STACK DOMAIN SUBGRAPH
-    subgraph base_stack_domain["**BaseStack-Domain**"]
-        subgraph base_stack_domain_inner["(us-east-1)"]
+    %% DOMAIN STACK SUBGRAPH
+    subgraph domain_stack["**domain_stack.py**"]
+        subgraph domain_stack_inner["(us-east-1)"]
             sub-hosted-zone[Sub Hosted Zone]
             query-log-group[Query Log Group]
 
             sub-hosted-zone --" Writes Log "--> query-log-group
         end
     end
-    class base_stack_domain blue_outer
-    class base_stack_domain_inner blue_inner
+    class domain_stack blue_outer
+    class domain_stack_inner blue_inner
     user-connects --" DNS Query "--> sub-hosted-zone
 
     %% START SYSTEM STACK SUBGRAPH
@@ -140,9 +142,11 @@ flowchart TD
 
 ## Stack Summaries
 
-### [Base Stack Domain](../base_stack/README.md) (Blue)
+Below are the three "stacks" part of the "leaf_stack_group" that are deployed to run a single container. It's also the order they're deployed, to fix a circular dependency issue with the regions specific pieces have to be.
 
-This is apart of the base stack, but heavily used here. Follow that link to read more.
+### [./domain_stack.py](./domain_stack.py) Stack (Blue)
+
+This stack sets up the Hosted Zone and DNS for the leaf_stack_group. This stack MUST be deployed to `us-east-1` since that's where AWS houses Route53.
 
 ### [./NestedStacks](./NestedStacks/) Leaf Stack (Red)
 

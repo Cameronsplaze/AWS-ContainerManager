@@ -116,7 +116,7 @@ if file_path:
 
     start_system_stack = StartSystemStack(
         app,
-        f"{application_id}-{container_id_alpha}-StartSystemStack",
+        f"{application_id}-{container_id_alpha}-StartSystem",
         description="Everything for spinning up the container when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
