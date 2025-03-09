@@ -75,7 +75,8 @@ jobs:
     strategy:
       matrix:
         example-config: ${{ fromJson(needs.setup-matrix.outputs.synth-matrix) }}
-    environment: ${{ matrix.example-config }}
+    environment: "${{ matrix.example-config }}"
+    name: "${{ matrix.example-config }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -151,6 +152,7 @@ jobs:
       matrix:
         deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
     environment: "${{ matrix.deploy-config }}"
+    name: "${{ matrix.deploy-config }}"
     steps:
       - uses: actions/checkout@v4
 
