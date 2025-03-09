@@ -9,7 +9,7 @@ on:
       - '**.py'
       # Or Actions this workflow depends on (including itself):
       - '.pylintrc'
-      - '.github/workflows/pylint.yml'
+      - '.github/workflows/linter-pylint.yml'
       - '.github/workflows/composite-setup-python/action.yaml'
 
 jobs:

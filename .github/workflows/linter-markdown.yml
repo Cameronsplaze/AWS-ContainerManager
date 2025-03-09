@@ -1,0 +1,29 @@
+name: markdownlint - Lint Markdown Files
+
+# Tool for linting: https://github.com/DavidAnson/markdownlint
+# It's CLI: https://github.com/igorshubovych/markdownlint-cli
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    # Can use 'paths' here. This isn't running on dependabot updates.
+    paths:
+      # Changes to any python file:
+      - '**.md'
+      # Or Actions this workflow depends on (including itself):
+      - '.markdownlint.yaml'
+      - '.github/workflows/linter-markdown.yml'
+
+jobs:
+  python-lint:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/igorshubovych/markdownlint-cli:latest
+    # # Jump to where the container expects to find the code:
+    # defaults:
+    #   run:
+    #     working-directory: /workdir
+    #     shell: sh # Doesn't have bash...
+    steps:
+      - uses: actions/checkout@v4
+      - run: ls -hal
