@@ -32,7 +32,7 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 ### Deploying the App (Manually)
 
-There's two commands: one for the 'base' stacks, and the 'leaf' stacks. You should only have to deploy the 'base' once. Multiple leaf's can/***should*** use the *same* base to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+There's two commands: one for the 'base' stack, and the 'leaf_stack_group'. You should only have to deploy the 'base' once. Multiple leaf's can/***should*** use the *same* base to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it (Or you upgrade releases).
 
 First setup your Environment Variables used for deploying, and just delete any sections you're not using:
 
@@ -192,6 +192,7 @@ The point of the base stack, is exactly to combine resources to save costs. You 
 - The [EC2 Costs](https://aws.amazon.com/ec2/pricing/on-demand/) aren't included because they're the highest factor. You're only charged while people are actively online, but the bigger instances are also more pricey.
 - The [EFS Costs](https://aws.amazon.com/efs/pricing/) are `$0.30/GB/month`.
 - The [Backup](https://aws.amazon.com/backup/pricing/) costs are `$0.05/GB/month`.
+- The Hosted Zone that holds the DNS info is `$0.50/month` (or `$6/year`).
 
 Those are the only charges I've seen of note in my account.
 

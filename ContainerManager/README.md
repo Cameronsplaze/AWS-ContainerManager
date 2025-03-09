@@ -3,7 +3,7 @@
 This is designed so you only need one base stack that you deploy first, then you can deploy any number of "leaf stack groups" on it. (A single leaf-stack-group is for managing a single container). This lets you modify one leaf-stack-group, without affecting the rest, and still have shared resources to reduce cost/complexity where appropriate.
 
 - The [./leaf_stack_group](./leaf_stack_group/README.md) is what runs a single container. One `leaf_stack_group` for one container. It contains **three** stacks in the group.
-- The [./base_stack](./base_stack/README.md) is common architecture that different containers can share (i.e VPC, HostedZone). Multiple "Leaf Stack Groups" can point to the same "Base Stack".
+- The [./base_stack](./base_stack/README.md) is common architecture that different containers can share (i.e VPC, imported HostedZone, ssh key). Multiple "Leaf Stack Groups" can point to the same "Base Stack".
 - The [./utils](./utils/README.md) are functions that don't fit in the other two. Mainly config readers/parsers.
 
 Click here to jump to '[Base Stack Config Options](#base-stack-config-options)'. It's the last section, since it's the longest.
@@ -25,7 +25,7 @@ This section is has been moved to the [utils README](./utils/README.md#moving-va
 
 ## Base Stack Summary
 
-The [base stack](./base_stack/README.md) is broken into two components (or "stacks"). One *must* be in us-east-1 for Route53, and the other has to be in the same region as you want to run the containers from.
+The [base stack](./base_stack/README.md) is a shared resources stack to help keep running multiple containers cheap. By also keeping things like an SSH key here, you don't have to juggle multiple keys for every container you want to run. (Or add your email for alerts on every container stack too).
 
 Anything that can be here instead of the leaf stacks, should be.
 
