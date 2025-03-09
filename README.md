@@ -124,12 +124,12 @@ To connect to the container:
     ssh-add ~/.ssh/container-manager
     ```
 
-3) Add this to your `~/.ssh/config`:
+3) Add this to the **TOP** of your `~/.ssh/config` (Specific hosts first, general last):
 
-    **NOTE**: The DOMAIN_NAME must be all lowercase! Otherwise it won't be case-insensitive when you `ssh` later.
+    **NOTE**: The DOMAIN_NAME must be **all lowercase!** Otherwise it won't be case-insensitive when you `ssh` later.
 
     ```txt
-    Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com"
+    Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com" ALL LOWERCASE!
           StrictHostKeyChecking=accept-new        # Don't have to say `yes` first time connecting
           CheckHostIP no                          # IP Changes on every startup
           UserKnownHostsFile=/dev/null            # Keep quiet that IP is changing
@@ -139,7 +139,7 @@ To connect to the container:
 
 4) Access the host!
 
-   - `ssh` into the instance:
+    - `ssh` into the instance:
 
       ```bash
       ssh <CONTAINER_ID>.<DOMAIN_NAME>
@@ -151,9 +151,19 @@ To connect to the container:
       ls -halt /mnt/efs
       ```
 
-   - Use `FileZilla` to add/backup files:
+    - (Windows Users) Use `FileZilla` to add/backup files:
       - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
       - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.
+
+    - (Linux Users) Use `scp` to add/backup files:
+      - For example, if backing up:
+
+        ```bash
+        mkdir ~/Documents/MyBackupDir
+        scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/* ~/Documents/MyBackupDir
+        ```
+
+        And because of the ssh config above, all the settings should already have solid defaults. That should just work! And switch the two arguments to upload instead.
 
 ### Moving files from Old EFS to New
 
