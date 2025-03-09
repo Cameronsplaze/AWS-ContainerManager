@@ -40,7 +40,7 @@ Volumes:
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 
 Watchdog:
-  # MinutesWithoutConnections: 5
+  # MinutesWithoutConnections: 7
   Threshold: 400
   InstanceLeftUp:
     DurationHours: 8

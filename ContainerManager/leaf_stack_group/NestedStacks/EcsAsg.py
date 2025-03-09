@@ -20,7 +20,7 @@ from constructs import Construct, IConstruct
 from cdk_nag import NagSuppressions
 
 ### To let you create and delete the stack, if it includes a capacity provider:
-# https://github.com/aws/aws-cdk/issues/19275
+# ec2_service
 # https://stackoverflow.com/questions/75418420/how-do-i-delete-an-ecs-capacity-provider-which-is-in-use
 @jsii.implements(IAspect)
 class HotfixCapacityProviderDependencies: # pylint: disable=too-few-public-methods
@@ -206,6 +206,7 @@ class EcsAsg(NestedStack):
             cluster=self.ecs_cluster,
             task_definition=task_definition,
             desired_count=0,
+            enable_ecs_managed_tags=True,
             ## We use the 'spin-down-asg-on-error' lambda to take care of circuit breaker-like
             ## logic. If we *just* spun down the task, the instance would still be running.
             ## That'd both charge money, and not let the system "spin back up/reset".

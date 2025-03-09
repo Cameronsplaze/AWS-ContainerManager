@@ -54,7 +54,7 @@ Volumes:
 ## Config options for how to monitor for players:
 # (Only required since we're using BOTH tcp and udp)
 Watchdog:
-  # MinutesWithoutConnections: 5
+  # MinutesWithoutConnections: 7
   Threshold: 1175
   InstanceLeftUp:
     DurationHours: 8

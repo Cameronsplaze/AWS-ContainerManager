@@ -182,7 +182,7 @@ def _parse_watchdog(config: dict) -> None:
 
     def _parse_watchdog_minutes_without_connections(config: dict) -> None:
         if "MinutesWithoutConnections" not in config["Watchdog"]:
-            config["Watchdog"]["MinutesWithoutConnections"] = 5
+            config["Watchdog"]["MinutesWithoutConnections"] = 7
         assert isinstance(config["Watchdog"]["MinutesWithoutConnections"], int)
         assert config["Watchdog"]["MinutesWithoutConnections"] >= 2, "Watchdog.MinutesWithoutConnections must be at least 2."
         # Cast it into a duration object:

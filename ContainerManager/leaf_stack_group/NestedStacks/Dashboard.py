@@ -11,7 +11,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from ContainerManager.base_stack import BaseStackDomain
+from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 ## Import the other Nested Stacks:
 from . import Container, Volumes, EcsAsg, Watchdog, AsgStateChangeHook
 
@@ -32,8 +32,7 @@ class Dashboard(NestedStack):
         container_id: str,
         main_config: dict,
 
-        base_stack_domain: BaseStackDomain,
-        dns_log_query_filter: str,
+        domain_stack: DomainStack,
         container_nested_stack: Container,
         volumes_nested_stack: Volumes,
         ecs_asg_nested_stack: EcsAsg,
@@ -49,12 +48,6 @@ class Dashboard(NestedStack):
         #######################
         # Config options for specifically this stack:
         dashboard_config = main_config["Dashboard"]
-        ## Import the log_group name from the other stack:
-        query_log_group_name = ssm.StringParameter.value_from_lookup(
-            self,
-            parameter_name=f"/{base_stack_domain.stack_name}/QueryLogGroupName",
-        )
-
 
         ############
         ### Metrics used in the Widgets below:
@@ -80,17 +73,15 @@ class Dashboard(NestedStack):
             ## Route53 DNS logs for spinning up the system:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.LogQueryWidget.html
             cloudwatch.LogQueryWidget(
-                title=f"(DNS Traffic) Start's Up System - [{base_stack_domain.region}: {query_log_group_name}]",
-                log_group_names=[query_log_group_name],
-                region=base_stack_domain.region,
+                title=f"(DNS Traffic) Start's Up System - [{domain_stack.region}: {domain_stack.route53_query_log_group.log_group_name}]",
+                log_group_names=[domain_stack.route53_query_log_group.log_group_name],
+                region=domain_stack.region,
                 width=12,
                 height=4,
                 query_lines=[
-                    # The message also contains the timestamp, remove it:
+                    # The message *also* contains the timestamp too, remove it:
                     "fields @timestamp, substr(@message, 25) as message",
-                    # Spaces on either side, just like SubscriptionFilter, to not
-                    # trigger on the "_tcp" query that pairs with the normal one:
-                    f"filter @message like /{dns_log_query_filter}/",
+                    f"filter @message like /{domain_stack.dns_log_query_filter}/",
                 ],
             ),
 
@@ -127,7 +118,7 @@ class Dashboard(NestedStack):
             ## Brief summary of all the alarms, and lets you jump to them directly:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
             cloudwatch.AlarmStatusWidget(
-                title="Alarm Summary",
+                title=f"Alarm Summary [{domain_stack.sub_domain_name}]",
                 width=4,
                 height=6,
                 # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_cloudwatch/AlarmStatusWidgetSortBy.html#aws_cdk.aws_cloudwatch.AlarmStatusWidgetSortBy
