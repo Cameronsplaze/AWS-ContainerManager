@@ -32,7 +32,7 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 ### Deploying the App (Manually)
 
-There's two commands: one for the 'base' stacks, and the 'leaf' stacks. You should only have to deploy the 'base' once. Multiple leaf's can/***should*** use the *same* base to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it.
+There's two commands: one for the 'base' stack, and the 'leaf_stack_group'. You should only have to deploy the 'base' once. Multiple leaf's can/***should*** use the *same* base to save costs. Deploy the base stack first, but you shouldn't have to again unless you change something in it (Or you upgrade releases).
 
 First setup your Environment Variables used for deploying, and just delete any sections you're not using:
 
@@ -124,12 +124,12 @@ To connect to the container:
     ssh-add ~/.ssh/container-manager
     ```
 
-3) Add this to your `~/.ssh/config`:
+3) Add this to the **TOP** of your `~/.ssh/config` (Specific hosts first, general last):
 
-    **NOTE**: The DOMAIN_NAME must be all lowercase! Otherwise it won't be case-insensitive when you `ssh` later.
+    **NOTE**: The DOMAIN_NAME must be **all lowercase!** Otherwise it won't be case-insensitive when you `ssh` later.
 
     ```txt
-    Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com"
+    Host *.<DOMAIN_NAME>                          # <- i.e: "Host *.example.com" ALL LOWERCASE!
           StrictHostKeyChecking=accept-new        # Don't have to say `yes` first time connecting
           CheckHostIP no                          # IP Changes on every startup
           UserKnownHostsFile=/dev/null            # Keep quiet that IP is changing
@@ -139,7 +139,7 @@ To connect to the container:
 
 4) Access the host!
 
-   - `ssh` into the instance:
+    - `ssh` into the instance:
 
       ```bash
       ssh <CONTAINER_ID>.<DOMAIN_NAME>
@@ -151,9 +151,20 @@ To connect to the container:
       ls -halt /mnt/efs
       ```
 
-   - Use `FileZilla` to add/backup files:
+    - (Windows Users) Use `FileZilla` to add/backup files:
       - To add the private key, go to `Edit -> Settings -> Connection -> SFTP` and add the key file there.
       - For the URl, put `sftp://<GAME_URL>`. The username is `ec2-user`. Password is blank. Port is 22.
+
+    - (Linux Users) Use `scp` to add/backup files:
+      - For example, if backing up:
+
+        The `/mnt/efs/.` gets all folders *INSIDE* efs, not the efs folder itself. (including hidden files). This'll also create `<MyBackupDir>` for you.
+
+        ```bash
+        scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/. ~/Documents/<MyBackupDir>
+        ```
+
+        And because of the ssh config above, all the settings should already have solid defaults. That should just work! And switch the two arguments to upload instead.
 
 ### Moving files from Old EFS to New
 
@@ -192,6 +203,7 @@ The point of the base stack, is exactly to combine resources to save costs. You 
 - The [EC2 Costs](https://aws.amazon.com/ec2/pricing/on-demand/) aren't included because they're the highest factor. You're only charged while people are actively online, but the bigger instances are also more pricey.
 - The [EFS Costs](https://aws.amazon.com/efs/pricing/) are `$0.30/GB/month`.
 - The [Backup](https://aws.amazon.com/backup/pricing/) costs are `$0.05/GB/month`.
+- The Hosted Zone that holds the DNS info is `$0.50/month` (or `$6/year`).
 
 Those are the only charges I've seen of note in my account.
 

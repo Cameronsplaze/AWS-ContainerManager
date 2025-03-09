@@ -1,3 +1,5 @@
+# Respect pathing
+export PWD=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 SHELL:=/bin/bash
 .SILENT:
 MAKEFLAGS += --no-print-directory
@@ -8,14 +10,14 @@ MAKEFLAGS += --no-print-directory
 #    Do here instead of the cdk app, so they're not duplicated in both and
 #    avoid getting out of sync. Just pass them in
 maturity ?= prod
-# The _application_id and _base_stack_prefix are only here to have in one place,
-#    THEY'RE NOT MEANT TO BE MODIFIED:
+# The _application_id and _base_stack_name are only here to have in one place,
+#    THEY'RE NOT MEANT TO BE MODIFIED DIRECTLY, except through the 'maturity' var:
 ifeq ($(maturity),prod)
 	_application_id := "ContainerManager"
 else
 	_application_id := "ContainerManager-$(maturity)"
 endif
-_base_stack_prefix := "$(_application_id)-BaseStack"
+_base_stack_name := "$(_application_id)-BaseStack"
 
 ## Make sure any required env-var's are set (i.e with guard-STACK_NAME)
 guard-%:
@@ -40,7 +42,7 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 		--require-approval never \
 		--no-previous-parameters \
 	    --context _application_id="$(_application_id)" \
-		--context _base_stack_prefix="$(_base_stack_prefix)" \
+		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
 		--context container-id="$(container-id)"
@@ -49,14 +51,14 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 # Edit the base stack:
 .PHONY := cdk-deploy-base
 cdk-deploy-base:
-	$(MAKE) _cdk-deploy-helper stack-regix="$(_base_stack_prefix)-*"
+	$(MAKE) _cdk-deploy-helper stack-regix="$(_base_stack_name)"
 
 # Edit everything BUT the base stack, within the config-file scope:
 #  (The base stack will still be updated as a 'Dependency Stack')
 .PHONY := cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-deploy-helper stack-regix="!$(_base_stack_prefix)-*"
+	$(MAKE) _cdk-deploy-helper stack-regix="!$(_base_stack_name)"
 
 
 
@@ -70,7 +72,7 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	cdk destroy "$(stack-regix)" \
 		--force \
 	    --context _application_id="$(_application_id)" \
-		--context _base_stack_prefix="$(_base_stack_prefix)" \
+		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
 		--context container-id="$(container-id)"
@@ -79,14 +81,14 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 # Destroy the base stack
 .PHONY := cdk-destroy-base
 cdk-destroy-base:
-	$(MAKE) _cdk-destroy-helper stack-regix="$(_base_stack_prefix)-*"
+	$(MAKE) _cdk-destroy-helper stack-regix="$(_base_stack_name)"
 
 # Destroy everything BUT the base stack, within the config-file scope:
 #  (The base stack will still be updated as a 'Dependency Stack')
 .PHONY := cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
-	$(MAKE) _cdk-destroy-helper stack-regix="!$(_base_stack_prefix)-*"
+	$(MAKE) _cdk-destroy-helper stack-regix="!$(_base_stack_name)"
 
 
 ########################
@@ -112,15 +114,22 @@ cdk-synth:
 	echo ""
 	cdk synth \
 	    --context _application_id="$(_application_id)" \
-		--context _base_stack_prefix="$(_base_stack_prefix)" \
+		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
 		--context container-id="$(container-id)" \
 		$(STACKS)
 
-.PHONY := pylint
-pylint:
+.PHONY := lint-python
+lint-python:
 	pylint $$(git ls-files '*.py')
+
+.PHONY := lint-markdown
+lint-markdown:
+	docker run \
+		--pull always \
+		--volume ${PWD}:/workdir \
+		ghcr.io/igorshubovych/markdownlint-cli:latest "**/*.md"
 
 ###################
 ## Misc Commands ##
@@ -157,7 +166,7 @@ update-python:
 update: update-npm update-python
 
 .PHONY := cdk-bootstrap
-# --app="": It can't synth without the right variables, so don't load it:
+# --app="": CDK can't synth without the right variables, so don't load the app:
 cdk-bootstrap:
 	echo "Bootstrapping/Updating CDKToolkit..." && \
 	export AWS_ACCOUNT_ID=$$( $(MAKE) aws-whoami query=Account ) && \

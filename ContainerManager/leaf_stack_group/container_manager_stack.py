@@ -12,12 +12,13 @@ from aws_cdk import (
 from constructs import Construct
 from cdk_nag import NagSuppressions
 
-from ContainerManager.base_stack import BaseStackMain, BaseStackDomain
+from ContainerManager.base_stack import BaseStack
+from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 # from ContainerManager.utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
 ## Import Nested Stacks:
-from ContainerManager.leaf_stack import NestedStacks
+from ContainerManager.leaf_stack_group import NestedStacks
 
 
 class ContainerManagerStack(Stack):
@@ -41,20 +42,14 @@ class ContainerManagerStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        base_stack_main: BaseStackMain,
-        base_stack_domain: BaseStackDomain,
+        base_stack: BaseStack,
+        domain_stack: DomainStack,
         application_id: str,
         container_id: str,
         config: dict,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-        ### Container-Specific Domain Variables:
-        self.container_url = f"{container_id}.{base_stack_domain.domain_name}".lower()
-        # Spaces on the ends to not match sub-domains like "_tcp.*" that shows up in logs.
-        # The record_type is because BOTH A and AAAA appear, even if my ISP only supports one.
-        # (And to not trigger on 'java.minecraft.<domain>' vs 'minecraft.<domain>')
-        self.dns_log_query_filter = f" {self.container_url} {base_stack_domain.record_type.value} "
 
         ###############################
         ## Container-specific Notify ##
@@ -83,7 +78,7 @@ class ContainerManagerStack(Stack):
             self,
             description=f"Security Group Logic for {construct_id}",
             leaf_construct_id=construct_id,
-            vpc=base_stack_main.vpc,
+            vpc=base_stack.vpc,
             container_id=container_id,
             container_ports_config=config["Container"]["Ports"],
         )
@@ -101,7 +96,7 @@ class ContainerManagerStack(Stack):
         self.volumes_nested_stack = NestedStacks.Volumes(
             self,
             description=f"Volume Logic for {construct_id}",
-            vpc=base_stack_main.vpc,
+            vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
             volumes_config=config["Volumes"],
@@ -113,9 +108,9 @@ class ContainerManagerStack(Stack):
             self,
             description=f"Ec2Service Logic for {construct_id}",
             leaf_construct_id=construct_id,
-            vpc=base_stack_main.vpc,
-            ssh_key_pair=base_stack_main.ssh_key_pair,
-            base_stack_sns_topic=base_stack_main.sns_notify_topic,
+            vpc=base_stack.vpc,
+            ssh_key_pair=base_stack.ssh_key_pair,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
@@ -133,7 +128,7 @@ class ContainerManagerStack(Stack):
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             metric_volume_data_out_per_second=self.volumes_nested_stack.data_out_per_second,
-            base_stack_sns_topic=base_stack_main.sns_notify_topic,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ecs_capacity_provider=self.ecs_asg_nested_stack.capacity_provider,
@@ -144,12 +139,11 @@ class ContainerManagerStack(Stack):
             self,
             description=f"AsgStateChangeHook Logic for {construct_id}",
             container_id=container_id,
-            container_url=self.container_url,
-            base_stack_domain=base_stack_domain,
+            domain_stack=domain_stack,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
             ec2_service=self.ecs_asg_nested_stack.ec2_service,
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            base_stack_sns_topic=base_stack_main.sns_notify_topic,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
         )
 
@@ -164,8 +158,7 @@ class ContainerManagerStack(Stack):
                 container_id=container_id,
                 main_config=config,
 
-                base_stack_domain=base_stack_domain,
-                dns_log_query_filter=self.dns_log_query_filter,
+                domain_stack=domain_stack,
                 container_nested_stack=self.container_nested_stack,
                 volumes_nested_stack=self.volumes_nested_stack,
                 ecs_asg_nested_stack=self.ecs_asg_nested_stack,

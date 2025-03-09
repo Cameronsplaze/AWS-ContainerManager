@@ -1,9 +1,10 @@
 
 """
-This adds the container info to BaseStackDomain's hosted zone,
+This adds the container info to DomainStack's hosted zone,
 and starts the ASG when someone connects.
 
 Needs to be in us-east-1, since it uses Route53 logs.
+Needs to be deployed after ContainerManagerStack, since it references it.
 """
 
 import json
@@ -12,9 +13,7 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
-    aws_route53 as route53,
     aws_iam as iam,
-    aws_ssm as ssm,
     aws_logs as logs,
     aws_logs_destinations as logs_destinations,
     aws_lambda as aws_lambda,
@@ -23,10 +22,10 @@ from constructs import Construct
 
 from cdk_nag import NagSuppressions
 
-from ContainerManager.leaf_stack.main import ContainerManagerStack
-from ContainerManager.base_stack import BaseStackDomain
+from ContainerManager.leaf_stack_group.container_manager_stack import ContainerManagerStack
+from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 
-class LeafStackStartSystem(Stack):
+class StartSystemStack(Stack):
     """
     This stacks sets up the lambda to turn the system on,
     and adds the DNS records to trigger it.
@@ -35,61 +34,13 @@ class LeafStackStartSystem(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        base_stack_domain: BaseStackDomain,
-        leaf_stack_manager: ContainerManagerStack,
+        domain_stack: DomainStack,
+        container_manager_stack: ContainerManagerStack,
         container_id: str,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
         container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html#static-fromwbrstringwbrparameterwbrattributesscope-id-attrs
-        asg_name = ssm.StringParameter.from_string_parameter_attributes(
-            self,
-            "Import-AsgName",
-            parameter_name=f"/{leaf_stack_manager.stack_name}/AsgName",
-            simple_name=False,
-        )
-        asg_arn = ssm.StringParameter.from_string_parameter_attributes(
-            self,
-            "Import-AsgArn",
-            parameter_name=f"/{leaf_stack_manager.stack_name}/AsgArn",
-            simple_name=False,
-        )
-
-        ### Create the DNS record to trigger the lambda:
-        # (Nothing actually referenced it directly)
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.RecordSet.html
-        self.dns_record = route53.RecordSet(
-            self,
-            "DnsRecord",
-            zone=base_stack_domain.hosted_zone,
-            record_name=leaf_stack_manager.container_url,
-            record_type=base_stack_domain.record_type,
-            target=route53.RecordTarget.from_values(base_stack_domain.unavailable_ip),
-            ttl=Duration.seconds(base_stack_domain.dns_ttl),
-        )
-        self.dns_record.apply_removal_policy(RemovalPolicy.DESTROY)
-
-        ## And if you have a imported hosted zone, add NS to link the two zones:
-        ## Tie the two hosted zones together:
-        if base_stack_domain.imported_hosted_zone_id:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.HostedZone.html#static-fromwbrhostedwbrzonewbrattributesscope-id-attrs
-            imported_hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
-                self,
-                "ImportHostedZone",
-                zone_name=base_stack_domain.domain_name,
-                hosted_zone_id=base_stack_domain.imported_hosted_zone_id,
-            )
-            ## Point the imported zone to the hosted zone we can have query logs in:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.NsRecord.html
-            self.ns_record = route53.NsRecord(
-                self,
-                "NsRecord",
-                zone=imported_hosted_zone,
-                values=base_stack_domain.hosted_zone.hosted_zone_name_servers,
-                record_name=leaf_stack_manager.container_url,
-            )
-            self.ns_record.apply_removal_policy(RemovalPolicy.DESTROY)
 
         ## Log group for the lambda function:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
@@ -124,23 +75,23 @@ class LeafStackStartSystem(Stack):
             self,
             "StartSystem",
             description=f"{container_id_alpha}-lambda-start-system: Spin up ASG when someone connects.",
-            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/trigger-start-system/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda/trigger-start-system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             log_group=self.log_group_start_system,
             role=self.start_system_role,
             environment={
-                "ASG_NAME": asg_name.string_value,
-                "MANAGER_STACK_REGION": leaf_stack_manager.region,
+                "ASG_NAME": container_manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name,
+                "MANAGER_STACK_REGION": container_manager_stack.region,
                 ## Metric info to let the system know someone is trying to connect, and don't spin down:
-                "METRIC_NAMESPACE": leaf_stack_manager.watchdog_nested_stack.metric_namespace,
-                "METRIC_NAME": leaf_stack_manager.watchdog_nested_stack.traffic_dns_metric.metric_name,
-                "METRIC_THRESHOLD": str(leaf_stack_manager.watchdog_nested_stack.threshold),
+                "METRIC_NAMESPACE": container_manager_stack.watchdog_nested_stack.metric_namespace,
+                "METRIC_NAME": container_manager_stack.watchdog_nested_stack.traffic_dns_metric.metric_name,
+                "METRIC_THRESHOLD": str(container_manager_stack.watchdog_nested_stack.threshold),
                 ## Convert METRIC_UNIT from an Enum, to a string that boto3 expects. (Words must have first
                 #   letter capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
-                "METRIC_UNIT": leaf_stack_manager.watchdog_nested_stack.metric_unit.value.title(),
-                "METRIC_DIMENSIONS": json.dumps(leaf_stack_manager.watchdog_nested_stack.metric_dimension_map),
+                "METRIC_UNIT": container_manager_stack.watchdog_nested_stack.metric_unit.value.title(),
+                "METRIC_DIMENSIONS": json.dumps(container_manager_stack.watchdog_nested_stack.metric_dimension_map),
             },
         )
 
@@ -151,10 +102,10 @@ class LeafStackStartSystem(Stack):
         self.subscription_filter = logs.SubscriptionFilter(
             self,
             "SubscriptionFilter",
-            log_group=base_stack_domain.route53_query_log_group,
+            log_group=domain_stack.route53_query_log_group,
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
             # Spaces on either side, so it doesn't match the "_tcp" query that pairs with it:
-            filter_pattern=logs.FilterPattern.any_term(leaf_stack_manager.dns_log_query_filter),
+            filter_pattern=logs.FilterPattern.any_term(domain_stack.dns_log_query_filter),
         )
 
 
@@ -169,7 +120,7 @@ class LeafStackStartSystem(Stack):
                 resources=["*"],
                 conditions={
                     "StringEquals": {
-                        "cloudwatch:namespace": leaf_stack_manager.watchdog_nested_stack.metric_namespace,
+                        "cloudwatch:namespace": container_manager_stack.watchdog_nested_stack.metric_namespace,
                     }
                 }
             )
@@ -181,7 +132,7 @@ class LeafStackStartSystem(Stack):
                 actions=[
                     "autoscaling:UpdateAutoScalingGroup",
                 ],
-                resources=[asg_arn.string_value],
+                resources=[container_manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
             )
         )
 

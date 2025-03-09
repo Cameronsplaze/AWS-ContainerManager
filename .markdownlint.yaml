@@ -1,0 +1,9 @@
+
+## Config File for markdownlint
+# Full example and options at:
+# https://github.com/DavidAnson/markdownlint/blob/main/schema/.markdownlint.yaml
+
+default: true
+
+# # MD013/line-length : Line length - Disable
+MD013: false

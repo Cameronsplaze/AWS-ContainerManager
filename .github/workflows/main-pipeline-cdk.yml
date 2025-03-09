@@ -20,7 +20,11 @@ on:
     branches:
       - main
 
-
+## If another similar workflow is running, kill it:
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 #### Overall Strategy:
 # If Open a PR: Make sure everything can Synth (No deploy)
@@ -71,7 +75,8 @@ jobs:
     strategy:
       matrix:
         example-config: ${{ fromJson(needs.setup-matrix.outputs.synth-matrix) }}
-    environment: ${{ matrix.example-config }}
+    environment: "${{ matrix.example-config }}"
+    name: "${{ matrix.example-config }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -147,6 +152,7 @@ jobs:
       matrix:
         deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
     environment: "${{ matrix.deploy-config }}"
+    name: "${{ matrix.deploy-config }}"
     steps:
       - uses: actions/checkout@v4
 

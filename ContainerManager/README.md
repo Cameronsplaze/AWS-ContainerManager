@@ -1,16 +1,14 @@
 # Container Manager
 
-This is designed so you only need one base stack that you deploy first, then you can deploy any number of leaf stacks on it. This lets you modify one leaf/container stack, without affecting the rest, and still have shared resources to reduce cost/complexity where appropriate.
+This is designed so you only need one base stack that you deploy first, then you can deploy any number of "leaf stack groups" on it. (A single leaf-stack-group is for managing a single container). This lets you modify one leaf-stack-group, without affecting the rest, and still have shared resources to reduce cost/complexity where appropriate.
 
-**Note**: The word `Stack` is overloaded here. Both the "base" and "leaf" stacks each contain two stacks inside them (one in a region of your choice, and one in `us-east-1` for Route53). There's just no better word, "app" is the entire project.
-
-- The [./leaf_stack](./leaf_stack/README.md) is what runs a single container. One `leaf_stack` for one container.
-- The [./base_stack](./base_stack/README.md) is common architecture that different containers can share (i.e VPC, HostedZone). Multiple "Leaf Stacks" can point to the same "Base Stack".
+- The [./leaf_stack_group](./leaf_stack_group/README.md) is what runs a single container. One `leaf_stack_group` for one container. It contains **three** stacks in the group.
+- The [./base_stack](./base_stack/README.md) is common architecture that different containers can share (i.e VPC, imported HostedZone, ssh key). Multiple "Leaf Stack Groups" can point to the same "Base Stack".
 - The [./utils](./utils/README.md) are functions that don't fit in the other two. Mainly config readers/parsers.
 
 Click here to jump to '[Base Stack Config Options](#base-stack-config-options)'. It's the last section, since it's the longest.
 
-## Leaf Stack Summary
+## Leaf Stack Group Summary
 
 ![picture](/Resources/AWS-ContainerManager_Basic_Diagram.png)
 <!-- Original board: https://sketchboard.me/REucJJtlrBCi#/ -->
@@ -19,7 +17,7 @@ Click here to jump to '[Base Stack Config Options](#base-stack-config-options)'.
 
 The system is designed all around the Auto Scaling Group (ASG). This way, if the ASG spins up in any way (DNS query comes in, or you change the desired_count in the console), everything spins up around it. If a alarm triggers, it just has to spin the ASG back down and everything will naturally follow suit.
 
-See the [leaf_stack's README.md](./leaf_stack/README.md) for more info.
+See the [leaf_stack_group's README.md](./leaf_stack_group/README.md) for more info.
 
 ## Moving Variables between the Stacks (cross-region)
 
@@ -27,7 +25,7 @@ This section is has been moved to the [utils README](./utils/README.md#moving-va
 
 ## Base Stack Summary
 
-The [base stack](./base_stack/README.md) is broken into two components (or "stacks"). One *must* be in us-east-1 for Route53, and the other has to be in the same region as you want to run the containers from.
+The [base stack](./base_stack/README.md) is a shared resources stack to help keep running multiple containers cheap. By also keeping things like an SSH key here, you don't have to juggle multiple keys for every container you want to run. (Or add your email for alerts on every container stack too).
 
 Anything that can be here instead of the leaf stacks, should be.
 
@@ -65,7 +63,7 @@ These are config options for when you deploy the base stack, to fine-tune it to 
 
 ### `Domain.HostedZoneId`
 
-- (`str`, Optional - kinda): The Route53 Hosted Zone ID for the domain of the domain name above. If not provided, it will be created. (Though you'll probably have to manually update the NS records in your registrar or something. I haven't tested this path yet). If you [buy a AWS Domain](https://aws.amazon.com/getting-started/hands-on/get-a-domain/), put it's HostedZoneId here.
+- (`str`, **Required**): The Route53 Hosted Zone ID for the domain of the domain name above. If you [buy a AWS Domain](https://aws.amazon.com/getting-started/hands-on/get-a-domain/), put it's HostedZoneId here. (Required because whatever path you take to get a domain, you'll need to create a Hosted Zone for it anyways).
 
    ```yaml
    Domain:

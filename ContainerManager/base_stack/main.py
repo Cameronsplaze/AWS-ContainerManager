@@ -6,9 +6,11 @@ This module contains the BaseStackMain class.
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    RemovalPolicy,
     aws_ec2 as ec2,
     aws_sns as sns,
     aws_iam as iam,
+    aws_route53 as route53,
 )
 
 from cdk_nag import NagSuppressions
@@ -16,7 +18,7 @@ from cdk_nag import NagSuppressions
 # from .utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
-class BaseStackMain(Stack):
+class BaseStack(Stack):
     """
     Contains shared resources for all leaf stacks.
     Most importantly, the VPC and SNS.
@@ -92,6 +94,22 @@ class BaseStackMain(Stack):
             )
         )
         add_sns_subscriptions(self, self.sns_notify_topic, config["AlertSubscription"])
+
+        #####################
+        ### Route53 STUFF ###
+        #####################
+        # domain_name is imported to other stacks, so save it to this one:
+        self.domain_name = config["Domain"]["Name"]
+        self.root_hosted_zone_id = config["Domain"]["HostedZoneId"]
+
+        ## Import the existing Route53 Hosted Zone:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
+        self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
+            self,
+            "RootHostedZone",
+            hosted_zone_id=config["Domain"]["HostedZoneId"],
+            zone_name=self.domain_name,
+        )
 
         #####################
         ### Export Values ###

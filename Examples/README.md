@@ -163,7 +163,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ### `Watchdog.MinutesWithoutConnections`
 
-- (`int`, Optional, default=`5`): How many minutes below the [threshold](#watchdogthreshold) before shutting down.
+- (`int`, Optional, default=`7`): How many minutes below the [threshold](#watchdogthreshold) before shutting down.
 
    ```yaml
    Watchdog:

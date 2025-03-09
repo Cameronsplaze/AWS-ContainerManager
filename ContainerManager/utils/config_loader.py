@@ -65,8 +65,9 @@ def _parse_domain(config: dict) -> None:
     config["Domain"]["Name"] = config["Domain"]["Name"].lower()
 
     # Check Domain.HostedZoneId:
-    config["Domain"]["HostedZoneId"] = config["Domain"].get("HostedZoneId")
-    assert isinstance(config["Domain"]["HostedZoneId"], str) or config["Domain"]["HostedZoneId"] is None
+    if "HostedZoneId" not in config["Domain"]:
+        raise_missing_key_error("Domain.HostedZoneId")
+    assert isinstance(config["Domain"]["HostedZoneId"], str)
 
 def load_base_config(path: str) -> dict:
     " Parser/Loader for the base stack "
@@ -182,7 +183,7 @@ def _parse_watchdog(config: dict) -> None:
 
     def _parse_watchdog_minutes_without_connections(config: dict) -> None:
         if "MinutesWithoutConnections" not in config["Watchdog"]:
-            config["Watchdog"]["MinutesWithoutConnections"] = 5
+            config["Watchdog"]["MinutesWithoutConnections"] = 7
         assert isinstance(config["Watchdog"]["MinutesWithoutConnections"], int)
         assert config["Watchdog"]["MinutesWithoutConnections"] >= 2, "Watchdog.MinutesWithoutConnections must be at least 2."
         # Cast it into a duration object:

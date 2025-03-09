@@ -9,7 +9,7 @@ on:
       - '**.py'
       # Or Actions this workflow depends on (including itself):
       - '.pylintrc'
-      - '.github/workflows/pylint.yml'
+      - '.github/workflows/linter-pylint.yml'
       - '.github/workflows/composite-setup-python/action.yaml'
 
 jobs:
@@ -21,6 +21,5 @@ jobs:
       - name: Setup Python
         uses: ./.github/workflows/composite-setup-python
 
-      - name: Analysing the code with pylint
-        run: |
-          make pylint
+      - name: Analyzing with pylint
+        run: make lint-python

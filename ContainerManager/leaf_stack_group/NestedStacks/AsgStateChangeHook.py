@@ -12,7 +12,6 @@ from aws_cdk import (
     aws_iam as iam,
     aws_logs as logs,
     aws_ecs as ecs,
-    aws_ssm as ssm,
     aws_events as events,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
@@ -20,8 +19,7 @@ from aws_cdk import (
 from constructs import Construct
 from cdk_nag import NagSuppressions
 
-from ContainerManager.base_stack import BaseStackDomain
-from ContainerManager.utils import ExportCrossZoneVar
+from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 
 class AsgStateChangeHook(NestedStack):
     """
@@ -32,8 +30,7 @@ class AsgStateChangeHook(NestedStack):
         self,
         scope: Construct,
         container_id: str,
-        container_url: str,
-        base_stack_domain: BaseStackDomain,
+        domain_stack: DomainStack,
         ecs_cluster: ecs.Cluster,
         ec2_service: ecs.Ec2Service,
         auto_scaling_group: autoscaling.AutoScalingGroup,
@@ -43,12 +40,6 @@ class AsgStateChangeHook(NestedStack):
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
         container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
-        ## Get the hosted zone id from the other stack:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ssm.StringParameter.html#static-valuewbrfromwbrlookupscope-parametername-defaultvalue
-        hosted_zone_id = ssm.StringParameter.value_from_lookup(
-            self,
-            parameter_name=f"/{base_stack_domain.stack_name}/HostedZoneId",
-        )
 
 
         ## Log group for the lambda function:
@@ -84,18 +75,18 @@ class AsgStateChangeHook(NestedStack):
             self,
             "AsgStateChangeHook",
             description=f"{container_id_alpha}-ASG-StateChange: Triggered by ec2 state changes. Starts/Stops the management logic",
-            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack/lambda/instance-StateChange-hook/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda/instance-StateChange-hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             log_group=self.log_group_asg_statechange_hook,
             role=self.asg_state_change_role,
             environment={
-                "HOSTED_ZONE_ID": hosted_zone_id,
-                "DOMAIN_NAME": container_url,
-                "UNAVAILABLE_IP": base_stack_domain.unavailable_ip,
-                "DNS_TTL": str(base_stack_domain.dns_ttl),
-                "RECORD_TYPE": base_stack_domain.record_type.value,
+                "HOSTED_ZONE_ID": domain_stack.sub_hosted_zone.hosted_zone_id,
+                "DOMAIN_NAME": domain_stack.sub_domain_name,
+                "UNAVAILABLE_IP": domain_stack.unavailable_ip,
+                "DNS_TTL": str(domain_stack.dns_ttl),
+                "RECORD_TYPE": domain_stack.record_type.value,
                 "ECS_CLUSTER_NAME": ecs_cluster.cluster_name,
                 "ECS_SERVICE_NAME": ec2_service.service_name,
             },
@@ -129,12 +120,12 @@ class AsgStateChangeHook(NestedStack):
                 resources=[ec2_service.service_arn],
             )
         )
-        ## Let it update the DNS record of the base stack:
+        ## Let it update the DNS record of the domain stack:
         self.asg_state_change_policy.add_statements(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["route53:ChangeResourceRecordSets"],
-                resources=[f"arn:aws:route53:::hostedzone/{hosted_zone_id}"],
+                resources=[domain_stack.sub_hosted_zone.hosted_zone_arn],
             )
         )
 
@@ -142,7 +133,7 @@ class AsgStateChangeHook(NestedStack):
         #    Needed to keep the management in sync with if a container is running.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Rule.html
         message_up = events.RuleTargetInput.from_text(
-            f"Container for '{container_id}' is starting up! Connect to it at: '{container_url}'.",
+            f"Container for '{container_id}' is starting up! Connect to it at: '{domain_stack.sub_domain_name}'.",
         )
         self.rule_asg_state_change_trigger_up = events.Rule(
             self,
@@ -189,24 +180,6 @@ class AsgStateChangeHook(NestedStack):
                 events_targets.SnsTopic(base_stack_sns_topic, message=message_down),
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message_down),
             ],
-        )
-
-        ############################
-        ### Cross Region Exports ###
-        ############################
-        ExportCrossZoneVar(
-            self,
-            "Export-AsgName",
-            param_name=f"/{scope.stack_name}/AsgName",
-            param_value=auto_scaling_group.auto_scaling_group_name,
-            param_region=base_stack_domain.region,
-        )
-        ExportCrossZoneVar(
-            self,
-            "Export-AsgArn",
-            param_name=f"/{scope.stack_name}/AsgArn",
-            param_value=auto_scaling_group.auto_scaling_group_arn,
-            param_region=base_stack_domain.region,
         )
 
         #####################
