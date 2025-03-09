@@ -65,8 +65,9 @@ def _parse_domain(config: dict) -> None:
     config["Domain"]["Name"] = config["Domain"]["Name"].lower()
 
     # Check Domain.HostedZoneId:
-    config["Domain"]["HostedZoneId"] = config["Domain"].get("HostedZoneId")
-    assert isinstance(config["Domain"]["HostedZoneId"], str) or config["Domain"]["HostedZoneId"] is None
+    if "HostedZoneId" not in config["Domain"]:
+        raise_missing_key_error("Domain.HostedZoneId")
+    assert isinstance(config["Domain"]["HostedZoneId"], str)
 
 def load_base_config(path: str) -> dict:
     " Parser/Loader for the base stack "

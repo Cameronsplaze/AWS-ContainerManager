@@ -102,25 +102,14 @@ class BaseStack(Stack):
         self.domain_name = config["Domain"]["Name"]
         self.root_hosted_zone_id = config["Domain"]["HostedZoneId"]
 
-        if config["Domain"]["HostedZoneId"]:
-            ## Import the existing Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
-            self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
-                self,
-                "RootHostedZone",
-                hosted_zone_id=config["Domain"]["HostedZoneId"],
-                zone_name=self.domain_name,
-            )
-        else:
-            ## Create a Route53 Hosted Zone:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZone.html
-            self.root_hosted_zone = route53.PublicHostedZone(
-                self,
-                "RootHostedZone",
-                zone_name=self.domain_name,
-                comment=f"Hosted zone for {construct_id}: {self.domain_name}",
-            )
-            self.root_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
+        ## Import the existing Route53 Hosted Zone:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
+        self.root_hosted_zone = route53.PublicHostedZone.from_hosted_zone_attributes(
+            self,
+            "RootHostedZone",
+            hosted_zone_id=config["Domain"]["HostedZoneId"],
+            zone_name=self.domain_name,
+        )
 
         #####################
         ### Export Values ###

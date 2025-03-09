@@ -63,7 +63,7 @@ These are config options for when you deploy the base stack, to fine-tune it to 
 
 ### `Domain.HostedZoneId`
 
-- (`str`, Optional - kinda): The Route53 Hosted Zone ID for the domain of the domain name above. If not provided, it will be created. (Though you'll probably have to manually update the NS records in your registrar or something. I haven't tested this path yet). If you [buy a AWS Domain](https://aws.amazon.com/getting-started/hands-on/get-a-domain/), put it's HostedZoneId here.
+- (`str`, **Required**): The Route53 Hosted Zone ID for the domain of the domain name above. If you [buy a AWS Domain](https://aws.amazon.com/getting-started/hands-on/get-a-domain/), put it's HostedZoneId here. (Required because whatever path you take to get a domain, you'll need to create a Hosted Zone for it anyways).
 
    ```yaml
    Domain:
