@@ -138,5 +138,7 @@ cdk.context.json
 # Secret files
 vars.env
 
-# Personal Server Configs:
-ServerConfigs/
+# Node Stuff
+node_modules/
+package-lock.json
+package.json

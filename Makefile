@@ -1,3 +1,5 @@
+# Respect pathing
+export PWD=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 SHELL:=/bin/bash
 .SILENT:
 MAKEFLAGS += --no-print-directory
@@ -118,9 +120,16 @@ cdk-synth:
 		--context container-id="$(container-id)" \
 		$(STACKS)
 
-.PHONY := pylint
-pylint:
+.PHONY := lint-python
+lint-python:
 	pylint $$(git ls-files '*.py')
+
+.PHONY := lint-markdown
+lint-markdown:
+	docker run \
+		--pull always \
+		--volume ${PWD}:/workdir \
+		ghcr.io/igorshubovych/markdownlint-cli:latest "**/*.md"
 
 ###################
 ## Misc Commands ##

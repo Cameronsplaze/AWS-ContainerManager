@@ -17,14 +17,9 @@ on:
 jobs:
   python-lint:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/igorshubovych/markdownlint-cli:latest
-    # # Jump to where the container expects to find the code:
-    # defaults:
-    #   run:
-    #     working-directory: /workdir
-    #     shell: sh # Doesn't have bash...
+    container: ghcr.io/igorshubovych/markdownlint-cli:latest
     steps:
       - uses: actions/checkout@v4
-      - run: ls -hal
-      - run: markdownlint --version
+
+      - name: Analyzing with markdownlint
+        run: markdownlint "**/*.md"
