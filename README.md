@@ -158,9 +158,10 @@ To connect to the container:
     - (Linux Users) Use `scp` to add/backup files:
       - For example, if backing up:
 
+        The `/mnt/efs/.` gets all folders *INSIDE* efs, not the efs folder itself. (including hidden files). This'll also create `<MyBackupDir>` for you.
+
         ```bash
-        mkdir ~/Documents/MyBackupDir
-        scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/* ~/Documents/MyBackupDir
+        scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/. ~/Documents/<MyBackupDir>
         ```
 
         And because of the ssh config above, all the settings should already have solid defaults. That should just work! And switch the two arguments to upload instead.
