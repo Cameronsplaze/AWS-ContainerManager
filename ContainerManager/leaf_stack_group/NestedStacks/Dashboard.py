@@ -7,7 +7,6 @@ from aws_cdk import (
     NestedStack,
     Duration,
     aws_cloudwatch as cloudwatch,
-    aws_ssm as ssm,
 )
 from constructs import Construct
 
