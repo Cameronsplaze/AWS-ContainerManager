@@ -7,6 +7,7 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     RemovalPolicy,
+    CfnOutput,
     aws_ec2 as ec2,
     aws_sns as sns,
     aws_iam as iam,
@@ -100,7 +101,6 @@ class BaseStack(Stack):
         #####################
         # domain_name is imported to other stacks, so save it to this one:
         self.domain_name = config["Domain"]["Name"]
-        self.root_hosted_zone_id = config["Domain"]["HostedZoneId"]
 
         ## Import the existing Route53 Hosted Zone:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.PublicHostedZoneAttributes.html
@@ -110,6 +110,12 @@ class BaseStack(Stack):
             hosted_zone_id=config["Domain"]["HostedZoneId"],
             zone_name=self.domain_name,
         )
+
+        ####################
+        ### Output Stuff ###
+        ####################
+        CfnOutput(self, "SshKeyPairId", value=f"/ec2/keypair/{self.ssh_key_pair.key_pair_id}")
+        CfnOutput(self, "HostedZoneId", value=config["Domain"]["HostedZoneId"])
 
         #####################
         ### Export Values ###

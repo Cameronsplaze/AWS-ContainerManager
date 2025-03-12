@@ -13,6 +13,28 @@ from aws_cdk import (
     CfnParameter,
 )
 
+def save_param(stack: Stack, key: str, val: Union[str, int, float, bool], description: str="") -> None:
+    """
+    Set a CfnParameter Easily. Just used to save input args mainly.
+    """
+    # Let param_type be dynamic, we're not in CFN Yaml anymore.
+    try:
+        float(val)
+        param_type = "Number"
+    except ValueError:
+        param_type = "String"
+
+    ## This is to see what the stack was deployed with in the cfn parameters tab:
+    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.CfnParameter.html
+    return CfnParameter(
+        stack,
+        key,
+        type=param_type,
+        default=val,
+        description=f"{description}{' ' if description else ''}(Don't Edit in CloudFormation Console)",
+        # Since changing it in the console (if you use get_param) won't do anything, don't let them:
+        allowed_values=[val],
+    )
 
 def get_param(
         stack: Stack,
@@ -24,6 +46,9 @@ def get_param(
     ) -> Union[str, int, float, bool]:
     """
     Get a parameter from the environment, or use the default if it's not set.
+
+    Used to configure stacks at deploy time. Returns what the parameter is set to, instead
+    of a token, so you can call things like `arg.lower()` on the return value.
 
         Stack: The stack to add the parameter to
         key: The name of the parameter to grab from env vars
@@ -41,27 +66,12 @@ def get_param(
     # and CfnParameter only accepts strings. Keep it as a string here
     val = str(val)
 
-    # Let param_type be dynamic, we're not in CFN Yaml anymore.
-    try:
-        float(val)
-        param_type = "Number"
-    except ValueError:
-        param_type = "String"
-
-    # This is to see what the stack was deployed with in the cfn parameters tab:
-    CfnParameter(
-        stack,
-        key,
-        type=param_type,
-        default=val,
-        # Since changing it in the console won't do anything, don't let them:
-        allowed_values=[val],
-        description=f"{description}{' ' if description else ''}(Don't Edit in CloudFormation Console)"
-    )
+    ## Create the parameter:
+    parameter = save_param(stack, key, val, description)
 
     ## If you're expecting a number, change it away from a string:
     #   (CfnParameter *wants* the input as a string, but nothing else does)
-    if param_type == "Number":
+    if parameter.type == "Number":
         val = float(val) if "." in val else int(val)
     ## If it's a bool, change it to one:
     elif val.lower() in ["true", "false"]:

@@ -7,6 +7,7 @@ This module contains the Container NestedStack class.
 from aws_cdk import (
     NestedStack,
     RemovalPolicy,
+    CfnOutput,
     aws_ecs as ecs,
     aws_logs as logs,
 )
@@ -73,3 +74,9 @@ class Container(NestedStack):
                 log_group=self.container_log_group,
             ),
         )
+
+        ### Save the environment to Parameters:
+        for key, val in container_config["Environment"].items():
+            CfnOutput(self, key, value=val, description=f"[EnvVar]: {key}")
+            # These are important, attach them to the base stack too:
+            CfnOutput(scope, key, value=val, description=f"[EnvVar]: {key}")
