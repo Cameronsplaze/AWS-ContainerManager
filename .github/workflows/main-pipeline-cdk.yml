@@ -64,6 +64,7 @@ jobs:
           if [ $json_list == '[]' ]; then
               echo "> [!WARNING]" >> $GITHUB_STEP_SUMMARY
               echo "> **No deploy examples found**, skipping deployments. Populate the 'DEPLOY_EXAMPLES' GH Variable to change." >> $GITHUB_STEP_SUMMARY
+              echo "> (Deployments also only happen when **merging** PR's or manually triggering. If you're **ON** PR, it'll synth **only** anyways.)." >> $GITHUB_STEP_SUMMARY
           fi
 
   cdk-synth:
