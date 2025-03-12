@@ -28,20 +28,8 @@ def raise_missing_key_error(key: str) -> None:
 
 def _parse_sns(config: dict) -> None:
     if "AlertSubscription" not in config:
-        config["AlertSubscription"] = []
-    assert isinstance(config["AlertSubscription"], list)
-    new_config = []
-    for subscription in config["AlertSubscription"]:
-        if len(subscription.items()) != 1:
-            raise ValueError(f"Each subscription should have only one key-value pair. Got: {subscription.items()}")
-        # The new key is the protocol cdk object itself:
-        # (Not doing parsing on value. Can be str if email, int if phone-#, etc.)
-        protocol_str = list(subscription.keys())[0]
-        protocol = getattr(sns.SubscriptionProtocol, protocol_str.upper())
-        new_config.append({
-            protocol: subscription[protocol_str]
-        })
-    config["AlertSubscription"] = new_config
+        config["AlertSubscription"] = {}
+    assert isinstance(config["AlertSubscription"], dict)
 
 #######################
 ## BASE CONFIG LOGIC ##

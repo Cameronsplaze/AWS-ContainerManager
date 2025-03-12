@@ -60,4 +60,4 @@ Watchdog:
     ShouldStop: True
 
 # AlertSubscription:
-#   - Email: Does@Not.Exist
+#   Email: Does@Not.Exist

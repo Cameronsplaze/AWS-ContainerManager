@@ -72,12 +72,13 @@ These are config options for when you deploy the base stack, to fine-tune it to 
 
 ### `AlertSubscription`
 
-- (`list`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is the endpoint (i.e `DoesNotExist@gmail.com`)
+- (`dict`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is a space separated list (i.e `Does@Not.Exist Does@Not.Exist2`)
 
    ```yaml
    AlertSubscription:
-     - Email: DoesNotExist1@gmail.com
-     - Email: DoesNotExist2@gmail.com
+     Email: |
+       DoesNotExist1@gmail.com
+       DoesNotExist2@gmail.com
    ```
 
    This is to get notified for ANY leaf stack events. Intended for admin to keep an eye on everything without having to subscribe to every [leaf stack config's AlertSubscription](/Examples/README.md#alertsubscription)
@@ -85,5 +86,7 @@ These are config options for when you deploy the base stack, to fine-tune it to 
    Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
 
    Only have someone subscribed to this, **OR** the leaf stack, **NOT BOTH**. Otherwise you'll get an alert from each one any time something happens.
+
+   (It's setup like this, so a single GitHub Secret can pass in any number of emails)
 
 ---
