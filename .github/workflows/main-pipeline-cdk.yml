@@ -62,9 +62,9 @@ jobs:
           json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
           echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
           echo DEBUG
-          echo [ ${{ github.event.pull_request.merged }} ]
-          echo [ ${{ github.event_name == 'workflow_dispatch' }} ]
-          if [ $json_list == '[]' ] && ([ ${{ github.event.pull_request.merged }} ] || [ ${{ github.event_name == 'workflow_dispatch' }} ]); then
+          echo [ ${{ github.event.pull_request.merged }} == 'true' ]
+          echo [ ${{ github.event_name }} == 'workflow_dispatch' ]
+          if [ $json_list == '[]' ] && ([ ${{ github.event.pull_request.merged }} == 'true' ] || [ ${{ github.event_name }} == 'workflow_dispatch' ]); then
               echo "> [!WARNING]" >> $GITHUB_STEP_SUMMARY
               echo "> **No deploy examples found**, skipping deployments. Populate the 'DEPLOY_EXAMPLES' GH Variable to change." >> $GITHUB_STEP_SUMMARY
           fi
