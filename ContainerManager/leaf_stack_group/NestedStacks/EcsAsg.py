@@ -3,11 +3,8 @@
 This module contains the EcsAsg NestedStack class.
 """
 
-import jsii
 from aws_cdk import (
     NestedStack,
-    Aspects,
-    IAspect,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
@@ -15,31 +12,10 @@ from aws_cdk import (
     aws_efs as efs,
     aws_autoscaling as autoscaling,
 )
-from constructs import Construct, IConstruct
+from constructs import Construct
 
 from cdk_nag import NagSuppressions
 
-### To let you create and delete the stack, if it includes a capacity provider:
-# ec2_service
-# https://stackoverflow.com/questions/75418420/how-do-i-delete-an-ecs-capacity-provider-which-is-in-use
-@jsii.implements(IAspect)
-class HotfixCapacityProviderDependencies: # pylint: disable=too-few-public-methods
-    """
-    If you set the capacity_provider to use in a ec2_service, it fails to delete the
-    cluster (the capacity_provider is in use). But if you set the service or cluster as a dependent,
-    you'll hit a circular dependency when deploying.
-    This lets you set the CapacityProvider as a dependency, without the circular dependency.
-    """
-    # Add a dependency from capacity provider association to the cluster
-    # and from each service to the capacity provider association
-    def visit(self, node: IConstruct) -> None:
-        "Apart of the IAspect interface"
-        if isinstance(node, ecs.Ec2Service):
-            children = node.cluster.node.find_all()
-            for child in children:
-                if isinstance(child, ecs.CfnClusterCapacityProviderAssociations):
-                    child.node.add_dependency(node.cluster)
-                    node.node.add_dependency(child)
 
 
 class EcsAsg(NestedStack):
@@ -63,7 +39,6 @@ class EcsAsg(NestedStack):
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
-        Aspects.of(self).add(HotfixCapacityProviderDependencies())
 
         ## Cluster for the the container
         # This has to stay in this stack. A cluster represents a single "instance type"
@@ -191,12 +166,7 @@ class EcsAsg(NestedStack):
             # cloudwatch api calls, and clean up the console instead.
             enable_managed_scaling=False,
         )
-
         self.ecs_cluster.add_asg_capacity_provider(self.capacity_provider)
-        capacity_provider_strategy = ecs.CapacityProviderStrategy(capacity_provider=self.capacity_provider.capacity_provider_name, weight=1)
-        ## Just to populate information in the console, doesn't change the logic:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Cluster.html#addwbrdefaultwbrcapacitywbrproviderwbrstrategydefaultcapacityproviderstrategy
-        self.ecs_cluster.add_default_capacity_provider_strategy([capacity_provider_strategy])
 
         ## This creates a service using the EC2 launch type on an ECS cluster
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html
@@ -205,19 +175,19 @@ class EcsAsg(NestedStack):
             "Ec2Service",
             cluster=self.ecs_cluster,
             task_definition=task_definition,
-            desired_count=0,
             enable_ecs_managed_tags=True,
+            ## Daemon let me rip out SOOO much code. It will start the task for you whenever the instance
+            # starts automatically, so you don't need task management logic in the AsgStateChangeHook lambda.
+            # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html#service_scheduler_daemon
+            daemon=True,
+            min_healthy_percent=0,
+            max_healthy_percent=100,
             ## We use the 'spin-down-asg-on-error' lambda to take care of circuit breaker-like
             ## logic. If we *just* spun down the task, the instance would still be running.
             ## That'd both charge money, and not let the system "spin back up/reset".
             # circuit_breaker={
             #     "rollback": False # Don't keep trying to restart the container if it fails
             # },
-            capacity_provider_strategies=[capacity_provider_strategy],
-            ### Puts each task in a particular group, on a different instance:
-            ### (Not sure if we want this. Only will ever have one instance, and adds complexity)
-            # placement_constraints=[ecs.PlacementConstraint.distinct_instances()],
-            # placement_strategies=[ecs.PlacementStrategy.spread_across_instances()],
         )
 
         #####################

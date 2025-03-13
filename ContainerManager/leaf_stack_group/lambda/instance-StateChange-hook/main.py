@@ -16,8 +16,6 @@ required_vars = [
     "UNAVAILABLE_IP",
     "DNS_TTL",
     "RECORD_TYPE",
-    "ECS_CLUSTER_NAME",
-    "ECS_SERVICE_NAME",
 ]
 missing_vars = [x for x in required_vars if not os.environ.get(x)]
 if any(missing_vars):
@@ -26,7 +24,6 @@ if any(missing_vars):
 # Boto3 Clients:
 #    Can get cached if function is reused, keep clients that are used on spin-UP here:
 route53_client = boto3.client('route53') # Used for updating DNS record
-ecs_client = boto3.client('ecs')         # Used for updating the ECS service
 ec2_client = boto3.client('ec2')         # Used for getting the new instance's IP
 
 def lambda_handler(event: dict, context: dict) -> None:
@@ -35,35 +32,20 @@ def lambda_handler(event: dict, context: dict) -> None:
     """
     print(json.dumps({"Event": event, "Context": context}, default=str))
 
-    ### If the ec2 instance just FINISHED coming up:
+    # If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
-        update_system(spin_up=True, event=event)
-
-    ### If the ec2 instance just STARTED to go down:
+        new_ip = get_public_ip(instance_id=event["detail"]["EC2InstanceId"])
+    # If the ec2 instance just STARTED to go down:
     elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
         ### Safety Check - If another instance is spinning up, just quit:
         exit_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"])
-        # Now just update the system like normal:
-        update_system(spin_up=False, event=event)
-
-    ### If the EventBridge filter somehow changed (This should never happen):
+        # Now just update DNS like normal:
+        new_ip = os.environ["UNAVAILABLE_IP"]
+    # If the EventBridge filter somehow changed (This should never happen):
     else:
         raise RuntimeError(f"Unknown event type: '{event['detail-type']}'. Did you mess with the EventBridge Rule??")
-
-
-
-def update_system(spin_up: bool, event: dict) -> None:
-    """ Update the ECS Service and DNS. """
-    # Update the ECS service first, it'll take the longest to turn on:
-    update_ecs_service(desired_count=1 if spin_up else 0)
-
-    # Update the DNS to the new public IP:
-    if spin_up:
-        new_ip = get_public_ip(instance_id=event["detail"]["EC2InstanceId"])
-    else:
-        new_ip = os.environ["UNAVAILABLE_IP"]
+    ### Update the DNS record with the new IP:
     update_dns_zone(new_ip)
-
 
 def get_public_ip(instance_id: str) -> str:
     """ Get the instance's public IP """
@@ -90,18 +72,6 @@ def update_dns_zone(new_ip: str) -> None:
             }]
         }
     )
-
-
-def update_ecs_service(desired_count: int) -> None:
-    """ Update the ECS service to desired count """
-    print(f"Spinning {'up' if desired_count else 'down'} ecs service ({desired_count=})")
-    ## Spin up the task on the new instance:
-    ecs_client.update_service(
-        cluster=os.environ["ECS_CLUSTER_NAME"],
-        service=os.environ["ECS_SERVICE_NAME"],
-        desiredCount=desired_count,
-    )
-
 
 def exit_if_asg_instance_coming_up(asg_name: str) -> None:
     """

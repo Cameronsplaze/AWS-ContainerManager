@@ -11,7 +11,6 @@ from aws_cdk import (
     aws_sns as sns,
     aws_iam as iam,
     aws_logs as logs,
-    aws_ecs as ecs,
     aws_events as events,
     aws_events_targets as events_targets,
     aws_autoscaling as autoscaling,
@@ -31,8 +30,6 @@ class AsgStateChangeHook(NestedStack):
         scope: Construct,
         container_id: str,
         domain_stack: DomainStack,
-        ecs_cluster: ecs.Cluster,
-        ec2_service: ecs.Ec2Service,
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
@@ -87,8 +84,6 @@ class AsgStateChangeHook(NestedStack):
                 "UNAVAILABLE_IP": domain_stack.unavailable_ip,
                 "DNS_TTL": str(domain_stack.dns_ttl),
                 "RECORD_TYPE": domain_stack.record_type.value,
-                "ECS_CLUSTER_NAME": ecs_cluster.cluster_name,
-                "ECS_SERVICE_NAME": ec2_service.service_name,
             },
         )
         ### Lambda Permissions:
@@ -107,17 +102,6 @@ class AsgStateChangeHook(NestedStack):
                     "autoscaling:DescribeAutoScalingGroups",
                 ],
                 resources=["*"],
-            )
-        )
-        # Give it permissions to update the service desired_task:
-        self.asg_state_change_policy.add_statements(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "ecs:UpdateService",
-                    "ecs:DescribeServices",
-                ],
-                resources=[ec2_service.service_arn],
             )
         )
         ## Let it update the DNS record of the domain stack:
