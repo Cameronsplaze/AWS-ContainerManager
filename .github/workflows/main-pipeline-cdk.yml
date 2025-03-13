@@ -61,10 +61,9 @@ jobs:
           github_vars_list=$(echo "${{ vars.DEPLOY_EXAMPLES }}" | tr '\r\n' ' ')
           json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
           echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
-          if [ $json_list == '[]' ]; then
+          if [ $json_list == '[]' ] && ([${{ github.event.pull_request.merged }}] || [${{ github.event_name == 'workflow_dispatch' }}]); then
               echo "> [!WARNING]" >> $GITHUB_STEP_SUMMARY
               echo "> **No deploy examples found**, skipping deployments. Populate the 'DEPLOY_EXAMPLES' GH Variable to change." >> $GITHUB_STEP_SUMMARY
-              echo "> (Deployments also only happen when **merging** PR's or manually triggering. If you're **ON** PR, it'll synth **only** anyways.)." >> $GITHUB_STEP_SUMMARY
           fi
 
   cdk-synth:
