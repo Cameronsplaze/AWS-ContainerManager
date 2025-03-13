@@ -90,7 +90,7 @@ flowchart TD
             events-rule-asg-up -." Alert "..-> sns-notify
             events-rule-asg-down -." Alert "..-> sns-notify
             lambda-asg-StateChange --" Updates DNS Record "--> sub-hosted-zone
-            lambda-asg-StateChange --" Updates Task Count "--> Ec2Service
+            lambda-asg-StateChange --" (AWS Daemon) Updates Task Count "--> Ec2Service
 
             subgraph Volumes.py
                 persistent-volume[Persistent Volume]
