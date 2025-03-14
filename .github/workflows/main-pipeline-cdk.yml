@@ -88,7 +88,10 @@ jobs:
           vars: ${{ toJson(vars) }}
 
       - name: tmp debug
-        run: make cdk-synth
+        run: |
+          echo $EMAIL
+          echo Does@Not.Exist
+          make cdk-synth
 
       ## Log into AWS:
       - uses: aws-actions/configure-aws-credentials@v4
