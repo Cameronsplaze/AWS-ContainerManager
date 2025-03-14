@@ -14,14 +14,14 @@ runs:
   using: "composite"
   steps:
 
+    ## Some of the Secrets (Like Email), takes a list of emails. This goes through
+    # each secret with a space, and masks each sub-secret inside it.
     - name: Hide all sub-secrets
       shell: bash
       run: |
-        echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | .value' | while read line; do
+        echo "${{ inputs.secrets }}" | jq -r 'to_entries[] | .value' | while read line; do
           for part in "$line"; do echo "::add-mask::${part}"; done
         done
-      env:
-        SECRETS_CONTEXT: ${{ inputs.secrets }}
 
 
     ## If you're using CDK, you'll need all the variables
