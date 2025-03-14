@@ -72,7 +72,7 @@ I specifically designed all the automation, so that if it's forked, you can re-u
     - **AWS_ACCOUNT_ID**: Your AWS Account ID.
     - **DOMAIN_NAME**: The domain name of your Route53 Hosted Zone.
     - **HOSTED_ZONE_ID**: The ID of your Route53 Hosted Zone.
-    - **EMAIL**: The email for receiving alerts for everything. (Might turn this into a list at some point, the yaml config supports that already anyways...)
+    - **EMAILS**: A Space-Separated list of emails to notify alerts. It has to be a single value, so you can pass in any number without editing the config if needed. (The `composite-setup-cdk` action will add masks to each item inside the list automatically).
     - **PAT_AUTOMERGE_PR**: The Personal Access Token for automerging PRs. If you used `GITHUB_TOKEN` instead, it wouldn't trigger other workflows when merged. Go to `Profile` -> `Settings` -> `Developer settings` -> `Personal access tokens`+`Fine-grained tokens` -> `Generate new token`. For permissions, only give it access to your fork, and you only need `Read & Write for Pull requests`.
 
 4) **Secrets and variables: *Actions Variables*** you'll want declared (in the 'core', NOT in any environment):
