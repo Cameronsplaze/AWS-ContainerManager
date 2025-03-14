@@ -20,7 +20,7 @@ runs:
       shell: bash
       run: |
         echo "${{ inputs.secrets }}" | jq -r 'to_entries[] | .value' | while read line; do
-          for part in "$line"; do echo "::add-mask::${part}"; done
+          for part in "$line"; do echo $part; echo $line; echo "::add-mask::${part}"; done
         done
 
 
