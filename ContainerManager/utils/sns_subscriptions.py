@@ -27,7 +27,7 @@ def add_sns_subscriptions(context, sns_topic: sns.Topic, subscriptions: dict) ->
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.Subscription.html
             sns.Subscription(
                 context,
-                "sns-notify-subscription",
+                f"sns-notify-subscription-{endpoint}",
                 protocol=protocol,
                 endpoint=endpoint,
                 topic=sns_topic,
