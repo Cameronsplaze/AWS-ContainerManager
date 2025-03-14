@@ -18,9 +18,7 @@ runs:
       shell: bash
       run: |
         echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | .value' | while read line; do
-          for each part in "$line"; do
-            echo "::add-mask::${part}";
-          done
+          for part in "$line"; do echo "::add-mask::${part}"; done
         done
       env:
         SECRETS_CONTEXT: ${{ inputs.secrets }}
