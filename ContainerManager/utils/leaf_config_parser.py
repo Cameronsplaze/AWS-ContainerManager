@@ -1,4 +1,8 @@
+"""
+Leaf Config Parser
 
+The docs for schema is at: https://github.com/keleshev/schema
+"""
 from schema import Schema, And, Or, Use, Optional, SchemaError
 from pyaml_env import parse_config
 
