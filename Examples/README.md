@@ -109,11 +109,11 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ### `Volumes[*].EnableBackups`
 
-- (`bool`, Optional, default=`True`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups.
+- (`bool`, Optional, default=`if "maturity" == "prod"`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Maturity defaults to `prod` if not set. See [more info here](/README.md#maturity)).
 
 ### `Volumes[*].KeepOnDelete`
 
-- (`bool`, Optional, default=`True`): If you should keep the data when the stack is destroyed.
+- (`bool`, Optional, default=`if "maturity" == "prod"`): If you should keep the data when the stack is destroyed. (Maturity defaults to `prod` if not set. See [more info here](/README.md#maturity)).
 
 ### `Volumes[*].Paths`
 

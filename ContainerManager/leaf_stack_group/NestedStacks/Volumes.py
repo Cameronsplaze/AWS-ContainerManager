@@ -6,6 +6,7 @@ This module contains the Volumes NestedStack class.
 from aws_cdk import (
     NestedStack,
     Duration,
+    RemovalPolicy,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_efs as efs,
@@ -49,12 +50,17 @@ class Volumes(NestedStack):
             if not volume_config["Type"] == "EFS":
                 continue
 
+            volume_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE \
+                                    if volume_config["KeepOnDelete"] else \
+                                    RemovalPolicy.DESTROY
+
+
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
             efs_file_system = efs.FileSystem(
                 self,
                 f"Efs-{i}",
                 vpc=vpc,
-                removal_policy=volume_config["_removal_policy"],
+                removal_policy=volume_removal_policy,
                 security_group=sg_efs_traffic,
                 allow_anonymous_access=False,
                 enable_automatic_backups=volume_config["EnableBackups"],
