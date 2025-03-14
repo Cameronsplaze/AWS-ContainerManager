@@ -19,9 +19,11 @@ runs:
     - name: Hide all sub-secrets
       shell: bash
       run: |
-        echo "${{ inputs.secrets }}" | jq -r 'to_entries[] | .value' | while read line; do
+        echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | .value' | while read line; do
           for part in "$line"; do echo $part; echo $line; echo "::add-mask::${part}"; done
         done
+      env:
+        SECRETS_CONTEXT: ${{ inputs.secrets }}
 
 
     ## If you're using CDK, you'll need all the variables
