@@ -54,7 +54,7 @@ runs:
       shell: bash
       run: |
         ### Update:
-        make update-npm
+        make update-npm-cdk
         ### Add NPM stuff to PATH:
         echo "PATH=~/.npm-global/bin:$PATH" >> "$GITHUB_ENV"
 

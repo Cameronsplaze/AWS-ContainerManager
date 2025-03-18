@@ -126,10 +126,7 @@ lint-python:
 
 .PHONY := lint-markdown
 lint-markdown:
-	docker run \
-		--pull always \
-		--volume ${PWD}:/workdir \
-		ghcr.io/igorshubovych/markdownlint-cli:latest "**/*.md"
+	node --run lint:markdown
 
 ###################
 ## Misc Commands ##
@@ -142,15 +139,25 @@ aws-whoami:
 		--query "$${query:-Arn}" \
 		--output text
 
-.PHONY := update-npm
-# n: node version manager
-# hash -r: Refresh shell to use the latest node version
-update-npm:
+.PHONY := update-npm-lint
+# Installs locally:
+update-npm-lint:
+	echo "## Updating NPM Lint Stuff..."
+	npm install --save-dev \
+		markdownlint-cli2@latest \
+		markdownlint-rule-relative-links@latest
+	echo ""
+
+.PHONY := update-npm-cdk
+# Installs globally:
+update-npm-cdk:
 	echo "## Setting up non-root Install..."
 	mkdir -p ~/.npm-global
 	npm config set prefix '~/.npm-global'
-	echo "## Updating NPM Stuff..."
-	npm install -g npm@latest aws-cdk@latest
+	echo "## Updating NPM CDK Stuff..."
+	npm install --global \
+		npm@latest \
+		aws-cdk@latest
 	echo ""
 
 .PHONY := update-python
@@ -163,7 +170,7 @@ update-python:
 	echo ""
 
 .PHONY := update
-update: update-npm update-python
+update: update-npm-cdk update-npm-lint update-python
 
 .PHONY := cdk-bootstrap
 # --app="": CDK can't synth without the right variables, so don't load the app:

@@ -1,0 +1,8 @@
+{
+    "scripts": {
+        "lint:markdown": "markdownlint-cli2"
+    },
+    "devDependencies": {
+        "markdownlint-rule-relative-links": "^4.0.1"
+    }
+}
