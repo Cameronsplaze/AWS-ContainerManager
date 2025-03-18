@@ -3,15 +3,14 @@ Leaf Config Parser
 
 The docs for schema is at: https://github.com/keleshev/schema
 """
-from schema import Schema, And, Or, Use, Optional, SchemaError
-from pyaml_env import parse_config
+from schema import Schema, And, Or, Use, Optional
 
 from aws_cdk import (
     Duration,
     aws_ecs as ecs,
 )
 
-from git import Repo
+from .sns_subscriptions import sns_schema
 
 ### You have to keep Schema's separate, when you need an Optional dict of an Optional dict.
 # (AKA with {"a": {"b": "c"}}, if you declare "a" as optional, the "b" and "c" dict won't get
@@ -39,6 +38,7 @@ leaf_dashboard_defaults = leaf_dashboard_config.validate({})
 ### Leaf Config ###
 ###################
 def leaf_config_schema(maturity: str):
+    """ Leaf config schema for the leaf stack. """
     return Schema({
         "Ec2": {
             "InstanceType": str,
@@ -85,32 +85,6 @@ def leaf_config_schema(maturity: str):
             ): And(int, Use(Duration.minutes)),
             Optional("InstanceLeftUp", default=leaf_instanceLeftUp_defaults): leaf_instanceLeftUp_config,
         },
-        Optional("AlertSubscription", default={}): {
-            Optional("Email"): str,
-        },
+        Optional("AlertSubscription", default={}): sns_schema,
         Optional("Dashboard", default=leaf_dashboard_defaults): leaf_dashboard_config,
     })
-
-def load(path: str, maturity: str) -> dict:
-    """
-    Parser/Loader for all leaf stacks
-    """
-    # default_value: Dependabot PR's can't read secrets. Give variables
-    #    a default value since most will be blank for the synth.
-    leaf_config = parse_config(path, default_value="UNDECLARED")
-    leaf_schema = leaf_config_schema(maturity)
-    try:
-        return leaf_schema.validate(leaf_config)
-    except SchemaError as e:
-        # Get the URL of the repo, to send the user to the docs:
-        origin_url = Repo(".").remotes.origin.url
-        repo_url = origin_url.replace("git@github.com:", "https://github.com/").replace(".git", "")
-        # Don't use schema's built-in "Schema(data, error=asdf)". It overrides the
-        # message, instead of appending to it. This appends to the end of the error:
-        e.add_note(f"Online Docs: {repo_url}/tree/main/Examples#config-file-options")
-        e.add_note("Local Docs: ./Examples/README.md")
-        raise
-
-if __name__ == "__main__":
-    config = load("./Examples/Minecraft.java.example.yaml", "prod")
-    print(config)

@@ -6,7 +6,6 @@ This module contains the BaseStackMain class.
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    RemovalPolicy,
     CfnOutput,
     aws_ec2 as ec2,
     aws_sns as sns,

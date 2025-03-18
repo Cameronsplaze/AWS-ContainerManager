@@ -266,13 +266,19 @@ make cdk-destroy-leaf maturity=devel config-file=<FILE>
 # And never touch the stuff in the normal stacks!
 ```
 
-### pylint
+### lint-python
 
 Lints all python files. Useful when developing.
 
 ```bash
 make pylint
 ```
+
+### lint-markdown
+
+**requires docker**. Lints all markdown files. Useful when developing.
+
+```bash
 
 ### aws-whoami
 
