@@ -276,9 +276,16 @@ make lint-python
 
 ### lint-markdown
 
-**requires docker**. Lints all markdown files. Useful when developing. (Uses [markdownlint](https://github.com/markdownlint/markdownlint) and [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli) behind the scenes).
+Lints all markdown files. Useful when developing. (Uses [markdownlint](https://github.com/markdownlint/markdownlint) and [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) behind the scenes).
+
+- Added [markdownlint-rule-relative-links](https://github.com/theoludwig/markdownlint-rule-relative-links) for checking relative links in markdown files.
+
+Config options for linting markdowns is in [.markdownlint.yaml](./.markdownlint.yaml) for `markdownlint` itself, or in [.markdownlint-cli2.mjs](./.markdownlint-cli2.mjs) for `markdownlint-cli2`.
 
 ```bash
+# Make sure it's installed:
+make update-npm-lint
+# Run it:
 make lint-markdown
 ```
 

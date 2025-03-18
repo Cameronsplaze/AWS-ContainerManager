@@ -3,6 +3,7 @@
         "lint:markdown": "markdownlint-cli2"
     },
     "devDependencies": {
+        "markdownlint-cli2": "^0.17.2",
         "markdownlint-rule-relative-links": "^4.0.1"
     }
 }

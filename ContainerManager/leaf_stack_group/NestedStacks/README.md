@@ -36,11 +36,11 @@ There are three alarms that trigger the scaling down of the ASG:
 
 #### Alarm: Container Activity
 
-This is the component for checking if anyone is connected to the container. It uses the "ec2 traffic IN" metric for this. We ignore OUT because it's too noisy, and the container could just be sending telemetry out. IN will only detect someone trying to talk to the container, or it downloading updates, which is what we want to know. Once it detects no one is on for *X* many times, it scales down the ASG. For more info/customization, see [Watchdog.Threshold](/Examples/README.md#watchdogthreshold).
+This is the component for checking if anyone is connected to the container. It uses the "ec2 traffic IN" metric for this. We ignore OUT because it's too noisy, and the container could just be sending telemetry out. IN will only detect someone trying to talk to the container, or it downloading updates, which is what we want to know. Once it detects no one is on for *X* many times, it scales down the ASG. For more info/customization, see [Watchdog.Threshold](../../../Examples/README.md#watchdogthreshold).
 
 #### Alarm: Instance Left Up
 
-This is just to help me sleep at night. If the instance is left up for too long (default 8 hours), it'll send out an SNS alert to check the system. You can also configure it to shut down the instance if this much time has passed. (Default is to just send an alert). For more info/customization, see [Watchdog](/Examples/README.md#watchdoginstanceleftup).
+This is just to help me sleep at night. If the instance is left up for too long (default 8 hours), it'll send out an SNS alert to check the system. You can also configure it to shut down the instance if this much time has passed. (Default is to just send an alert). For more info/customization, see [Watchdog](../../../Examples/README.md#watchdoginstanceleftup).
 
 #### Alarm: Break Crash Loop
 
