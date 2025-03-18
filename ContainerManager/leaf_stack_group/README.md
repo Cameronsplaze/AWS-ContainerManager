@@ -4,7 +4,7 @@ This is the core of the Container Manager. It's the AWS Architecture that runs t
 
 Each `leaf_stack_group` is made up of three stacks, working together to manage a single container.
 
-A simple TLDR diagram can be found back one level in [../README.md](../README.md#leaf-stack-summary)
+A simple TLDR diagram can be found back one level in [../README.md](../README.md#leaf-stack-group-summary)
 
 ## CDK Architecture
 
@@ -150,12 +150,12 @@ This stack sets up the Hosted Zone and DNS for the leaf_stack_group. This stack 
 
 ### [./NestedStacks](./NestedStacks/) Leaf Stack (Red)
 
-All of the nested stacks are combined into one stack at [./main.py](./main.py). They're broken into Nested Stack chunks, to keep each chunk easy to read/manage. For more information, see the [NestedStack's README](./NestedStacks/README.md).
+All of the nested stacks are combined into one stack at [./container_manager_stack.py](./container_manager_stack.py). They're broken into Nested Stack chunks, to keep each chunk easy to read/manage. For more information, see the [NestedStack's README](./NestedStacks/README.md).
 
 This stack handles seeing if people are connected to the container, along with how to spin DOWN the container when no one is connected. (Spinning **up** is the Domain Stack, which justs set ASG count to one).
 
 It also sets up a SNS for if you just want to subscribe to events of this specific container, and not any others. This stack can be deployed to any region.
 
-### [./start_system.py](./start_system.py) Leaf Stack (Green)
+### [./start_system_stack.py](./start_system_stack.py) Leaf Stack (Green)
 
 This is what actually adds the DNS records to `Base Stack Domain` above, and spins the ASG up when someone connects. This is it's own stack because it needs Route53 logs from `Base Stack Domain`, so it HAS to be in `us-east-1`. It also needs to know the `NestedStacks` ASG to spin it up when the query log is hit, so it HAS to be deployed after that stack. And thus, it's it's own stack.

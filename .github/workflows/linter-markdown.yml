@@ -8,14 +8,14 @@ on:
   pull_request:
     # Can use 'paths' here. This isn't running on dependabot updates.
     paths:
-      # Changes to any python file:
+      # Changes to any markdown file:
       - '**.md'
       # Or Actions this workflow depends on (including itself):
       - '.markdownlint.yaml'
       - '.github/workflows/linter-markdown.yml'
 
 jobs:
-  python-lint:
+  markdown-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

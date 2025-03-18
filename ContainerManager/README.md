@@ -19,10 +19,6 @@ The system is designed all around the Auto Scaling Group (ASG). This way, if the
 
 See the [leaf_stack_group's README.md](./leaf_stack_group/README.md) for more info.
 
-## Moving Variables between the Stacks (cross-region)
-
-This section is has been moved to the [utils README](./utils/README.md#moving-variables-between-the-stacks).
-
 ## Base Stack Summary
 
 The [base stack](./base_stack/README.md) is a shared resources stack to help keep running multiple containers cheap. By also keeping things like an SSH key here, you don't have to juggle multiple keys for every container you want to run. (Or add your email for alerts on every container stack too).

@@ -47,7 +47,7 @@ source vars.env # Do this after every edit you make too!
 
 #### Base Stack
 
-The config options for the stack are in [./base-stack-config.yaml](/base-stack-config.yaml). Info on each option is in [./ContainerManager/README.md](./ContainerManager/README.md#editing-the-base-stack-config).
+The config options for the stack are in [./base-stack-config.yaml](/base-stack-config.yaml). Info on each option is in [./ContainerManager/README.md](./ContainerManager/README.md#base-stack-config-options).
 
 If you need a `HostedZoneId`, you can [buy a domain from AWS](https://aws.amazon.com/getting-started/hands-on/get-a-domain/), then copy the Id from the console. (AWS won't let you automate this step).
 
