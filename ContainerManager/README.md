@@ -10,7 +10,7 @@ Click here to jump to '[Base Stack Config Options](#base-stack-config-options)'.
 
 ## Leaf Stack Group Summary
 
-![picture](/Resources/AWS-ContainerManager_Basic_Diagram.png)
+![picture](../Resources/AWS-ContainerManager_Basic_Diagram.png)
 <!-- Original board: https://sketchboard.me/REucJJtlrBCi#/ -->
 
 **Not an all inclusive diagram**: There's more not shown, like EFS mounted to both the EC2 Task and ASG Instance, SNS Alerts, etc.
@@ -18,10 +18,6 @@ Click here to jump to '[Base Stack Config Options](#base-stack-config-options)'.
 The system is designed all around the Auto Scaling Group (ASG). This way, if the ASG spins up in any way (DNS query comes in, or you change the desired_count in the console), everything spins up around it. If a alarm triggers, it just has to spin the ASG back down and everything will naturally follow suit.
 
 See the [leaf_stack_group's README.md](./leaf_stack_group/README.md) for more info.
-
-## Moving Variables between the Stacks (cross-region)
-
-This section is has been moved to the [utils README](./utils/README.md#moving-variables-between-the-stacks).
 
 ## Base Stack Summary
 
@@ -31,7 +27,7 @@ Anything that can be here instead of the leaf stacks, should be.
 
 ## Base Stack Config Options
 
-These are config options for when you deploy the base stack, to fine-tune it to your needs. Update the [base-stack-config.yaml](/base-stack-config.yaml) file in the root of this repo.
+These are config options for when you deploy the base stack, to fine-tune it to your needs. Update the [base-stack-config.yaml](../base-stack-config.yaml) file in the root of this repo.
 
 ---
 
@@ -81,7 +77,7 @@ These are config options for when you deploy the base stack, to fine-tune it to 
        DoesNotExist2@gmail.com
    ```
 
-   This is to get notified for ANY leaf stack events. Intended for admin to keep an eye on everything without having to subscribe to every [leaf stack config's AlertSubscription](/Examples/README.md#alertsubscription)
+   This is to get notified for ANY leaf stack events. Intended for admin to keep an eye on everything without having to subscribe to every [leaf stack config's AlertSubscription](../Examples/README.md#alertsubscription)
 
    Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
 
