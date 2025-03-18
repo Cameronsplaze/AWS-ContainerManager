@@ -12,6 +12,7 @@ on:
       - '**.md'
       # Or Actions this workflow depends on (including itself):
       - '.markdownlint.yaml'
+      - '.markdownlint-cli2.yaml'
       - '.github/workflows/linter-markdown.yml'
 
 jobs:
