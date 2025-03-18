@@ -222,63 +222,65 @@ These are the core commands of cdk. Both deploy and destroy are broken into two 
 
 #### config-file
 
-This controls which "leaf stack" you're working on. It's a path to the config yaml.
+- This controls which "leaf stack" you're working on. It's a path to the config yaml.
 
-Optional for `cdk-synth`:
+  Optional for `cdk-synth`:
 
-```bash
-# Just lint the base stack:
-make cdk-synth
-# Lint the base stack, and a leaf stack with a config:
-make cdk-synth config-file=./Examples/<MyConfig>.yaml
-```
+  ```bash
+  # Just lint the base stack:
+  make cdk-synth
+  # Lint the base stack, and a leaf stack with a config:
+  make cdk-synth config-file=./Examples/<MyConfig>.yaml
+  ```
 
-**Required** for both `*-leaf` commands:
+  **Required** for both `*-leaf` commands:
 
-```bash
-make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml
-# Domain will be: `minecraft.java.example.<YOUR_DOMAIN>`
-```
+  ```bash
+  make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml
+  # Domain will be: `minecraft.java.example.<YOUR_DOMAIN>`
+  ```
 
 #### container-id
 
-Optional for all three commands. This fixes two issues:
+- Optional for all three commands. This fixes two issues:
 
-- The `container-id` has to be unique per **aws account**. If you want to deploy two of the same yaml to your account, at least one will need to set this.
-- This overrides the domain prefix. If you want a descriptive yaml name, but small domain name, use this.
+  - The `container-id` has to be unique per **aws account**. If you want to deploy two of the same yaml to your account, at least one will need to set this.
+  - This overrides the domain prefix. If you want a descriptive yaml name, but small domain name, use this.
 
-```bash
-make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml container-id=minecraft
-# Domain will be: `minecraft.<YOUR_DOMAIN>`
-```
+  ```bash
+  make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml container-id=minecraft
+  # Domain will be: `minecraft.<YOUR_DOMAIN>`
+  ```
 
 #### maturity
 
-There's currently two maturities you can set, `devel` and `prod` (prod being the default). `devel` has defaults for developing (i.e removes any storage with it when deleted). It also keeps the containers you're testing with, separate from any games you're activity running.
+- There's currently two maturities you can set, `devel` and `prod` (prod being the default). `devel` has defaults for developing (i.e removes any storage with it when deleted). It also keeps the containers you're testing with, separate from any games you're activity running.
 
-```bash
-# Create the devel base stack:
-make cdk-deploy-base maturity=devel
-# Add an application to it:
-make cdk-deploy-leaf maturity=devel config-file=<FILE>
-# Delete said leaf stack
-make cdk-destroy-leaf maturity=devel config-file=<FILE>
-# And never touch the stuff in the normal stacks!
-```
+  ```bash
+  # Create the devel base stack:
+  make cdk-deploy-base maturity=devel
+  # Add an application to it:
+  make cdk-deploy-leaf maturity=devel config-file=<FILE>
+  # Delete said leaf stack
+  make cdk-destroy-leaf maturity=devel config-file=<FILE>
+  # And never touch the stuff in the normal stacks!
+  ```
 
 ### lint-python
 
-Lints all python files. Useful when developing.
+Lints all python files. Useful when developing. (Uses [pylint](https://github.com/pylint-dev/pylint) behind the scenes).
 
 ```bash
-make pylint
+make lint-python
 ```
 
 ### lint-markdown
 
-**requires docker**. Lints all markdown files. Useful when developing.
+**requires docker**. Lints all markdown files. Useful when developing. (Uses [markdownlint](https://github.com/markdownlint/markdownlint) and [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli) behind the scenes).
 
 ```bash
+make lint-markdown
+```
 
 ### aws-whoami
 
