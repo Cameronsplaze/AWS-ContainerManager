@@ -66,7 +66,7 @@ class Volumes(NestedStack):
                 enable_automatic_backups=volume_config["EnableBackups"],
                 encrypted=True,
                 ## No need to set, only in one AZ/Subnet already. If user increases that
-                ## number, they probably *want* more backups. There's no other reason to:
+                ## number, they probably *want* more EFS instances. There's no other reason to:
                 # one_zone=True,
             )
             self.efs_file_systems.append(efs_file_system)

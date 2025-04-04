@@ -101,6 +101,9 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
          - Path: /opt/valheim
    ```
 
+> [!NOTE]
+> The filesystems inside `/mnt/efs` are labeled `Efs-1`, `Efs-2`, etc. They are in the same order as listed here (starting at `1`). IF YOU CHANGE THE ORDER, aws will replace the volumes that changed. I have it set to orphan instead of delete, so you'll have to go in and copy the files to the new EFS it creates.
+
 ### `Volumes[*].Type`
 
 - (`str`, Optional, default=`EFS`): The type of volume to use. Currently only `EFS` is supported.

@@ -97,6 +97,8 @@ make cdk-destroy-base
 
 ## Running Commands on the Host / Accessing Files
 
+More info on volumes in the [volume config](./Examples/README.md#volumes).
+
 ### SSM Session Manager
 
 Core AWS docs for this are [here](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html#ssh-connections-enable).
@@ -164,7 +166,21 @@ To connect to the container:
         scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/. ~/Documents/<MyBackupDir>
         ```
 
-        And because of the ssh config above, all the settings should already have solid defaults. That should just work! And switch the two arguments to upload instead.
+      - For example, if adding files to EFS:
+
+        ```bash
+        scp -r Documents/<MyBackupDir> <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/.
+        ```
+
+        Then restart the container:
+
+        ```bash
+        ssh <CONTAINER_ID>.<DOMAIN_NAME>
+        # Get the ID of the container:
+        docker container ls
+        # Restart the container:
+        docker restart <CONTAINER_ID> # Or just stop it, and it'll start automatically.
+        ```
 
 ### Moving files from Old EFS to New
 
