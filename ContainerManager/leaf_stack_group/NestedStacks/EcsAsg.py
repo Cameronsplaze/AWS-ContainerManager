@@ -84,8 +84,11 @@ class EcsAsg(NestedStack):
             #      (You can also mount efs directly by removing the accesspoint flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
             self.ec2_user_data.add_commands(
+                ## Make sure the EFS Mount Point exists:
                 f'mkdir -p "{efs_mount_point}"',
-                f'echo "{efs_file_system.file_system_id}:/ {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+                ## Mount the EFS into it
+                # NOTE: DON'T add a path after file_system_id, or the mount point will be owned by root and you can't copy files into it.
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
             )
         ## Actually mount the EFS volumes:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
@@ -102,7 +105,7 @@ class EcsAsg(NestedStack):
             'echo "ECS_DISABLE_PRIVILEGED=true" >> /etc/ecs/ecs.config',
             'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
             'echo "ECS_APPARMOR_CAPABLE=true" >> /etc/ecs/ecs.config',
-            ## Isn't ever on long enough to worry about cleanup anyways:
+            ## Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
         )
 
