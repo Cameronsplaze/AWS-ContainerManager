@@ -67,34 +67,38 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
         self.ec2_user_data = ec2.UserData.for_linux() # (Can also set to python, etc. Default bash)
 
+        efs_root_host = "/mnt/efs"
         ### Tie all the EFS's to the host:
+        # NOTE: We're mounting the EFS directly here, instead of using an access-point
+        #       that's tied to the root EFS. You can't chown a mount point, and this also
+        #       lets us not create an extra mount-point that'd be the same as the root access anyways.
+        #       (Plus trying to mount each access-point here, could become awkward for debuggin if one
+        #        somehow got deleted and you can't access the data from EC2 anymore).
         for efs_file_system in efs_file_systems:
             # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
-            efs_mount_point = f"/mnt/efs/{efs_file_system.node.id}"
+            efs_mount_point = f"{efs_root_host}/{efs_file_system.node.id}"
             ### Give it root access to the EFS:
             efs_file_system.grant_root_access(self.ec2_role)
 
-            ### Create a access point for the host:
-            ## Creating an access point:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-            ## What it returns:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-            host_access_point = efs_file_system.add_access_point("efs-access-point-host", create_acl=efs_ap_acl, path="/")
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
-            #      (You can also mount efs directly by removing the accesspoint flag)
+            #      (You can also mount efs directly by removing the access-point flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
             self.ec2_user_data.add_commands(
-                ## Make sure the EFS Mount Point exists:
+                # Make sure the EFS Mount Point exists:
                 f'mkdir -p "{efs_mount_point}"',
-                ## Mount the EFS into it
-                # NOTE: DON'T add a path after file_system_id, or the mount point will be owned by root and you can't copy files into it.
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+                ## Mount the EFS into it:
+                # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,tls,iam,_netdev 0 0" >> /etc/fstab',
             )
+
         ## Actually mount the EFS volumes:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
         #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
         self.ec2_user_data.add_commands(
             'mount -a -t efs,nfs4 defaults',
+            ## Fix the permissions on the mount point itself:
+            #  (NOT -R, takes time, and *those* permissions are already set by acl)
+            f'chown {efs_ap_acl.owner_uid}:{efs_ap_acl.owner_gid} {efs_root_host}/*',
         )
 
         ## Add ECS Agent Config Variables:
