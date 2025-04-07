@@ -83,12 +83,13 @@ class EcsAsg(NestedStack):
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
             #      (You can also mount efs directly by removing the access-point flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
+            # https://docs.aws.amazon.com/efs/latest/ug/mount-fs-auto-mount-update-fstab.html
             self.ec2_user_data.add_commands(
                 # Make sure the EFS Mount Point exists:
                 f'mkdir -p "{efs_mount_point}"',
                 ## Mount the EFS into it:
                 # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,tls,iam,_netdev 0 0" >> /etc/fstab',
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,noresvport,tls,iam,_netdev 0 0" >> /etc/fstab',
             )
 
         ## Actually mount the EFS volumes:
@@ -158,6 +159,7 @@ class EcsAsg(NestedStack):
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
         # Can ensure that instances are not prematurely terminated while there are still tasks running on them.
+        # (Still needed in ECS Daemon mode, since this ties the ASG to the ECS cluster)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AsgCapacityProvider.html
         self.capacity_provider = ecs.AsgCapacityProvider(
             self,

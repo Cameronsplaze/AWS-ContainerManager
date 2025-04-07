@@ -43,8 +43,6 @@ class Volumes(NestedStack):
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
         self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
-        posix_user = efs.PosixUser(uid="1000", gid="1000")
 
         self.efs_file_systems = []
         traffic_out_metrics = {}
@@ -105,7 +103,6 @@ class Volumes(NestedStack):
                     access_point_name,
                     create_acl=self.efs_ap_acl,
                     path=volume_path,
-                    posix_user=posix_user,
                 )
 
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
