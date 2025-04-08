@@ -36,7 +36,6 @@ class Watchdog(NestedStack):
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
         ecs_cluster: ecs.Cluster,
-        ecs_capacity_provider: ecs.AsgCapacityProvider,
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
@@ -265,7 +264,7 @@ class Watchdog(NestedStack):
         self.rule_break_crash_loop = events.Rule(
             self,
             "RuleBreakCrashLoop",
-            rule_name=f"{container_id}-rule-break-crash-loop",
+            rule_name=f"{container_id_alpha}-rule-break-crash-loop",
             description="Spin down the ASG if the container crashes or can't start",
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.EventPattern.html
             event_pattern=events.EventPattern(
@@ -275,7 +274,6 @@ class Watchdog(NestedStack):
                     ## For matching event detail patterns:
                     # https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-pattern-operators.html
                     "clusterArn": [ecs_cluster.cluster_arn],
-                    "capacityProviderName": [ecs_capacity_provider.capacity_provider_name],
                     "desiredStatus": ["STOPPED"],
                     "$or": [
                         # If the container doesn't start at all:
