@@ -39,10 +39,14 @@ class Volumes(NestedStack):
         ########################
 
         ### Settings for ALL access points:
+        ## Create a "user" for teh ACL:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
+        posix_user = efs.PosixUser(uid="1000", gid="1000")
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-        self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
+        self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="755")
+        # self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
 
         self.efs_file_systems = []
         traffic_out_metrics = {}
@@ -103,6 +107,7 @@ class Volumes(NestedStack):
                     access_point_name,
                     create_acl=self.efs_ap_acl,
                     path=volume_path,
+                    posix_user=posix_user,
                 )
 
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
@@ -111,8 +116,7 @@ class Volumes(NestedStack):
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
                     efs_volume_configuration=ecs.EfsVolumeConfiguration(
                         file_system_id=efs_file_system.file_system_id,
-                        ## root_directory: Relative to access_point already anyways, just use default:
-                        # root_directory="/",
+                        # root_directory="/": Relative to *access_point* already anyways, Don't use.
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
                         authorization_config=ecs.AuthorizationConfig(
                             access_point_id=container_access_point.access_point_id,

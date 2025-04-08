@@ -84,22 +84,24 @@ class EcsAsg(NestedStack):
             #      (You can also mount efs directly by removing the access-point flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
             # https://docs.aws.amazon.com/efs/latest/ug/mount-fs-auto-mount-update-fstab.html
-            self.ec2_user_data.add_commands(
-                # Make sure the EFS Mount Point exists:
-                f'mkdir -p "{efs_mount_point}"',
-                ## Mount the EFS into it:
-                # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,noresvport,tls,iam,_netdev 0 0" >> /etc/fstab',
-            )
+            # self.ec2_user_data.add_commands(
+            #     # Make sure the EFS Mount Point exists:
+            #     f'mkdir -p "{efs_mount_point}"',
+            #     ## Mount the EFS into it:
+            #     # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
+            #     f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,noresvport,tls,iam,_netdev 0 0" >> /etc/fstab',
+            # )
 
         ## Actually mount the EFS volumes:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
         #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
         self.ec2_user_data.add_commands(
-            'mount -a -t efs,nfs4 defaults',
-            ## Fix the permissions on the mount point itself:
-            #  (NOT -R, takes time, and *those* permissions are already set by acl)
-            f'chown {efs_ap_acl.owner_uid}:{efs_ap_acl.owner_gid} {efs_root_host}/*',
+            # 'mount -a -t efs,nfs4 defaults',
+            # ## Fix the permissions on the mount point itself:
+            # #  (NOT -R, takes time, and *those* permissions are already set by acl)
+            # f'chown {efs_ap_acl.owner_uid}:{efs_ap_acl.owner_gid} {efs_root_host}/*',
+            # #  and the permissions on the built-in task-definition mounts:
+            # f'chown {efs_ap_acl.owner_uid}:{efs_ap_acl.owner_gid} /var/lib/ecs/volumes/*',
         )
 
         ## Add ECS Agent Config Variables:
