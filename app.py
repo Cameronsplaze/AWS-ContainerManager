@@ -101,7 +101,7 @@ if file_path:
     container_manager_stack = ContainerManagerStack(
         app,
         f"{application_id}-{container_id_alpha}-ContainerManager",
-        description="For managing and automatically spinning DOWN the container.",
+        description="For managing, and automatically spinning DOWN the container.",
         cross_region_references=True,
         env=main_env,
         base_stack=base_stack,

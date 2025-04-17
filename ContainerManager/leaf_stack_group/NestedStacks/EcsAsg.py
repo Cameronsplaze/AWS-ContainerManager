@@ -72,7 +72,7 @@ class EcsAsg(NestedStack):
         # NOTE: We're mounting the EFS directly here, instead of using an access-point
         #       that's tied to the root EFS. You can't chown a mount point, and this also
         #       lets us not create an extra mount-point that'd be the same as the root access anyways.
-        #       (Plus trying to mount each access-point here, could become awkward for debuggin if one
+        #       (Plus trying to mount each access-point here, could become awkward for debugging if one
         #        somehow got deleted and you can't access the data from EC2 anymore).
         for efs_file_system in efs_file_systems:
             # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)

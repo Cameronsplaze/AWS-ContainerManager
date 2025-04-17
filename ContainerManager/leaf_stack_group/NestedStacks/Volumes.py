@@ -42,7 +42,6 @@ class Volumes(NestedStack):
         ## Create a "user" for teh ACL:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
         posix_user = efs.PosixUser(uid="1000", gid="1000")
-        # posix_user = efs.PosixUser(uid="0", gid="0")
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
