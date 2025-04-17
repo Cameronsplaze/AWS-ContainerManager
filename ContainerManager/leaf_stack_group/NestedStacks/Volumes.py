@@ -42,11 +42,13 @@ class Volumes(NestedStack):
         ## Create a "user" for teh ACL:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
         posix_user = efs.PosixUser(uid="1000", gid="1000")
+        # posix_user = efs.PosixUser(uid="0", gid="0")
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
         self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="755")
         # self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
+        # self.efs_ap_acl = efs.Acl(owner_gid="0", owner_uid="0", permissions="755")
 
         self.efs_file_systems = []
         traffic_out_metrics = {}
@@ -116,7 +118,7 @@ class Volumes(NestedStack):
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
                     efs_volume_configuration=ecs.EfsVolumeConfiguration(
                         file_system_id=efs_file_system.file_system_id,
-                        # root_directory="/": Relative to *access_point* already anyways, Don't use.
+                        # root_directory="/": Relative to *access_point* already anyways, and MUST be "/" if you have AP's. Don't use.
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
                         authorization_config=ecs.AuthorizationConfig(
                             access_point_id=container_access_point.access_point_id,
