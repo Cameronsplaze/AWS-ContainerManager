@@ -101,7 +101,7 @@ if file_path:
     container_manager_stack = ContainerManagerStack(
         app,
         f"{application_id}-{container_id_alpha}-ContainerManager",
-        description="For automatically managing and spinning down the container.",
+        description="For managing and automatically spinning DOWN the container.",
         cross_region_references=True,
         env=main_env,
         base_stack=base_stack,
@@ -117,7 +117,7 @@ if file_path:
     start_system_stack = StartSystemStack(
         app,
         f"{application_id}-{container_id_alpha}-StartSystem",
-        description="Everything for spinning up the container when someone connects.",
+        description="Everything for spinning UP the container when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
         domain_stack=domain_stack,
