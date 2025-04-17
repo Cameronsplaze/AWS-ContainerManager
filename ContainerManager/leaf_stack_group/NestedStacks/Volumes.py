@@ -46,9 +46,7 @@ class Volumes(NestedStack):
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-        self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="755")
-        # self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
-        # self.efs_ap_acl = efs.Acl(owner_gid="0", owner_uid="0", permissions="755")
+        self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
 
         self.efs_file_systems = []
         traffic_out_metrics = {}
@@ -127,6 +125,7 @@ class Volumes(NestedStack):
                         transit_encryption="ENABLED",
                     ),
                 )
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html#addwbrmountwbrpointsmountpoints
                 container.add_mount_points(
                     ecs.MountPoint(
                         container_path=volume_path,
