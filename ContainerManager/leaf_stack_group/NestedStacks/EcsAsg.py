@@ -89,7 +89,7 @@ class EcsAsg(NestedStack):
                 f'mkdir -p "{efs_mount_point}"',
                 ## Mount the EFS into it:
                 # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs _netdev,tls,iam 0 0" >> /etc/fstab',
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,_netdev,tls,iam 0 0" >> /etc/fstab',
             )
 
         ## Actually mount the EFS volumes:
