@@ -131,7 +131,6 @@ class ContainerManagerStack(Stack):
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
-            ecs_capacity_provider=self.ecs_asg_nested_stack.capacity_provider,
         )
 
         ### All the info for the Asg StateChange Hook Stuff
