@@ -89,17 +89,17 @@ class EcsAsg(NestedStack):
                 f'mkdir -p "{efs_mount_point}"',
                 ## Mount the EFS into it:
                 # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,noresvport,tls,iam,_netdev 0 0" >> /etc/fstab',
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs _netdev,tls,iam 0 0" >> /etc/fstab',
             )
 
         ## Actually mount the EFS volumes:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
         #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
         self.ec2_user_data.add_commands(
-            ## Fix the permissions on the mount point itself (needed since this ISN'T a AP):
+            'mount --all --types efs defaults',
+            ## Fix the permissions on the mount point itself (needed since this ISN'T a AP, and happens AFTER the mount):
             #  (NOT -R, takes time, and *those* permissions are already set by acl)
             f'chown {efs_ap_acl.owner_uid}:{efs_ap_acl.owner_gid} {efs_root_host}/*',
-            'mount -a -t efs,nfs4 defaults',
         )
 
         ## Add ECS Agent Config Variables:
