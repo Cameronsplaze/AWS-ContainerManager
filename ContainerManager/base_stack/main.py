@@ -123,7 +123,7 @@ class BaseStack(Stack):
         ## itself, but still has leaf stacks attached to it.
         # https://blogs.thedevs.co/aws-cdk-export-cannot-be-deleted-as-it-is-in-use-by-stack-5c205b8004b4
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.ExportValueOptions.html
-        # https://github.com/aws/aws-cdk/blob/v1-main/packages/@aws-cdk/core/README.md#removing-automatic-cross-stack-references        self.export_value(self.vpc.vpc_id)
+        # https://github.com/aws/aws-cdk/blob/v1-main/packages/@aws-cdk/core/README.md#removing-automatic-cross-stack-references
         self.export_value(self.ssh_key_pair.key_pair_name)
         self.export_value(self.sns_notify_topic.topic_arn)
         self.export_value(self.vpc.vpc_id)
