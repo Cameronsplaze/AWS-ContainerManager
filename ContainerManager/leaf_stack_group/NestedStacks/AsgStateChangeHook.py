@@ -36,7 +36,7 @@ class AsgStateChangeHook(NestedStack):
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
-        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
 
 
         ## Log group for the lambda function:

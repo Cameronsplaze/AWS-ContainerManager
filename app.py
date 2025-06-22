@@ -77,7 +77,7 @@ if file_path:
         container_id = os.path.basename(os.path.splitext(file_path)[0])
     container_id = container_id.lower()
     # For stack names, turn "minecraft.java.example" into "MinecraftJavaExample":
-    container_id_alpha = "".join(e for e in container_id.title() if e.isalpha()) # pylint: disable=invalid-name
+    container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
 
     stack_tags = {
         "ContainerId": container_id,

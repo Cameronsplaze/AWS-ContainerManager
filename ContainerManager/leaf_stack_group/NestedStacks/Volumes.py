@@ -34,10 +34,6 @@ class Volumes(NestedStack):
     ) -> None:
         super().__init__(scope, "VolumesNestedStack", **kwargs)
 
-        ########################
-        ### EFS FILE SYSTEMS ###
-        ########################
-
         ### Settings for ALL access points:
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)

@@ -39,7 +39,7 @@ class Watchdog(NestedStack):
         **kwargs,
     ) -> None:
         super().__init__(scope, "WatchdogNestedStack", **kwargs)
-        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
 
         ## Scale down ASG to 0 if this is ever triggered:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_autoscaling.StepScalingAction.html
