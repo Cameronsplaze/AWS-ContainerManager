@@ -12,6 +12,10 @@ on:
       - '.github/workflows/linter-pylint.yml'
       - '.github/workflows/composite-setup-python/action.yaml'
 
+# Set minimal permissions since default is too open:
+permissions:
+  contents: read
+
 jobs:
   python-lint:
     runs-on: ubuntu-latest
