@@ -101,9 +101,8 @@ More info on volumes in the [volume config](./Examples/README.md#volumes).
 
 ### SSM Session Manager
 
-Core AWS docs for this are [here](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html#ssh-connections-enable).
-
-(I can't get it automated. Use the SSH method below for now. Details are [here](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/2) if you're interested!).
+- [Core AWS docs for this](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html#ssh-connections-enable).
+- I can't get it automated. Use the SSH method below for now. ([Extra details here](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/2) if you're interested!).
 
 ### SSH into the Host
 
