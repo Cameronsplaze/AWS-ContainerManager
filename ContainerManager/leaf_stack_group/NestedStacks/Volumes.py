@@ -28,7 +28,7 @@ class Volumes(NestedStack):
         vpc: ec2.Vpc,
         task_definition: ecs.Ec2TaskDefinition,
         container: ecs.ContainerDefinition,
-        volumes_config: dict,
+        volumes_config: list,
         sg_efs_traffic: ec2.SecurityGroup,
         **kwargs,
     ) -> None:
@@ -39,15 +39,15 @@ class Volumes(NestedStack):
         ########################
 
         ### Settings for ALL access points:
-        ## Create a "user" for teh ACL:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
-        posix_user = efs.PosixUser(uid="1000", gid="1000")
         ## Create ACL:
         # (From the docs, if the `path` above does not exist, you must specify this)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-        self.efs_ap_acl = efs.Acl(owner_gid="1000", owner_uid="1000", permissions="700")
+        efs_ap_acl = efs.Acl(owner_uid="1000", owner_gid="1000", permissions="755")
+        ## Create a "user" for the ACL:
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
+        posix_user = efs.PosixUser(uid=efs_ap_acl.owner_uid, gid=efs_ap_acl.owner_gid)
 
-        self.efs_file_systems = []
+        self.efs_file_systems = {}
         traffic_out_metrics = {}
         # i: each construct must have a different name inside the for-loop.
         for i, volume_config in enumerate(volumes_config, start=1):
@@ -57,7 +57,6 @@ class Volumes(NestedStack):
             volume_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE \
                                     if volume_config["KeepOnDelete"] else \
                                     RemovalPolicy.DESTROY
-
 
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
             efs_file_system = efs.FileSystem(
@@ -73,10 +72,22 @@ class Volumes(NestedStack):
                 ## number, they probably *want* more EFS instances. There's no other reason to:
                 # one_zone=True,
             )
-            self.efs_file_systems.append(efs_file_system)
+            ## Create the HOST access point, for the EC2:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
+            ## What it returns:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
+            container_access_point = efs_file_system.add_access_point(
+                "host-mount-access-point",
+                create_acl=efs_ap_acl,
+                path="/",
+                posix_user=posix_user,
+            )
+            self.efs_file_systems[efs_file_system] = container_access_point
 
             ## Tell the EFS side that the task can access it:
+            # (This is code INSIDE the container's permissions)
             efs_file_system.grant_read_write(task_definition.task_role)
+
             ## (NOTE: There's another grant_root_access in EcsAsg.py ec2-role.
             #         I just didn't see a way to move it here without moving the role.)
 
@@ -94,7 +105,6 @@ class Volumes(NestedStack):
             ### Create mounts and attach them into the CONTAINER:
             for volume_info in volume_config["Paths"]:
                 volume_path = volume_info["Path"]
-                read_only = volume_info["ReadOnly"]
                 ## Create a UNIQUE name, using the (modified) path:
                 #   (Will be something like: `data` for minecraft or `opt-valheim` for valheim)
                 access_point_name = volume_path.strip("/").replace("/", "-")
@@ -104,9 +114,11 @@ class Volumes(NestedStack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
                 container_access_point = efs_file_system.add_access_point(
                     access_point_name,
-                    create_acl=self.efs_ap_acl,
+                    create_acl=efs_ap_acl,
                     path=volume_path,
-                    posix_user=posix_user,
+                    ## NOTE: you can't use `posix_user` here. Since this is mounted into the container, and INSIDE
+                    # the container might be 0:0 (instead of 1000:1000), this'll cause starting up to fail.
+                    # posix_user=posix_user,
                 )
 
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
@@ -129,7 +141,7 @@ class Volumes(NestedStack):
                     ecs.MountPoint(
                         container_path=volume_path,
                         source_volume=access_point_name,
-                        read_only=read_only,
+                        read_only=volume_info["ReadOnly"],
                     )
                 )
 

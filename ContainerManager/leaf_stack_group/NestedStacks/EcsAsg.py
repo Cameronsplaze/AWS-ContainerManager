@@ -34,8 +34,7 @@ class EcsAsg(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
         sg_container_traffic: ec2.SecurityGroup,
-        efs_file_systems: list[efs.FileSystem],
-        efs_ap_acl: efs.AccessPoint,
+        efs_file_systems: dict[efs.FileSystem, efs.AccessPoint],
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -69,12 +68,7 @@ class EcsAsg(NestedStack):
 
         efs_root_host = "/mnt/efs"
         ### Tie all the EFS's to the host:
-        # NOTE: We're mounting the EFS directly here, instead of using an access-point
-        #       that's tied to the root EFS. You can't chown a mount point, and this also
-        #       lets us not create an extra mount-point that'd be the same as the root access anyways.
-        #       (Plus trying to mount each access-point here, could become awkward for debugging if one
-        #        somehow got deleted and you can't access the data from EC2 anymore).
-        for efs_file_system in efs_file_systems:
+        for efs_file_system, host_access_point in efs_file_systems.items():
             # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
             efs_mount_point = f"{efs_root_host}/{efs_file_system.node.id}"
             ### Give it root access to the EFS:
@@ -87,9 +81,8 @@ class EcsAsg(NestedStack):
             self.ec2_user_data.add_commands(
                 # Make sure the EFS Mount Point exists:
                 f'mkdir -p "{efs_mount_point}"',
-                ## Mount the EFS into it:
-                # You'd just add this to options if you want to mount an access point: `accesspoint={ap.access_point_id>`
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,_netdev,tls,iam 0 0" >> /etc/fstab',
+                ## Add the entry to fstab, so it mounts on boot:
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,_netdev,tls,iam,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
             )
 
         ## Actually mount the EFS volumes:
@@ -97,9 +90,7 @@ class EcsAsg(NestedStack):
         #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
         self.ec2_user_data.add_commands(
             'mount --all --types efs defaults',
-            ## Fix the permissions on the mount point itself (needed since this ISN'T a AP, and happens AFTER the mount):
-            #  (NOT -R, takes time, and *those* permissions are already set by acl)
-            f'chown {efs_ap_acl.owner_uid}:{efs_ap_acl.owner_gid} {efs_root_host}/*',
+            ## You CAN'T chown efs_root_host here, since it's an access point. But the files inside already have correct permissions.
         )
 
         ## Add ECS Agent Config Variables:
@@ -166,8 +157,8 @@ class EcsAsg(NestedStack):
             auto_scaling_group=self.auto_scaling_group,
             ## To let me delete the stack!!:
             enable_managed_termination_protection=False,
-            ## Since the instances don't live long, this doesn't do anything, and
-            # the lambda to spin down the system will trigger TWICE when going down.
+            ## Since the instances don't live long, this doesn't do anything, and the
+            # lambda to spin down the system would trigger TWICE when going down with this.
             enable_managed_draining=False,
             ## We directly manage the ASG, that's how this architecture is designed.
             # And since we'll ever have 1 or 0 instances, we don't need this. Save on

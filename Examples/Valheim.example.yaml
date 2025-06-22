@@ -25,6 +25,9 @@ Container:
     RESTART_CRON: ""
     # Backups happen in EFS already, no need to do it here too:
     BACKUPS: False
+    # Set File Permissions (Helps when accessing files through ec2):
+    PUID: 1000
+    PGID: 1000
 Volumes:
   # Holds server config info
   - Paths:

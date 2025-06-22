@@ -88,7 +88,7 @@ if file_path:
     domain_stack = DomainStack(
         app,
         f"{application_id}-{container_id_alpha}-Domain",
-        description="The base HostedZone for all other ContainerManage stacks to use.",
+        description=f"The HostedZone for '{container_id}'.",
         cross_region_references=True,
         env=us_east_1_env,
         container_id=container_id,
