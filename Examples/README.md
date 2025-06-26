@@ -11,6 +11,7 @@ Click here to jump to '[Config File Options](#config-file-options)'. It's the la
 - [Environment Variables](#containerenvironment) to set **for the container itself** when Writing Configs:
   - **For backups**: Completely Disable. We use EFS behind the scenes. Use the [Volumes.EnableBackups](#volumesenablebackups) option if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too.
   - **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it **first** spins up. Also disable so that it doesn't conflict with the [Watchdog.Threshold](#watchdogthreshold) and keep the container up.
+  - **For file permissions (UID/GID)**: Set to `1000:1000`. When you access the files through the EC2, this'll make them a LOT easier to modify/upload to.
 - **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of whitelist. You can use it, but it means you have to re-deploy this project every time you add someone. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
 
 ## Adding a new Example Config to the Repo

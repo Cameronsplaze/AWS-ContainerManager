@@ -40,7 +40,7 @@ class StartSystemStack(Stack):
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
 
         ## Log group for the lambda function:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html

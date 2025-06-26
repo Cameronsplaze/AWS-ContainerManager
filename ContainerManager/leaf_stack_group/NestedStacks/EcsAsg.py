@@ -34,8 +34,7 @@ class EcsAsg(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
         sg_container_traffic: ec2.SecurityGroup,
-        efs_file_systems: list[efs.FileSystem],
-        efs_ap_acl: efs.AccessPoint,
+        efs_file_systems: dict[efs.FileSystem, efs.AccessPoint],
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -67,34 +66,31 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
         self.ec2_user_data = ec2.UserData.for_linux() # (Can also set to python, etc. Default bash)
 
+        efs_root_host = "/mnt/efs"
         ### Tie all the EFS's to the host:
-        for efs_file_system in efs_file_systems:
+        for efs_file_system, host_access_point in efs_file_systems.items():
             # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
-            efs_mount_point = f"/mnt/efs/{efs_file_system.node.id}"
+            efs_mount_point = f"{efs_root_host}/{efs_file_system.node.id}"
             ### Give it root access to the EFS:
             efs_file_system.grant_root_access(self.ec2_role)
 
-            ### Create a access point for the host:
-            ## Creating an access point:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-            ## What it returns:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-            host_access_point = efs_file_system.add_access_point("efs-access-point-host", create_acl=efs_ap_acl, path="/")
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
-            #      (You can also mount efs directly by removing the accesspoint flag)
+            #      (You can also mount efs directly by removing the access-point flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
+            # https://docs.aws.amazon.com/efs/latest/ug/mount-fs-auto-mount-update-fstab.html
             self.ec2_user_data.add_commands(
-                ## Make sure the EFS Mount Point exists:
+                # Make sure the EFS Mount Point exists:
                 f'mkdir -p "{efs_mount_point}"',
-                ## Mount the EFS into it
-                # NOTE: DON'T add a path after file_system_id, or the mount point will be owned by root and you can't copy files into it.
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,tls,iam,_netdev,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+                ## Add the entry to fstab, so it mounts on boot:
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,_netdev,tls,iam,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
             )
+
         ## Actually mount the EFS volumes:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
         #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
         self.ec2_user_data.add_commands(
-            'mount -a -t efs,nfs4 defaults',
+            'mount --all --types efs defaults',
+            ## You CAN'T chown efs_root_host here, since it's an access point. But the files inside already have correct permissions.
         )
 
         ## Add ECS Agent Config Variables:
@@ -104,7 +100,6 @@ class EcsAsg(NestedStack):
             ## Security Flags:
             'echo "ECS_DISABLE_PRIVILEGED=true" >> /etc/ecs/ecs.config',
             'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
-            'echo "ECS_APPARMOR_CAPABLE=true" >> /etc/ecs/ecs.config',
             ## Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
         )
@@ -154,6 +149,7 @@ class EcsAsg(NestedStack):
 
         ## This allows an ECS cluster to target a specific EC2 Auto Scaling Group for the placement of tasks.
         # Can ensure that instances are not prematurely terminated while there are still tasks running on them.
+        # (Still needed in ECS Daemon mode, since this ties the ASG to the ECS cluster)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AsgCapacityProvider.html
         self.capacity_provider = ecs.AsgCapacityProvider(
             self,
@@ -161,8 +157,8 @@ class EcsAsg(NestedStack):
             auto_scaling_group=self.auto_scaling_group,
             ## To let me delete the stack!!:
             enable_managed_termination_protection=False,
-            ## Since the instances don't live long, this doesn't do anything, and
-            # the lambda to spin down the system will trigger TWICE when going down.
+            ## Since the instances don't live long, this doesn't do anything, and the
+            # lambda to spin down the system would trigger TWICE when going down with this.
             enable_managed_draining=False,
             ## We directly manage the ASG, that's how this architecture is designed.
             # And since we'll ever have 1 or 0 instances, we don't need this. Save on

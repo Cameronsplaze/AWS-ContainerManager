@@ -15,6 +15,10 @@ on:
       - '.markdownlint-cli2.yaml'
       - '.github/workflows/linter-markdown.yml'
 
+# Set minimal permissions since default is too open:
+permissions:
+  contents: read
+
 jobs:
   markdown-lint:
     runs-on: ubuntu-latest
