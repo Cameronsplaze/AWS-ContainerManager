@@ -61,3 +61,12 @@ Watchdog:
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
+
+### TODO:
+# Switch to Fabric from Paper. Can't use plugins with it, but it supports open-parties-and-claims (And the few other features I want).
+# Add open-parties-and-claims: https://modrinth.com/mod/open-parties-and-claims
+# Need to add these two, for being open-parties-and-claims dependencies:
+#  - https://modrinth.com/mod/fabric-api
+#  - https://modrinth.com/mod/forge-config-api-port
+# For sleeping, you don't need a plugin. Just run `/gamerule playersSleepingPercentage 0` (https://serverminer.com/article/how-to-set-a-player-sleeping-percentage-on-your-minecraft-server/)
+
