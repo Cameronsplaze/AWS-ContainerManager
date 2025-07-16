@@ -30,7 +30,7 @@ class Container(NestedStack):
         **kwargs
     ) -> None:
         super().__init__(scope, "ContainerNestedStack", **kwargs)
-        container_id_alpha = "".join(e for e in container_id.title() if e.isalpha())
+        container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
 
         ## The details of a task definition run on an EC2 cluster.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html

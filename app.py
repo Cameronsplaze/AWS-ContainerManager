@@ -77,7 +77,7 @@ if file_path:
         container_id = os.path.basename(os.path.splitext(file_path)[0])
     container_id = container_id.lower()
     # For stack names, turn "minecraft.java.example" into "MinecraftJavaExample":
-    container_id_alpha = "".join(e for e in container_id.title() if e.isalpha()) # pylint: disable=invalid-name
+    container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
 
     stack_tags = {
         "ContainerId": container_id,
@@ -88,7 +88,7 @@ if file_path:
     domain_stack = DomainStack(
         app,
         f"{application_id}-{container_id_alpha}-Domain",
-        description="The base HostedZone for all other ContainerManage stacks to use.",
+        description=f"The HostedZone for '{container_id}'.",
         cross_region_references=True,
         env=us_east_1_env,
         container_id=container_id,
@@ -101,7 +101,7 @@ if file_path:
     container_manager_stack = ContainerManagerStack(
         app,
         f"{application_id}-{container_id_alpha}-ContainerManager",
-        description="For automatically managing and spinning down the container.",
+        description="For managing, and automatically spinning DOWN the container.",
         cross_region_references=True,
         env=main_env,
         base_stack=base_stack,
@@ -117,7 +117,7 @@ if file_path:
     start_system_stack = StartSystemStack(
         app,
         f"{application_id}-{container_id_alpha}-StartSystem",
-        description="Everything for spinning up the container when someone connects.",
+        description="Everything for spinning UP the container when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
         domain_stack=domain_stack,
