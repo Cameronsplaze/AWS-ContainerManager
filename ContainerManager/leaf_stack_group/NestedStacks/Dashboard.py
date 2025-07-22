@@ -147,7 +147,7 @@ class Dashboard(NestedStack):
                 right=[
                     watchdog_nested_stack.bytes_in_per_second,
                     watchdog_nested_stack.traffic_dns_metric,
-                    volumes_nested_stack.data_out_per_second,
+                    volumes_nested_stack.bytes_out_per_second,
                 ],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),

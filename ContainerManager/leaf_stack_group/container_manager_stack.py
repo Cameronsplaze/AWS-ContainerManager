@@ -126,7 +126,7 @@ class ContainerManagerStack(Stack):
             container_id=container_id,
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            metric_volume_data_out_per_second=self.volumes_nested_stack.data_out_per_second,
+            metric_volume_bytes_out_per_second=self.volumes_nested_stack.bytes_out_per_second,
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,

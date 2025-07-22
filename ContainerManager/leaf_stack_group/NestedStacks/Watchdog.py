@@ -32,7 +32,7 @@ class Watchdog(NestedStack):
         container_id: str,
         watchdog_config: dict,
         auto_scaling_group: autoscaling.AutoScalingGroup,
-        metric_volume_data_out_per_second: cloudwatch.MathExpression,
+        metric_volume_bytes_out_per_second: cloudwatch.MathExpression,
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
         ecs_cluster: ecs.Cluster,
@@ -119,7 +119,7 @@ class Watchdog(NestedStack):
             using_metrics={
                 # Traffic in (to container) minus volumes out (of efs), to get traffic only from clients:
                 "traffic_in": self.bytes_in_per_second,
-                "volumes_out": metric_volume_data_out_per_second,
+                "volumes_out": metric_volume_bytes_out_per_second,
                 "dns_hit": self.traffic_dns_metric,
             },
             period=Duration.minutes(1),

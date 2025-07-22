@@ -142,13 +142,14 @@ class Volumes(NestedStack):
                 )
 
         ## Get total traffic out:
+        total_bytes_out = '+'.join(traffic_out_metrics.keys()) if traffic_out_metrics else "0"
         # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        self.data_out_per_second = cloudwatch.MathExpression(
+        self.bytes_out_per_second = cloudwatch.MathExpression(
             label="(EFS) Bytes OUT per Second",
             # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
             # Had to add together manually, "METRICS()" wasn't behaving, and grabbing other values it shouldn't,
-            expression=f"({'+'.join(traffic_out_metrics.keys())})/60",
+            expression=f"({total_bytes_out})/60",
             using_metrics=traffic_out_metrics,
             period=Duration.minutes(1),
         )
