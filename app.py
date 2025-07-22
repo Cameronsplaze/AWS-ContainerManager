@@ -35,7 +35,7 @@ Tags.of(app).add(APPLICATION_ID_TAG_NAME, application_id)
 maturity = app.node.get_context("maturity")
 supported_maturities = ["devel", "prod"]
 assert maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
-
+maturity_description = f"({maturity=}) " if maturity!="prod" else "" #pylint: disable=invalid-name
 
 # Lets you reference self.account and self.region in your CDK code
 # if you need to:
@@ -56,7 +56,7 @@ base_config = load_base_config("./base-stack-config.yaml")
 base_stack = BaseStack(
     app,
     f"{app.node.get_context('_base_stack_name')}",
-    description="The base VPC for all other ContainerManage stacks to use.",
+    description=f"{maturity_description}The base stack for all ContainerManager leaf stacks to use.",
     cross_region_references=True,
     env=main_env,
     config=base_config,
@@ -77,7 +77,7 @@ if file_path:
         container_id = os.path.basename(os.path.splitext(file_path)[0])
     container_id = container_id.lower()
     # For stack names, turn "minecraft.java.example" into "MinecraftJavaExample":
-    container_id_alpha = "".join(e for e in container_id.title() if e.isalnum())
+    container_id_alpha = "".join(e for e in container_id.title() if e.isalnum()) #pylint: disable=invalid-name
 
     stack_tags = {
         "ContainerId": container_id,
@@ -88,7 +88,7 @@ if file_path:
     domain_stack = DomainStack(
         app,
         f"{application_id}-{container_id_alpha}-Domain",
-        description=f"The HostedZone for '{container_id}'.",
+        description=f"{maturity_description}The HostedZone for '{container_id}'.",
         cross_region_references=True,
         env=us_east_1_env,
         container_id=container_id,
@@ -101,7 +101,7 @@ if file_path:
     container_manager_stack = ContainerManagerStack(
         app,
         f"{application_id}-{container_id_alpha}-ContainerManager",
-        description="For managing, and automatically spinning DOWN the container.",
+        description=f"{maturity_description}For managing, and automatically spinning DOWN the container.",
         cross_region_references=True,
         env=main_env,
         base_stack=base_stack,
@@ -117,7 +117,7 @@ if file_path:
     start_system_stack = StartSystemStack(
         app,
         f"{application_id}-{container_id_alpha}-StartSystem",
-        description="Everything for spinning UP the container when someone connects.",
+        description=f"{maturity_description}Everything for spinning UP the container when someone connects.",
         cross_region_references=True,
         env=us_east_1_env,
         domain_stack=domain_stack,
