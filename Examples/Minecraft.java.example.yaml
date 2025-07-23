@@ -46,13 +46,13 @@ Container:
       griefprevention
 
 
-# Volumes:
-#   - Type: EFS # EFS or (eventually) S3. EFS is the default.
-#     EnableBackups: True
-#     KeepOnDelete: True
-#     Paths:
-#       - Path: /data
-#         ReadOnly: False
+Volumes:
+  - Type: EFS # EFS or (eventually) S3. EFS is the default.
+    EnableBackups: True
+    KeepOnDelete: True
+    Paths:
+      - Path: /data
+        ReadOnly: False
 
 ## Config options for how to monitor for players:
 # (Only required since we're using BOTH tcp and udp)
