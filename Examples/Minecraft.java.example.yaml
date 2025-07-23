@@ -14,42 +14,55 @@ Container:
     EULA: True
     INIT_MEMORY: 7G
     MAX_MEMORY: 7G
-    TYPE: PAPER
+    TYPE: FABRIC
     MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
     VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.
 
     ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: True
-    RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
-    ### Plugins List:
-    # geysermc (geyser and floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
-    #    - Each player needs to follow this guide to use bedrock: https://geysermc.org/wiki/floodgate/linking#what-is-global-linking
-    PLUGINS: |
-      https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
-      https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
-    ### Modrinth Plugins List:
-    # https://modrinth.com/plugins
+    ENABLE_RCON: False
+    # RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
+
+    # ### PLUGINS: Things not on MODRINTH, but still required.
+    # # geyser-viaproxy: Lets geyser work with ViaVersion and ViaBackwards.
+    # #      https://geysermc.org/download/
+    # PLUGINS: |
+    #   https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/viaproxy
+
+    # https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
     MODRINTH_DOWNLOAD_DEPENDENCIES: required
-    # viaversion + viabackwards: Let clients with different versions connect to server.
+
+    ### MODRINTH MODS:
+    # viaversion + viabackwards: Let clients with different versions connect to server. (beta for newest bedrock clients)
     #      https://modrinth.com/plugin/viaversion
     #      https://modrinth.com/plugin/viabackwards
-    # sleeper: Not everyone has to sleep to skip the night.
-    #      https://modrinth.com/plugin/sleeper
-    # griefprevention: Claim an area of the world.
-    #      https://modrinth.com/plugin/griefprevention
+    # viafabric: Required for ViaVersion and ViaBackwards to work on Fabric. (Modrinth lists it as optional)
+    #      https://modrinth.com/mod/viafabric
+    # geyser + floodgate: Let Bedrock clients connect to the server too (Geyser ONLY has beta)
+    #      https://modrinth.com/plugin/geyser
+    #      https://modrinth.com/mod/floodgate
+    # open-parties-and-claims: For letting people claim land, and see claims on xaeros-world-map (ONLY has beta)
+    #      https://modrinth.com/mod/open-parties-and-claims
+    # no-enderrman-grief: Prevents Endermen from picking up blocks, and placing them down.
+    #      https://modrinth.com/datapack/no-enderman-grief
     MODRINTH_PROJECTS: |
-      viaversion
-      viabackwards
-      sleeper
-      griefprevention
+      geyser:beta
+      floodgate
 
-Volumes:
-  - Type: EFS # EFS or (eventually) S3. EFS is the default.
-    EnableBackups: True
-    KeepOnDelete: True
-    Paths:
-      - Path: /data
-        ReadOnly: False
+      viafabric:alpha
+      viaversion:beta
+      viabackwards:beta
+
+      open-parties-and-claims:beta
+      no-enderman-grief
+
+# Volumes:
+#   - Type: EFS # EFS or (eventually) S3. EFS is the default.
+#     EnableBackups: True
+#     KeepOnDelete: True
+#     Paths:
+#       - Path: /data
+#         ReadOnly: False
 
 ## Config options for how to monitor for players:
 # (Only required since we're using BOTH tcp and udp)
@@ -61,14 +74,3 @@ Watchdog:
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
-
-### TODO:
-# Switch to Fabric from Paper. Can't use plugins with it, but it supports open-parties-and-claims (And the few other features I want).
-# Add open-parties-and-claims: https://modrinth.com/mod/open-parties-and-claims
-# Need to add these two, for being open-parties-and-claims dependencies:
-#  - https://modrinth.com/mod/fabric-api
-#  - https://modrinth.com/mod/forge-config-api-port
-# Need to add for Via* Mods, dependency:
-#  - https://modrinth.com/mod/viafabric
-# For sleeping, you don't need a plugin. Just run `/gamerule playersSleepingPercentage 0` (https://serverminer.com/article/how-to-set-a-player-sleeping-percentage-on-your-minecraft-server/)
-
