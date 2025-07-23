@@ -14,47 +14,37 @@ Container:
     EULA: True
     INIT_MEMORY: 7G
     MAX_MEMORY: 7G
-    TYPE: FABRIC
+    TYPE: PAPER
     MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
     VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.
 
     ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: True
     ENABLE_RCON: False
-    # RCRON_PASSWORD: !ENV ${RCRON_PASSWORD}
-
-    # ### PLUGINS: Things not on MODRINTH, but still required.
-    # # geyser-viaproxy: Lets geyser work with ViaVersion and ViaBackwards.
-    # #      https://geysermc.org/download/
-    # PLUGINS: |
-    #   https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/viaproxy
 
     # https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
     MODRINTH_DOWNLOAD_DEPENDENCIES: required
+
+    ### Plugins List:
+    # geysermc (geyser and floodgate): For letting Bedrock Clients connect to the server. (Including Mobile)
+    #    - Each player needs to follow this guide to use bedrock: https://geysermc.org/wiki/floodgate/linking#what-is-global-linking
+    ## NOTE: These CAN'T be the modrinth versions. We need the very latest, to let bedrock clients connect.
+    #         (But ViaVersion/ViaBackwards should make it work with whatever java version the server is on)
+    PLUGINS: |
+      https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
+      https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
 
     ### MODRINTH MODS:
     # viaversion + viabackwards: Let clients with different versions connect to server. (beta for newest bedrock clients)
     #      https://modrinth.com/plugin/viaversion
     #      https://modrinth.com/plugin/viabackwards
-    # viafabric: Required for ViaVersion and ViaBackwards to work on Fabric. (Modrinth lists it as optional)
-    #      https://modrinth.com/mod/viafabric
-    # geyser + floodgate: Let Bedrock clients connect to the server too (Geyser ONLY has beta)
-    #      https://modrinth.com/plugin/geyser
-    #      https://modrinth.com/mod/floodgate
-    # open-parties-and-claims: For letting people claim land, and see claims on xaeros-world-map (ONLY has beta)
-    #      https://modrinth.com/mod/open-parties-and-claims
-    # no-enderrman-grief: Prevents Endermen from picking up blocks, and placing them down.
-    #      https://modrinth.com/datapack/no-enderman-grief
+    # griefprevention: For land claiming, not actually stopping griefing ironically. We have a whitelist
+    #      https://modrinth.com/plugin/griefprevention
     MODRINTH_PROJECTS: |
-      geyser:beta
-      floodgate
-
-      viafabric:alpha
       viaversion:beta
       viabackwards:beta
+      griefprevention
 
-      open-parties-and-claims:beta
-      no-enderman-grief
 
 # Volumes:
 #   - Type: EFS # EFS or (eventually) S3. EFS is the default.
@@ -74,3 +64,6 @@ Watchdog:
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
+
+# TODO: Disable secure-chat to let bedrock clients talk: https://geysermc.org/wiki/geyser/secure-chat/
+# TODO: Move the MOTD to the internal files, instead of this config.
