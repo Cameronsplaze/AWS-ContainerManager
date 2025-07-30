@@ -35,15 +35,18 @@ Container:
       https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
 
     ### MODRINTH MODS:
-    # viaversion + viabackwards: Let clients with different versions connect to server. (beta for newest bedrock clients)
+    # viaversion + viabackwards: Let clients with different versions connect to server.
     #      https://modrinth.com/plugin/viaversion
     #      https://modrinth.com/plugin/viabackwards
     # griefprevention: For land claiming, not actually stopping griefing ironically. We have a whitelist
     #      https://modrinth.com/plugin/griefprevention
+    # discordsrv: For Discord integration, like player joins/leaves, chat, etc.
+    #      https://modrinth.com/plugin/discordsrv
     MODRINTH_PROJECTS: |
-      viaversion:beta
-      viabackwards:beta
+      viaversion
+      viabackwards
       griefprevention
+      discordsrv
 
 
 Volumes:
