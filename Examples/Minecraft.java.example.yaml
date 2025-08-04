@@ -15,8 +15,9 @@ Container:
     INIT_MEMORY: 7G
     MAX_MEMORY: 7G
     TYPE: PAPER
-    MOTD: \u00a78The \u00a74\u00a7lPerfect\u00a78 Minecraft Server (on %VERSION%)
-    VERSION: !ENV ${MC_VERSION} # Need to set for mods. With ViaVersion, clients can have other versions though.
+    MOTD: |
+      §3The §o§lPerfect§r§3 Minecraft Server
+      §r(on §4%VERSION%§r)
 
     ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: True
@@ -47,6 +48,8 @@ Container:
       viabackwards
       griefprevention
       discordsrv
+    ## Use maximum version of MC that mods allow:
+    VERSION_FROM_MODRINTH_PROJECTS: True
 
 
 Volumes:
