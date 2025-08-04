@@ -114,6 +114,7 @@ class Volumes(NestedStack):
                     path=volume_path,
                     ## NOTE: you can't use `posix_user` here. Since this is mounted into the container, and INSIDE
                     # the container might be 0:0 (instead of 1000:1000), this'll cause starting up to fail.
+                    # https://github.com/aws/amazon-ecs-agent/issues/4702
                     # posix_user=posix_user,
                 )
 
