@@ -1,6 +1,5 @@
 
 Ec2:
-  # IF you change this, change `INIT_MEMORY` and `MAX_MEMORY` below too (to this - 1G)
   InstanceType: m5.large # 2vCPUs, 8GB RAM
 
 Container:
@@ -12,18 +11,22 @@ Container:
     - UDP: 19132
   Environment:
     EULA: True
-    INIT_MEMORY: 7G
-    MAX_MEMORY: 7G
     TYPE: PAPER
+    ## Let the memory limit adjust based on how big the ec2 instance is:
+    # https://docker-minecraft-server.readthedocs.io/en/latest/configuration/jvm-options/#memory-limit
+    MEMORY: ""
+    JVM_XX_OPTS: "-XX:MaxRAMPercentage=75"
+    ## Inject this to server.properties, so it's dynamic and tells users when server updates:
+    # (since we use the latest version that the plugins allow, it'll be random when we update).
     MOTD: |
       §3The §o§lPerfect§r§3 Minecraft Server
       §r(on §4%VERSION%§r)
 
-    ### From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
+    ## From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: True
     ENABLE_RCON: False
 
-    # https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
+    ## https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
     MODRINTH_DOWNLOAD_DEPENDENCIES: required
 
     ### Plugins List:
@@ -70,6 +73,3 @@ Watchdog:
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
-
-# TODO: Disable secure-chat to let bedrock clients talk: https://geysermc.org/wiki/geyser/secure-chat/
-# TODO: Move the MOTD to the internal files, instead of this config.
