@@ -89,6 +89,7 @@ class ContainerManagerStack(Stack):
             description=f"Container Logic for {construct_id}",
             leaf_construct_id=construct_id,
             container_id=container_id,
+            ec2_config=config["Ec2"],
             container_config=config["Container"],
         )
 
