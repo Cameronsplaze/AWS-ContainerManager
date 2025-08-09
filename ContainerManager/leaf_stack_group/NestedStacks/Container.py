@@ -63,10 +63,9 @@ class Container(NestedStack):
             image=ecs.ContainerImage.from_registry(container_config["Image"]),
             port_mappings=container_config["Ports"],
             essential=True,
-            ## Hard limit. Won't ever go above this
-            # memory_limit_mib=1024*7,
-            # memory_limit_mib=ec2_config["MemoryInfo"]["SizeInMiB"],
-            ## The "Soft limit". However since there'll only ever be this one task, it can take as much as it wants.
+            ## Hard limit. Will get killed if it exceeds this.
+            # memory_limit_mib=999999999,
+            ## The "Soft limit". However since there'll only ever be this one task, it can grow as much as it wants.
             memory_reservation_mib=self.memory_reservation_mib,
             ## Add environment variables into the container here:
             environment=container_config["Environment"],
