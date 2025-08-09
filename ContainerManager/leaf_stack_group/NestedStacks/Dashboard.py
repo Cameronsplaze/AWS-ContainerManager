@@ -58,12 +58,21 @@ class Dashboard(NestedStack):
             period=Duration.minutes(1),
         )
 
-
         ## EC2 Service Metrics:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
-        cpu_utilization_metric = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization(unit=cloudwatch.Unit.PERCENT)
+        metric_cpu_utilization = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization(unit=cloudwatch.Unit.PERCENT)
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrmemorywbrutilizationprops
-        memory_utilization_metric = ecs_asg_nested_stack.ec2_service.metric_memory_utilization(unit=cloudwatch.Unit.PERCENT)
+        metric_memory_utilization = ecs_asg_nested_stack.ec2_service.metric_memory_utilization(unit=cloudwatch.Unit.PERCENT)
+        ## Since metric_memory_utilization is based on the SOFT limit, we have to do math to convert the percentage to our REAL max:
+        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        # Math explaining this at https://github.com/Cameronsplaze/AWS-ContainerManager/issues/134#issuecomment-3169638903
+        metric_memory_utilization = cloudwatch.MathExpression(
+            label="MemoryUtilization",
+            expression=f"(softMemoryUtilization * {container_nested_stack.memory_reservation_mib}) / {main_config['Ec2']['MemoryInfo']['SizeInMiB']}",
+            using_metrics={"softMemoryUtilization": metric_memory_utilization},
+            period=Duration.minutes(1),
+        )
 
         ############
         ### Widgets Here. The order here is how they'll appear in the dashboard.
@@ -199,18 +208,22 @@ class Dashboard(NestedStack):
             ## ECS Container Utilization:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
             cloudwatch.GraphWidget(
-                title=f"(ECS) Container Utilization - [{main_config['Ec2']['InstanceType']}]",
+                title=" ".join([
+                    f"(ECS) Container Utilization - [{main_config['Ec2']['InstanceType']}]",
+                    f"[vCPU's: {main_config['Ec2']['VCpuInfo']['DefaultVCpus']}]",
+                    f"[Memory: {main_config['Ec2']['MemoryInfo']['SizeInMiB'] / 1024} GB]"
+                ]),
                 # Only show up to an hour ago:
                 height=6,
                 width=12,
-                right=[cpu_utilization_metric, memory_utilization_metric],
+                right=[metric_cpu_utilization, metric_memory_utilization],
                 # But have both keys in the same spot, on the right:
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
                 statistic="Maximum",
                 ## Only shows units when graph has data. This changes that:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
-                right_y_axis=cloudwatch.YAxisProps(label=cpu_utilization_metric.unit.value.title(), show_units=False),
+                right_y_axis=cloudwatch.YAxisProps(label=metric_cpu_utilization.unit.value.title(), show_units=False),
             ),
 
         ]

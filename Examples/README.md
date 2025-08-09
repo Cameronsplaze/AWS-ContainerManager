@@ -33,7 +33,9 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ### `Ec2.InstanceType`
 
-- (`str`, **Required**): The EC2 instance type to use. I.e `t3.micro`, `m5.large`, etc.
+- (`str`, **Required**): The EC2 instance type to use. I.e `r4.large`, `m5.large`, etc. This config option will verify it's a valid EC2 instance type, then replace this block with the [`EC2.Client.describe_instance_types`](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_types.html#EC2.Client.describe_instance_types) response. (For example, `Ec2.MemoryInfo.SizeInMiB` will become a valid lookup in the stack).
+
+  The ec2 instance must have at least 2 GB of memory, so that the host and guest can both run.
 
    ```yaml
    Ec2:

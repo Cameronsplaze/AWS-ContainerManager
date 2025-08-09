@@ -26,6 +26,7 @@ class Container(NestedStack):
         scope: Construct,
         leaf_construct_id: str,
         container_id: str,
+        ec2_config: dict,
         container_config: dict,
         **kwargs
     ) -> None:
@@ -56,15 +57,16 @@ class Container(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#addwbrcontainerid-props
         ## And what it returns:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
+        self.memory_reservation_mib = 1024 # 1 GB
         self.container = self.task_definition.add_container(
             container_id_alpha,
             image=ecs.ContainerImage.from_registry(container_config["Image"]),
             port_mappings=container_config["Ports"],
             essential=True,
-            ## Hard limit. Won't ever go above this
+            ## Hard limit. Will get killed if it exceeds this.
             # memory_limit_mib=999999999,
-            ## The "Soft limit". However since there'll only ever be this one task, it can take as much as it wants.
-            memory_reservation_mib=1024, # 1 GB
+            ## The "Soft limit". However since there'll only ever be this one task, it can grow as much as it wants.
+            memory_reservation_mib=self.memory_reservation_mib,
             ## Add environment variables into the container here:
             environment=container_config["Environment"],
             ## Logging, straight from:
