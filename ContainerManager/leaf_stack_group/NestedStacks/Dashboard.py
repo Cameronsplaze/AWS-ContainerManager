@@ -60,19 +60,9 @@ class Dashboard(NestedStack):
 
         ## EC2 Service Metrics:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
-        metric_cpu_utilization = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization(unit=cloudwatch.Unit.PERCENT)
+        metric_cpu_utilization = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization(unit=cloudwatch.Unit.PERCENT, statistic="Average")
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrmemorywbrutilizationprops
-        metric_memory_utilization = ecs_asg_nested_stack.ec2_service.metric_memory_utilization(unit=cloudwatch.Unit.PERCENT)
-        ## Since metric_memory_utilization is based on the SOFT limit, we have to do math to convert the percentage to our REAL max:
-        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        # Math explaining this at https://github.com/Cameronsplaze/AWS-ContainerManager/issues/134#issuecomment-3169638903
-        metric_memory_utilization = cloudwatch.MathExpression(
-            label="MemoryUtilization",
-            expression=f"(softMemoryUtilization * {container_nested_stack.memory_reservation_mib}) / {main_config['Ec2']['MemoryInfo']['SizeInMiB']}",
-            using_metrics={"softMemoryUtilization": metric_memory_utilization},
-            period=Duration.minutes(1),
-        )
+        metric_memory_utilization = ecs_asg_nested_stack.ec2_service.metric_memory_utilization(unit=cloudwatch.Unit.PERCENT, statistic="Average")
 
         ############
         ### Widgets Here. The order here is how they'll appear in the dashboard.
@@ -211,7 +201,8 @@ class Dashboard(NestedStack):
                 title=" ".join([
                     f"(ECS) Container Utilization - [{main_config['Ec2']['InstanceType']}]",
                     f"[vCPU's: {main_config['Ec2']['VCpuInfo']['DefaultVCpus']}]",
-                    f"[Memory: {main_config['Ec2']['MemoryInfo']['SizeInMiB'] / 1024} GB]"
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.CfnTaskDefinition.ContainerDefinitionProperty.html#memoryreservation
+                    f"[Memory: {container_nested_stack.container.render_container_definition().memory_reservation / 1024} GB]"
                 ]),
                 # Only show up to an hour ago:
                 height=6,
