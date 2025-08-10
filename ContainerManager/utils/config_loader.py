@@ -29,8 +29,10 @@ def _load(path: str, schema: Schema, error_info: dict) -> dict:
         repo_url = origin_url.replace("git@github.com:", "https://github.com/").replace(".git", "")
         # Don't use schema's built-in "Schema(data, error=asdf)". It overrides the
         # message, instead of appending to it. This appends to the end of the error:
+        e.add_note("")
         e.add_note(f"Online Docs: {repo_url}/{error_info['online_docs']}")
         e.add_note(f"Local Docs: {error_info['local_docs']}")
+        e.add_note("")
         raise
 
 def load_base_config(path: str) -> dict:
