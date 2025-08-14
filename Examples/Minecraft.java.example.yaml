@@ -25,6 +25,7 @@ Container:
     ## From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: True
     ENABLE_RCON: False
+    ENABLE_ROLLING_LOGS: True
 
     ## https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
     MODRINTH_DOWNLOAD_DEPENDENCIES: required
@@ -73,3 +74,4 @@ Watchdog:
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
+
