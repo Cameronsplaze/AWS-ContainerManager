@@ -4,7 +4,7 @@ The core framework will use [pytest](https://docs.pytest.org/en/stable/), includ
 
 ## Testing Against CDK Itself
 
-CDK has three main ways to test your code. Using SAM for lambda, using unit testing for making sure the synthed template has specific features (i.e lambda functions can only have specific runtimes), and snapshot testing.
+[CDK has three main ways](https://docs.aws.amazon.com/cdk/v2/guide/testing.html) to test your code. Using SAM for lambda, using unit testing for making sure the synthed template has specific features (i.e lambda functions can only have specific runtimes), and snapshot testing.
 
 ### Testing with SAM
 
