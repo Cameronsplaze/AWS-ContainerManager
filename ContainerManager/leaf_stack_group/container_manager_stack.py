@@ -65,8 +65,11 @@ class ContainerManagerStack(Stack):
             display_name=f"{construct_id}-sns-notify-topic",
             enforce_ssl=True,
         )
-        subscriptions = config.get("AlertSubscription", [])
-        add_sns_subscriptions(self, self.sns_notify_topic, subscriptions)
+        add_sns_subscriptions(
+            self,
+            self.sns_notify_topic,
+            config["AlertSubscription"],
+        )
 
 
         #####################

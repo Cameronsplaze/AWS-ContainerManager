@@ -1,5 +1,9 @@
 # Running Tests
 
+<!--
+NOTE TO SELF: This is what protects your Minecraft server. Make it count. 
+-->
+
 The core framework will use [pytest](https://docs.pytest.org/en/stable/), including helper plugins like [pytest-cov](https://coverage.readthedocs.io/en/latest/index.html).
 
 ## Testing Against CDK Itself

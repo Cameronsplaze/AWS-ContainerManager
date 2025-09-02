@@ -14,7 +14,7 @@ from pyaml_env import parse_config
 ## Using schema for validation and modification of the config file, so
 # it's easy for our app to consume it.
 from schema import Schema, SchemaError
-from git import Repo
+from git import Repo, exc
 
 from .leaf_config_parser import leaf_config_schema
 from .base_config_parser import base_config_schema
@@ -24,14 +24,18 @@ def _load(path: str, schema: Schema, error_info: dict) -> dict:
     try:
         return schema.validate(config)
     except SchemaError as e:
-        # Get the URL of the repo, to send the user to the docs:
-        origin_url = Repo(".").remotes.origin.url
-        repo_url = origin_url.replace("git@github.com:", "https://github.com/").replace(".git", "")
         # Don't use schema's built-in "Schema(data, error=asdf)". It overrides the
         # message, instead of appending to it. This appends to the end of the error:
         e.add_note("")
-        e.add_note(f"Online Docs: {repo_url}/{error_info['online_docs']}")
         e.add_note(f"Local Docs: {error_info['local_docs']}")
+        # Try to get the URL of the repo, to send the user to the docs:
+        #  (the test suite's tmp-fs breaks this)
+        try:
+            origin_url = Repo(".").remotes.origin.url
+            repo_url = origin_url.replace("git@github.com:", "https://github.com/").replace(".git", "")
+            e.add_note(f"Online Docs: {repo_url}/{error_info['online_docs']}")
+        except exc.InvalidGitRepositoryError:
+            pass
         e.add_note("")
         raise
 
