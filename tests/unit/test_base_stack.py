@@ -4,7 +4,6 @@ class TestBaseStack:
 
     def test_vpc_properties(self, fs, create_base_stack):
         config = BASE_MINIMAL.create_config(fs)
-        print(config)
         base_template, _ = create_base_stack(config=config)
 
         ## Make sure there's only one VPC to check:
