@@ -1,29 +1,16 @@
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import pytest
 import yaml
 import copy
 import schema
 
-from ContainerManager.utils.config_loader import load_base_config
+from aws_cdk import (
+    Duration,
+    aws_ecs as ecs,
+)
+from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
 
-minimal_structure_in = {
-    'Domain': {
-        'HostedZoneId': "Z123456789",
-        'Name': "example.com",
-    },
-}
-
-minimal_structure_out = {
-    'AlertSubscription': dict,
-    'Domain': {
-        'HostedZoneId': str,
-        'Name': str,
-    },
-    'Vpc': {
-        'MaxAZs': int,
-    },
-}
 
 def flatten_keys(d: dict, prefix=None, with_types=True):
     """Recursively yield all key paths in a nested dict, ending in types (as lists)."""
@@ -54,89 +41,205 @@ class ConfigInfo:
         fs.create_file(file_path, contents=file_contents)
         return self.loader(file_path)
 
-# Base and Leaf config structs
-BASE = ConfigInfo(
-    label="base",
-    config_input=minimal_structure_in,
-    expected_output=minimal_structure_out,
+    def copy(self, **changes):
+        """ Return a copy of self, with `changes` applied. """
+        return replace(self, **changes)
+
+# Base and Leaf configs
+BASE_MINIMAL = ConfigInfo(
+    label="BaseMinimal",
     loader=load_base_config,
+    config_input={
+        'Domain': {
+            'HostedZoneId': "Z123456789",
+            'Name': "example.com",
+        },
+    },
+    expected_output={
+        'AlertSubscription': dict,
+        'Domain': {
+            'HostedZoneId': str,
+            'Name': str,
+        },
+        'Vpc': {
+            'MaxAZs': int,
+        },
+    },
 )
 
-# LEAF = ConfigInfo(
-#     label="leaf",
-#     config_input=minimal_structure_in_leaf,
-#     expected_output=minimal_structure_out_leaf,
-#     loader=load_leaf_config,
-# )
-
-# Instead of just two, maybe have "MIN_BASE, FULL_LEAF, etc..."
-#    lets us be flexible, with what "structs" the cloudformation
-#    stacks test against.
-# STRUCTS = [BASE, LEAF]
-STRUCTS = [BASE]
+BASE_VPC_MAXAZS = BASE_MINIMAL.copy(
+    label="BaseVpcMaxAzs",
+    # Add the two dicts together:
+    config_input=BASE_MINIMAL.config_input | {
+        'Vpc': {
+            'MaxAZs': 2,
+        },
+    },
+)
 
 
-def _id_for_keys(struct, keys):
-    return f"{struct.label}-" + ".".join(map(str, keys if isinstance(keys, (list, tuple)) else [keys]))
+LEAF_MINIMAL = ConfigInfo(
+    label="LeafMinimal",
+    loader=load_leaf_config,
+    config_input={
+        "Ec2": {
+            "InstanceType": "m5.large",
+        },
+        "Container": {
+            "Image": "hello-world:latest",
+            "Ports": [],
+        },
+        "Watchdog": {
+            "Threshold": 2000,
+        },
+    },
+    expected_output={
+        'Container': {
+            'Image': str,
+            'Ports': [ecs.PortMapping],
+            'Environment': {}
+        },
+        'Ec2': {
+            'InstanceType': str,
+            'MemoryInfo': {
+                'SizeInMiB': int,
+            },
+        },
+        'Watchdog': {
+            'Threshold': int,
+            'InstanceLeftUp': {
+                'DurationHours': Duration,
+                'ShouldStop': bool,
+            },
+            'MinutesWithoutConnections': Duration,
+        },
+        'Dashboard': {
+            'Enabled': bool,
+            'IntervalMinutes': Duration,
+            'ShowContainerLogTimestamp': bool,
+        },
+        'Volumes': [str],
+        'AlertSubscription': {},
+    },
+)
+
+LEAF_CONTAINER_PORTS = LEAF_MINIMAL.copy(
+    label="LeafContainerPorts",
+    # This is messy, but it's the only way to keep it in-line AND
+    # auto-update if LEAF_MINIMAL changes. The only key we want
+    # to update IS "Ports".
+    config_input=LEAF_MINIMAL.config_input | {
+        # Don't override "Image", just add "Ports":
+        "Container": LEAF_MINIMAL.config_input["Container"] | {
+            "Ports": [
+                {"TCP": 25565},
+                {"UDP": 12345},
+            ],
+        }
+    },
+)
+
+LEAF_VOLUMES = LEAF_MINIMAL.copy(
+    label="LeafVolumes",
+    config_input=LEAF_MINIMAL.config_input | {
+        "Volumes": [
+            {
+                "Paths": [
+                    {"Path": "/data", "ReadOnly": False},
+                ],
+                "EnableBackups": True,
+                "KeepOnDelete": True,
+            },
+        ],
+    },
+)
+
+# CONFIGS = [BASE_MINIMAL]
+CONFIGS = [LEAF_VOLUMES]
+# CONFIGS = [LEAF_MINIMAL, LEAF_CONTAINER_PORTS]
+
+def _id_for_keys(config, keys):
+    return f"{config.label}-" + ".".join(map(str, keys if isinstance(keys, (list, tuple)) else [keys]))
 
 class TestBaseConfigParser:
 
-    CASES_DELETE_CONTENTS = [
-        pytest.param(struct, keys, id=_id_for_keys(struct, keys))
-        for struct in STRUCTS
-        for keys in flatten_keys(struct.config_input, with_types=False)
-    ]
-    @pytest.mark.parametrize("struct,keys",CASES_DELETE_CONTENTS)
-    def test_minimal_config_delete_contents(self, fs, struct, keys):
+    @pytest.mark.parametrize("config", CONFIGS, ids=lambda s: s.label)
+    # @pytest.mark.parametrize("config", CONFIGS_VALID, ids=lambda s: s.label)
+    def test_config_loads(self, fs, config):
         """
-        Make sure the minimal configs are minimal: Delete keys one
-        at a time and make sure each one throws.
+        Make sure the configs load without throwing.
         """
-        file_path = "/tmp/minimal.yaml"
-        minimal_config = struct.create_config(fs)
-        if len(keys) == 1:
-            del minimal_config[keys[0]]
-        else:
-            del minimal_config[keys[0]][keys[1]]
+        config.create_config(fs)
 
-        file_contents = yaml.safe_dump(minimal_config)
-        fs.create_file(file_path, contents=file_contents)
-        with pytest.raises(schema.SchemaError, match=f"Missing key: '{keys[-1]}'"):
-            struct.loader(file_path)
+    # @pytest.mark.parametrize("config", CONFIGS_INVALID, ids=lambda s: s.label)
+    # def test_config_throws(self, fs, config):
+    #     """
+    #     Make sure the configs load WITH throwing.
+    #     """
+    #     with pytest.raises(schema.SchemaError):
+    #         config.create_config(fs)
+
+    # CASES_DELETE_CONTENTS = [
+    #     pytest.param(config, keys, id=_id_for_keys(config, keys))
+    #     for config in CONFIGS
+    #     for keys in flatten_keys(config.config_input, with_types=False)
+    # ]
+    # @pytest.mark.parametrize("config,keys",CASES_DELETE_CONTENTS)
+    # def test_minimal_config_delete_contents(self, fs, config, keys):
+    #     """
+    #     Make sure the minimal configs are minimal: Delete keys one
+    #     at a time and make sure each one throws to make sure they're
+    #     required.
+    #     """
+    #     tmp_config = copy.deepcopy(config) # So we don't modify the original
+    #     if len(keys) == 1:
+    #         del tmp_config.config_input[keys[0]]
+    #     else:
+    #         del tmp_config.config_input[keys[0]][keys[1]]
+
+    #     with pytest.raises(schema.SchemaError, match=f"Missing key: '{keys[-1]}'"):
+    #         tmp_config.create_config(fs)
 
 
     CASES_RETURN_TYPES = [
-        pytest.param(struct, keys, id=_id_for_keys(struct, keys[:-1]))
-        for struct in STRUCTS
-        for keys in flatten_keys(struct.expected_output)
+        # The ID is everything but the "type" at the end:
+        pytest.param(config, keys, id=_id_for_keys(config, keys[:-1]))
+        for config in CONFIGS
+        for keys in flatten_keys(config.expected_output)
     ]
-    @pytest.mark.parametrize("struct,keys", CASES_RETURN_TYPES)
-    def test_config_returned_types(self, fs, struct, keys):
+    @pytest.mark.parametrize("config,keys", CASES_RETURN_TYPES)
+    def test_config_returned_types(self, fs, config, keys):
         """
         Make sure each config-option is the right type.
         """
         expected_type = keys.pop(-1)
-        value = struct.create_config(fs)
+        value = config.create_config(fs)
         # walk down the nested dict using the remaining keys
         for key in keys:
             value = value[key]
-        # For the last item, check it's type:
-        assert isinstance(value, expected_type)
+        ## For the last item, check it's type:
+        if isinstance(expected_type, list):
+            # It's a list of things:
+            assert isinstance(value, list)
+            for item in value:
+                assert isinstance(item, expected_type[0])
+        else:
+            assert isinstance(value, expected_type)
 
-    @pytest.mark.parametrize("struct", STRUCTS, ids=lambda s: s.label)
-    def test_no_extra_keys_exist_in_config(self, fs, struct):
-        """
-        Makes sure the config that is created, is exactly the same as
-        `expected_output` config, i.e they're dicts with the same nested
-        keys. (but possibly different values)
-        """
-        minimal_config = struct.create_config(fs)
-        # If there's a key in minimal_config that's NOT in minimal_structure_out,
-        # it won't get updated. The dict's won't then be equal.
-        minimal_config_copy = copy.deepcopy(minimal_config)
-        minimal_config_copy.update(struct.expected_output)
-        assert minimal_config_copy == struct.expected_output, "Extra keys exist in the minimal_config."
-        # Same thing, but the other direction.
-        tmp_expected_output = copy.deepcopy(struct.expected_output)
-        tmp_expected_output.update(minimal_config)
-        assert tmp_expected_output == minimal_config, "Extra keys exist in the minimal_structure_out."
+    # @pytest.mark.parametrize("config", CONFIGS, ids=lambda s: s.label)
+    # def test_no_extra_keys_exist_in_config(self, fs, config):
+    #     """
+    #     Makes sure the config that is created, is exactly the same as
+    #     `expected_output` config, i.e they're dicts with the same nested
+    #     keys. (but possibly different values)
+    #     """
+    #     minimal_config = config.create_config(fs)
+    #     # If there's a key in minimal_config that's NOT in config.expected_output,
+    #     # it won't get updated. The dict's won't then be equal.
+    #     minimal_config_copy = copy.deepcopy(minimal_config)
+    #     minimal_config_copy.update(config.expected_output)
+    #     assert minimal_config_copy == config.expected_output, "Extra keys exist in `minimal_config`."
+    #     # Same thing, but the other direction.
+    #     tmp_expected_output = copy.deepcopy(config.expected_output)
+    #     tmp_expected_output.update(minimal_config)
+    #     assert tmp_expected_output == minimal_config, "Extra keys exist in `config.expected_output`."

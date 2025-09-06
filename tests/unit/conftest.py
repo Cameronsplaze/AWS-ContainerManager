@@ -16,43 +16,36 @@ def cdk_app():
 ## BASE STACK ##
 ################
 @pytest.fixture(scope="class")
-def base_stack(cdk_app):
-    return BaseStack(
-        cdk_app,
-        "TestBaseStack",
-        config={
-            "Vpc": {
-                "MaxAZs": 1,
-            },
-            "AlertSubscription": {},
-            "Domain": {
-                "Name": "example.com",
-                "HostedZoneId": "Z123456ABCDEFG",
-            },
-        },
-        application_id_tag_name="ApplicationId",
-        application_id_tag_value="test-app"
-    )
+def create_base_stack(cdk_app):
+    def _create_base_stack(config) -> tuple[Template, BaseStack]:
+        base_stack = BaseStack(
+            cdk_app,
+            "TestBaseStack",
+            config=config,
+            application_id_tag_name="ApplicationId",
+            application_id_tag_value="test-app"
+        )
+        base_template = Template.from_stack(base_stack)
+        return base_template, base_stack
+    return _create_base_stack
 
-@pytest.fixture(scope="class")
-def base_template(base_stack):
-    return Template.from_stack(base_stack)
 
 #########################
 ## LEAF STACK - Domain ##
 #########################
 @pytest.fixture(scope="class")
-def leaf_stack_domain(cdk_app, base_stack):
-    return DomainStack(
-        cdk_app,
-        "TestLeafStack-Domain",
-        container_id="test-stack",
-        base_stack=base_stack,
-    )
+def create_leaf_stack_domain(cdk_app):
+    def _create_domain_stack(base_stack) -> tuple[Template, DomainStack]:
+        domain_stack = DomainStack(
+            cdk_app,
+            "TestLeafStack-Domain",
+            container_id="test-stack",
+            base_stack=base_stack,
+        )
+        domain_template = Template.from_stack(domain_stack)
+        return domain_template, domain_stack
+    return _create_domain_stack
 
-@pytest.fixture(scope="class")
-def leaf_template_domain(leaf_stack_domain):
-    return Template.from_stack(leaf_stack_domain)
 
 # ###################################
 # ## LEAF STACK - ContainerManager ##

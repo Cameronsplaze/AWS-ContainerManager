@@ -1,7 +1,12 @@
-
+from ..config_parser.test_base_config_parser import BASE_MINIMAL
 
 class TestBaseStack:
-    def test_vpc_properties(self, base_template):
+
+    def test_vpc_properties(self, fs, create_base_stack):
+        config = BASE_MINIMAL.create_config(fs)
+        print(config)
+        base_template, _ = create_base_stack(config=config)
+
         ## Make sure there's only one VPC to check:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.assertions.Template.html#resourcewbrcountwbristype-count
         base_template.resource_count_is("AWS::EC2::VPC", 1)

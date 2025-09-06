@@ -48,7 +48,8 @@ def load_base_config(path: str) -> dict:
     schema = base_config_schema()
     return _load(path, schema, error_info)
 
-def load_leaf_config(path: str, maturity: str) -> dict:
+# Default maturity to "prod", for the test suite:
+def load_leaf_config(path: str, maturity: str="prod") -> dict:
     """ Load the leaf stack config file and validate it against the schema. """
     error_info = {
         "online_docs": "tree/main/Examples#config-file-options",

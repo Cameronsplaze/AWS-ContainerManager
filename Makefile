@@ -132,6 +132,10 @@ lint-markdown:
 ## Misc Commands ##
 ###################
 
+.PHONY := test
+test:
+	pytest .
+
 .PHONY := aws-whoami
 aws-whoami:
 	# Make sure you're in the right account
