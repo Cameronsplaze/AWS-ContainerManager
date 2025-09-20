@@ -45,10 +45,13 @@ class ConfigInfo:
     expected_output: dict
     loader: callable
 
-    def create_config(self, fs):
-        file_path = "/tmp/minimal_config.yaml"
+    def create_config(self, fs, file_path="/tmp/minimal_config.yaml"):
         file_contents = yaml.safe_dump(self.config_input)
-        fs.create_file(file_path, contents=file_contents)
+        # - open() is patched by pyfakefs (fs above), a temp filesystem.
+        # - "w" is important, so new calls will override old files.
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(file_contents)
+        # Have the loader read the "fake" file:
         return self.loader(file_path)
 
     def copy(self, **changes):
