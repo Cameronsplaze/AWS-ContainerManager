@@ -45,7 +45,9 @@ class ConfigInfo:
     expected_output: dict
     loader: callable
 
-    def create_config(self, fs, file_path="/tmp/minimal_config.yaml"):
+    # *technically* I don't think you need to pass in fs, but it's
+    # a good reminder to use fs in any test that needs to call this.
+    def create_config(self, _fs, file_path="/tmp/minimal_config.yaml"):
         file_contents = yaml.safe_dump(self.config_input)
         # - open() is patched by pyfakefs (fs above), a temp filesystem.
         # - "w" is important, so new calls will override old files.
