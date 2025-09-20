@@ -1,5 +1,5 @@
 
-from ..config_parser.test_base_config_parser import (
+from tests.config_parser.test_base_config_parser import (
     BASE_VPC_MAXAZS,
     LEAF_CONTAINER_PORTS,
 )

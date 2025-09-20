@@ -162,12 +162,34 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
     label="LeafVolumes",
     config_input=LEAF_MINIMAL.config_input | {
         "Volumes": [
+            # 1: To check defaults:
+            {
+                "Paths": [
+                    {"Path": "/data"},
+                ],
+            },
+            # 2: To check all True:
+            {
+                "Paths": [
+                    {"Path": "/data", "ReadOnly": True},
+                ],
+                "EnableBackups": True,
+                "KeepOnDelete": True,
+            },
+            # 3: To check all False:
             {
                 "Paths": [
                     {"Path": "/data", "ReadOnly": False},
                 ],
-                "EnableBackups": True,
-                "KeepOnDelete": True,
+                "EnableBackups": False,
+                "KeepOnDelete": False,
+            },
+            # 4: To check multiple paths:
+            {
+                "Paths": [
+                    {"Path": "/data"},
+                    {"Path": "/config"},
+                ],
             },
         ],
     },
@@ -191,7 +213,7 @@ CONFIGS_INVALID = []
 def _id_for_keys(config, keys):
     return f"{config.label}-" + ".".join(map(str, keys if isinstance(keys, (list, tuple)) else [keys]))
 
-class TestBaseConfigParser:
+class TestConfigParser:
 
     @pytest.mark.parametrize("config", CONFIGS_VALID, ids=lambda s: s.label)
     def test_config_loads(self, fs, config):
@@ -267,3 +289,15 @@ class TestBaseConfigParser:
         tmp_expected_output = copy.deepcopy(config.expected_output)
         tmp_expected_output.update(minimal_config)
         assert tmp_expected_output == minimal_config, "Extra keys exist in `config.expected_output`."
+
+class TestConfigVolumes():
+    def test_volume_count(self, fs):
+        """
+        Make sure the volume count output matches the input.
+        """
+        # The number you ask for:
+        expected_count = len(LEAF_VOLUMES.config_input["Volumes"])
+        config = LEAF_VOLUMES.create_config(fs)
+        # The number the schema generates:
+        actual_count = len(config["Volumes"])
+        assert actual_count == expected_count, f"Expected {expected_count} volumes, got {actual_count}."

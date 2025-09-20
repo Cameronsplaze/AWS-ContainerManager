@@ -109,7 +109,6 @@ def create_leaf_stack_container_manager(fs, cdk_app, create_base_stack, create_l
 ##############################
 ## LEAF STACK - StartSystem ##
 ##############################
-
 @pytest.fixture
 def create_leaf_stack_start_system(cdk_app, create_base_stack, create_leaf_stack_domain, create_leaf_stack_container_manager):
     def _create_start_system_stack(base_stack=None, domain_stack=None, container_manager_stack=None) -> StartSystemStack:
