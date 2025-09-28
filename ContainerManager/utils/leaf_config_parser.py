@@ -70,8 +70,14 @@ def leaf_config_schema(maturity: str) -> Schema:
                 ),
             ],
             # Key: Optional, but defaults value to empty dict if not declared:
-            # Value: Either a empty dict, or a dict of strings (that casts all values to string)
-            Optional("Environment", default={}): Or({Use(str): Use(str)}, {}),
+            # Value: Either a empty dict, or a dict of strings (that casts all values to string).
+            #        Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
+            Optional("Environment", default={}): Or({Use(str): Use(
+                # All values must be strings. If it's a bool, also make it all-lowercase:
+                lambda val: str(val).lower() if isinstance(val, bool) else str(val))},
+                # You're allowed to set an empty dict here:
+                {},
+            ),
         },
         Optional("Volumes", default=[]): [{
             Optional("Type", default="EFS"): And(
