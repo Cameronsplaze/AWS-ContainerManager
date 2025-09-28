@@ -8,13 +8,16 @@ Container:
   Ports:
     - UDP: 2456
     - UDP: 2457
+    - UDP: 2458 # For CrossPlay! (Mods not recommended with XBox, they can't connect)
   Environment:
-    # Yes I know it's Valheim. It's a inside joke w/ friends.
-    SERVER_NAME: "Christian Minecraft Server"
+    SERVER_NAME: !ENV ${VALHEIM_SERVER_NAME}
     WORLD_NAME: "Valhalla"
-    SERVER_PASS: !ENV ${VALHEIM_PASS}
+    SERVER_PASS: !ENV ${VALHEIM_SERVER_PASS}
+    CROSSPLAY: True # For Microsoft store, NOT XBox. You can't do mods with XBox anyways.
     # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
     SERVER_ARGS: "-modifier resources most -modifier portals casual"
+    # VALHEIM_PLUS: True # This project is becoming more and more unmaintained. Use BepInEx instead.
+    BEPINEX: True
     SERVER_PUBLIC: False
     # Since we're in the cloud, and server is only up when someone is connected,
     # we can't do stuff "when idle". Instead download update, and server will pick
