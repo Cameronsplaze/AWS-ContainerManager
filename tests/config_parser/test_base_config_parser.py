@@ -1,4 +1,5 @@
 
+import glob
 import copy
 from dataclasses import dataclass, replace
 import pytest
@@ -9,7 +10,7 @@ from aws_cdk import (
     Duration,
     aws_ecs as ecs,
 )
-from ContainerManager.utils.config_loader import load_base_config, load_leaf_config
+from ContainerManager.utils.config_loader import load_base_config, load_leaf_config, _parse_config
 
 
 def flatten_keys(d: dict, prefix=None, with_types=True):
@@ -160,6 +161,31 @@ LEAF_CONTAINER_PORTS = LEAF_MINIMAL.copy(
     },
 )
 
+LEAF_CONTAINER_ENVIRONMENT = LEAF_MINIMAL.copy(
+    label="LeafContainerEnvironment",
+    config_input=LEAF_MINIMAL.config_input | {
+        "Container": LEAF_MINIMAL.config_input["Container"] | {
+            "Environment": {
+                "STRING_VAR": "TRUE",
+                "BOOL_VAR": True,
+                "INT_VAR": 12345,
+                "FLOAT_VAR": 12.345,
+            },
+        }
+    },
+    expected_output=LEAF_MINIMAL.expected_output | {
+        "Container": LEAF_MINIMAL.expected_output["Container"] | {
+            "Environment": {
+                # Environment variables are always strings
+                "STRING_VAR": str,
+                "BOOL_VAR": str,
+                "INT_VAR": str,
+                "FLOAT_VAR": str,
+            },
+        }
+    },
+)
+
 LEAF_VOLUMES = LEAF_MINIMAL.copy(
     label="LeafVolumes",
     config_input=LEAF_MINIMAL.config_input | {
@@ -209,7 +235,20 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
 )
 
 CONFIGS_MINIMAL = [BASE_MINIMAL, LEAF_MINIMAL]
-CONFIGS_VALID = CONFIGS_MINIMAL + [BASE_VPC_MAXAZS, LEAF_CONTAINER_PORTS, LEAF_VOLUMES]
+
+LEAF_CONFIGS_LOADED = []
+# Loop over every config in Examples (Basically `*.ya?ml`, need both extensions):
+for file_path in glob.glob("./Examples/*.yaml") + glob.glob("./Examples/*.yml"):
+    # _parse_config
+    loaded_config = ConfigInfo(
+        label=file_path.split("/")[-1],
+        loader=load_leaf_config,
+        config_input=_parse_config(file_path),
+        expected_output=None, # We don't care about the output here
+    )
+    LEAF_CONFIGS_LOADED.append(loaded_config)
+
+CONFIGS_VALID = CONFIGS_MINIMAL + LEAF_CONFIGS_LOADED + [BASE_VPC_MAXAZS, LEAF_CONTAINER_PORTS, LEAF_CONTAINER_ENVIRONMENT, LEAF_VOLUMES]
 CONFIGS_INVALID = []
 
 def _id_for_keys(config, keys):
@@ -257,7 +296,7 @@ class TestConfigParser:
     CASES_RETURN_TYPES = [
         # The ID is everything but the "type" at the end:
         pytest.param(config, keys, id=_id_for_keys(config, keys[:-1]))
-        for config in CONFIGS_VALID
+        for config in CONFIGS_VALID if config.expected_output is not None
         for keys in flatten_keys(config.expected_output)
     ]
     @pytest.mark.parametrize("config,keys", CASES_RETURN_TYPES)
@@ -281,6 +320,8 @@ class TestConfigParser:
         `expected_output` config, i.e they're dicts with the same nested
         keys. (but possibly different values)
         """
+        if config.expected_output is None:
+            pytest.skip("No expected_output to compare against.")
         minimal_config = config.create_config(fs)
         # If there's a key in minimal_config that's NOT in config.expected_output,
         # it won't get updated. The dict's won't then be equal.
@@ -292,7 +333,7 @@ class TestConfigParser:
         tmp_expected_output.update(minimal_config)
         assert tmp_expected_output == minimal_config, "Extra keys exist in `config.expected_output`."
 
-class TestConfigVolumes():
+class TestLeafConfigVolumes():
     def test_volume_count(self, fs):
         """
         Make sure the volume count output matches the input.
@@ -303,3 +344,26 @@ class TestConfigVolumes():
         # The number the schema generates:
         actual_count = len(config["Volumes"])
         assert actual_count == expected_count, f"Expected {expected_count} volumes, got {actual_count}."
+
+class TestLeafConfigEnvironment():
+    # Loop on EACH environment variable:
+    @pytest.mark.parametrize(
+        "input_name,input_value",
+        LEAF_CONTAINER_ENVIRONMENT.config_input["Container"]["Environment"].items(),
+    )
+    def test_casting_variables(self, fs, input_name, input_value):
+        config = LEAF_CONTAINER_ENVIRONMENT.create_config(fs)
+        env = config["Container"]["Environment"]
+        output_value = env[input_name]
+        assert input_name in env, f"Missing environment variable {input_name}."
+        assert isinstance(output_value, str), f"Environment variable {input_name} was not a string."
+        # If it was a bool, it should be a ALL LOWER string. (I've either seen containers
+        # be case insensitive, or expect all-lower. You can wrap it in a string if you need case.)
+        if isinstance(input_value, bool):
+            assert output_value in ("true", "false"), f"Bool environment variable {input_name} should become 'true' or 'false' (all lower)."
+        elif isinstance(input_value, str):
+            assert output_value == input_value, f"String environment variable {input_name} should stay EXACTLY same."
+        elif isinstance(input_value, (int, float)):
+            assert output_value == str(input_value), f"Numeric environment variable {input_name} should become its string representation."
+        else:
+            pytest.fail(f"Unhandled type {type(input_value)} for environment variable {input_name}.")

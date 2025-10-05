@@ -19,8 +19,12 @@ from git import Repo, exc
 from .leaf_config_parser import leaf_config_schema
 from .base_config_parser import base_config_schema
 
+# I broke this out, to make sure the test-suite and the stack always use the same "default_value":
+def _parse_config(path: str) -> dict:
+    return parse_config(path, default_value="UNDECLARED")
+
 def _load(path: str, schema: Schema, error_info: dict) -> dict:
-    config = parse_config(path, default_value="UNDECLARED")
+    config = _parse_config(path)
     try:
         return schema.validate(config)
     except SchemaError as e:
@@ -29,7 +33,7 @@ def _load(path: str, schema: Schema, error_info: dict) -> dict:
         e.add_note("")
         e.add_note(f"Local Docs: {error_info['local_docs']}")
         # Try to get the URL of the repo, to send the user to the docs:
-        #  (the test suite's tmp-fs breaks this)
+        #  (the test suite's tmp-fs breaks here, with no access to .git)
         try:
             origin_url = Repo(".").remotes.origin.url
             repo_url = origin_url.replace("git@github.com:", "https://github.com/").replace(".git", "")
