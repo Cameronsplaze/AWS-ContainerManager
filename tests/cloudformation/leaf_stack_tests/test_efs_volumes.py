@@ -1,5 +1,6 @@
 
 
+import json
 import pytest
 
 from aws_cdk.assertions import Match
@@ -29,11 +30,25 @@ def volume_template(create_leaf_stack_container_manager, to_template):
 #   just pull the access points from the template based on the EFS it's on?)
 class TestEfsVolumes():
 
-    def test_volume_count(self, fs, volume_template):
+    def test_volume_count(self, volume_template):
         # Check the number of EFS volumes created matches the config::
-        volumes_config = LEAF_VOLUMES.create_config(fs)
+        volumes_config = LEAF_VOLUMES.create_config()
         expected_efs_count = len(volumes_config["Volumes"])
         volume_template.resource_count_is("AWS::EFS::FileSystem", expected_efs_count)
+
+    # @pytest.mark.parametrize("volume_config", LEAF_VOLUMES.create_config()["Volumes"])
+    # def test_volumes(self, volume_config, volume_template):
+    #     # def _all_efs_resources(template_json):
+    #     #     return {
+    #     #         logical_id: res
+    #     #         for logical_id, res in template_json.get("Resources", {}).items()
+    #     #         if res.get("Type") == "AWS::EFS::FileSystem"
+    #     #     }
+    #     # efs_resources = _all_efs_resources(volume_template.to_json())
+    #     # print(json.dumps(efs_resources, indent=2))
+    #     # assert False
+    #     assert False, volume_config
+
 
     def test_shared_settings(self, volume_template, print_template):
         volume_template.all_resources_properties(
@@ -180,10 +195,9 @@ class TestEfsVolumes():
         )
         # The Update/Deletion Policies are just outside of "Properties",
         #    so we have to check them manually:
-        volume_js = volume_template.find_resources("AWS::EFS::FileSystem", {"Properties": volume_properties})
-        print(volume_js)
-        assert len(volume_js) == 1, f"Expected to find exactly one EFS volume. Found {len(volume_js)}."
-        # The one key is random and pointless for testing, move to it's dict:
-        volume_js = list(volume_js.values())[0]
-        assert volume_js['UpdateReplacePolicy'] == 'Delete'
-        assert volume_js['DeletionPolicy'] == 'Delete'
+        volume_dict = volume_template.find_resources("AWS::EFS::FileSystem", {"Properties": volume_properties})
+        assert len(volume_dict) == 1, f"Expected to find exactly one EFS volume. Found {len(volume_dict)}."
+        # The one key is random and pointless for testing, move to *it's* dict:
+        volume_dict = list(volume_dict.values())[0]
+        assert volume_dict['UpdateReplacePolicy'] == 'Delete'
+        assert volume_dict['DeletionPolicy'] == 'Delete'

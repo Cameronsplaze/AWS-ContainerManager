@@ -45,13 +45,13 @@ def print_template():
 ## BASE STACK ##
 ################
 @pytest.fixture
-def create_base_stack(fs, cdk_app):
+def create_base_stack(cdk_app):
     def _create_base_stack(base_config: ConfigInfo=BASE_MINIMAL) -> BaseStack:
         # Create the base stack:
         base_stack = BaseStack(
             cdk_app,
             "TestBaseStack",
-            config=base_config.create_config(fs),
+            config=base_config.create_config(),
             application_id_tag_name="ApplicationId",
             application_id_tag_value="test-app"
         )
@@ -84,7 +84,7 @@ def create_leaf_stack_domain(cdk_app, create_base_stack):
 ## LEAF STACK - ContainerManager ##
 ###################################
 @pytest.fixture
-def create_leaf_stack_container_manager(fs, cdk_app, create_base_stack, create_leaf_stack_domain):
+def create_leaf_stack_container_manager(cdk_app, create_base_stack, create_leaf_stack_domain):
     def _create_container_manager_stack(base_stack=None, domain_stack=None, leaf_config=LEAF_MINIMAL) -> ContainerManagerStack:
         # Default to a minimal base stack if they don`'t provide one:
         if base_stack is None:
@@ -101,7 +101,7 @@ def create_leaf_stack_container_manager(fs, cdk_app, create_base_stack, create_l
             domain_stack=domain_stack,
             application_id="test-app",
             container_id="test-stack",
-            config=leaf_config.create_config(fs),
+            config=leaf_config.create_config(),
         )
         return container_manager_stack
     return _create_container_manager_stack

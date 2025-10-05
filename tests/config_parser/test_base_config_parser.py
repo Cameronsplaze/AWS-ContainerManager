@@ -1,10 +1,12 @@
 
+import tempfile
 import glob
 import copy
 from dataclasses import dataclass, replace
 import pytest
 import yaml
 import schema
+
 
 from aws_cdk import (
     Duration,
@@ -43,19 +45,18 @@ def flatten_keys(d: dict, prefix=None, with_types=True):
 class ConfigInfo:
     label: str
     config_input: dict
-    expected_output: dict
+    expected_output: dict | None
     loader: callable
 
-    # *technically* I don't think you need to pass in fs, but it's
-    # a good reminder to use fs in any test that needs to call this.
-    def create_config(self, _fs, file_path="/tmp/minimal_config.yaml"):
+    def create_config(self):
         file_contents = yaml.safe_dump(self.config_input)
-        # - open() is patched by pyfakefs (fs above), a temp filesystem.
-        # - "w" is important, so new calls will override old files.
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(file_contents)
-        # Have the loader read the "fake" file:
-        return self.loader(file_path)
+        # tempfile will create a real file, then nuke it as soon as this
+        # goes out of scope:
+        with tempfile.NamedTemporaryFile("w+", suffix=".yaml", delete=True) as tmp:
+            tmp.write(file_contents)
+            tmp.flush() # Make sure it's written to disk
+            # Have the loader read the "fake" file:
+            return self.loader(tmp.name)
 
     def copy(self, **changes):
         """ Return a copy of self, with `changes` applied. """
@@ -264,19 +265,19 @@ def _id_for_keys(config, keys):
 class TestConfigParser:
 
     @pytest.mark.parametrize("config", CONFIGS_VALID, ids=lambda s: s.label)
-    def test_config_loads(self, fs, config):
+    def test_config_loads(self, config):
         """
         Make sure the configs load without throwing.
         """
-        config.create_config(fs)
+        config.create_config()
 
     @pytest.mark.parametrize("config", CONFIGS_INVALID, ids=lambda s: s.label)
-    def test_config_throws(self, fs, config):
+    def test_config_throws(self, config):
         """
         Make sure the configs load WITH throwing.
         """
         with pytest.raises(schema.SchemaError):
-            config.create_config(fs)
+            config.create_config()
 
     CASES_DELETE_CONTENTS = [
         pytest.param(config, keys, id=_id_for_keys(config, keys))
@@ -284,7 +285,7 @@ class TestConfigParser:
         for keys in flatten_keys(config.config_input, with_types=False)
     ]
     @pytest.mark.parametrize("config,keys",CASES_DELETE_CONTENTS)
-    def test_minimal_config_delete_contents(self, fs, config, keys):
+    def test_minimal_config_delete_contents(self, config, keys):
         """
         Make sure the minimal configs are minimal: Delete keys one
         at a time and make sure each one throws to make sure they're
@@ -297,7 +298,7 @@ class TestConfigParser:
             del tmp_config.config_input[keys[0]][keys[1]]
 
         with pytest.raises(schema.SchemaError, match=f"Missing key: '{keys[-1]}'"):
-            tmp_config.create_config(fs)
+            tmp_config.create_config()
 
 
     CASES_RETURN_TYPES = [
@@ -307,12 +308,12 @@ class TestConfigParser:
         for keys in flatten_keys(config.expected_output)
     ]
     @pytest.mark.parametrize("config,keys", CASES_RETURN_TYPES)
-    def test_config_returned_types(self, fs, config, keys):
+    def test_config_returned_types(self, config, keys):
         """
         Make sure each config-option is the right type.
         """
         expected_type = keys.pop(-1)
-        value = config.create_config(fs)
+        value = config.create_config()
         # walk down the nested dict using the remaining keys
         for key in keys:
             value = value[key]
@@ -325,13 +326,13 @@ class TestConfigParser:
         [config for config in CONFIGS_VALID if config.expected_output is not None],
         ids=lambda s: s.label
     )
-    def test_no_extra_keys_exist_in_config(self, fs, config):
+    def test_no_extra_keys_exist_in_config(self, config):
         """
         Makes sure the config that is created, is exactly the same as
         `expected_output` config, i.e they're dicts with the same nested
         keys. (but possibly different values)
         """
-        minimal_config = config.create_config(fs)
+        minimal_config = config.create_config()
         # If there's a key in minimal_config that's NOT in config.expected_output,
         # it won't get updated. The dict's won't then be equal.
         minimal_config_copy = copy.deepcopy(minimal_config)
@@ -343,13 +344,13 @@ class TestConfigParser:
         assert tmp_expected_output == minimal_config, "Extra keys exist in `config.expected_output`."
 
 class TestLeafConfigVolumes():
-    def test_volume_count(self, fs):
+    def test_volume_count(self):
         """
         Make sure the volume count output matches the input.
         """
         # The number you ask for:
         expected_count = len(LEAF_VOLUMES.config_input["Volumes"])
-        config = LEAF_VOLUMES.create_config(fs)
+        config = LEAF_VOLUMES.create_config()
         # The number the schema generates:
         actual_count = len(config["Volumes"])
         assert actual_count == expected_count, f"Expected {expected_count} volumes, got {actual_count}."
@@ -360,8 +361,8 @@ class TestLeafConfigEnvironment():
         "input_name,input_value",
         LEAF_CONTAINER_ENVIRONMENT.config_input["Container"]["Environment"].items(),
     )
-    def test_casting_variables(self, fs, input_name, input_value):
-        config = LEAF_CONTAINER_ENVIRONMENT.create_config(fs)
+    def test_casting_variables(self, input_name, input_value):
+        config = LEAF_CONTAINER_ENVIRONMENT.create_config()
         env = config["Container"]["Environment"]
         output_value = env[input_name]
         assert input_name in env, f"Missing environment variable {input_name}."

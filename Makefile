@@ -134,7 +134,8 @@ lint-markdown:
 
 .PHONY := test
 test:
-	pytest .
+	pytest ./tests/
+# 	pytest -x tests/cloudformation/leaf_stack_tests/test_efs_volumes.py
 
 .PHONY := aws-whoami
 aws-whoami:

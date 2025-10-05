@@ -1,7 +1,7 @@
 
 class TestBaseStack:
 
-    def test_vpc_properties(self, fs, create_base_stack, to_template):
+    def test_vpc_properties(self, create_base_stack, to_template):
         base_stack = create_base_stack()
         base_template = to_template(base_stack)
 
