@@ -236,6 +236,13 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
 
 CONFIGS_MINIMAL = [BASE_MINIMAL, LEAF_MINIMAL]
 
+BASE_CONFIG_LOADED = ConfigInfo(
+    label="BaseConfigLoaded",
+    loader=load_base_config,
+    config_input=_parse_config("./ContainerManager/config.yaml"),
+    expected_output=None, # We don't care about the output here
+)
+
 LEAF_CONFIGS_LOADED = []
 # Loop over every config in Examples (Basically `*.ya?ml`, need both extensions):
 for file_path in glob.glob("./Examples/*.yaml") + glob.glob("./Examples/*.yml"):
@@ -248,7 +255,7 @@ for file_path in glob.glob("./Examples/*.yaml") + glob.glob("./Examples/*.yml"):
     )
     LEAF_CONFIGS_LOADED.append(loaded_config)
 
-CONFIGS_VALID = CONFIGS_MINIMAL + LEAF_CONFIGS_LOADED + [BASE_VPC_MAXAZS, LEAF_CONTAINER_PORTS, LEAF_CONTAINER_ENVIRONMENT, LEAF_VOLUMES]
+CONFIGS_VALID = CONFIGS_MINIMAL + LEAF_CONFIGS_LOADED + [BASE_CONFIG_LOADED, BASE_VPC_MAXAZS, LEAF_CONTAINER_PORTS, LEAF_CONTAINER_ENVIRONMENT, LEAF_VOLUMES]
 CONFIGS_INVALID = []
 
 def _id_for_keys(config, keys):
