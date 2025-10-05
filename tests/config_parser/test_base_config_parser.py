@@ -239,7 +239,7 @@ CONFIGS_MINIMAL = [BASE_MINIMAL, LEAF_MINIMAL]
 BASE_CONFIG_LOADED = ConfigInfo(
     label="BaseConfigLoaded",
     loader=load_base_config,
-    config_input=_parse_config("./ContainerManager/config.yaml"),
+    config_input=_parse_config("./base-stack-config.yaml"),
     expected_output=None, # We don't care about the output here
 )
 
