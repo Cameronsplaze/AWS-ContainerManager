@@ -237,7 +237,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
 CONFIGS_MINIMAL = [BASE_MINIMAL, LEAF_MINIMAL]
 
 BASE_CONFIG_LOADED = ConfigInfo(
-    label="BaseConfigLoaded",
+    label="base-stack-config.yaml",
     loader=load_base_config,
     config_input=_parse_config("./base-stack-config.yaml"),
     expected_output=None, # We don't care about the output here
@@ -320,15 +320,17 @@ class TestConfigParser:
         assert isinstance(value, expected_type), f"Expected {expected_type} but got {type(value)} for {keys} in {config.label}"
 
 
-    @pytest.mark.parametrize("config", CONFIGS_VALID, ids=lambda s: s.label)
+    @pytest.mark.parametrize(
+        "config",
+        [config for config in CONFIGS_VALID if config.expected_output is not None],
+        ids=lambda s: s.label
+    )
     def test_no_extra_keys_exist_in_config(self, fs, config):
         """
         Makes sure the config that is created, is exactly the same as
         `expected_output` config, i.e they're dicts with the same nested
         keys. (but possibly different values)
         """
-        if config.expected_output is None:
-            pytest.skip("No expected_output to compare against.")
         minimal_config = config.create_config(fs)
         # If there's a key in minimal_config that's NOT in config.expected_output,
         # it won't get updated. The dict's won't then be equal.
