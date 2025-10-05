@@ -38,3 +38,20 @@ There's a few main areas we can unit test, each will have a different focus and 
 ### Snapshot Testing
 
 Snapshot testing is just saving a synthed template, and erroring if that template changes. It's useful if you have a stable project and you're about to refactor, but NOT when you're in the development phase.
+
+## This Project's Tests
+
+Don't judge the directory structure yet, I'm rapidly iterating on tests. The main focus is first to ensure we can load configs correctly. After that, we can use the same configs to create synthed templates to test against.
+
+- `config_parser` is to test the config loading, and schema. It's to make sure values are also casted correctly, and defaults are applied.
+- `cloudformation` is to test the CDK stacks, and the synthed templates. It's to make sure the templates have the correct resources, and that the resources have the correct properties.
+- Still need to add a directory for testing the lambda functions themselves.
+
+Since both `config_parser` and `cloudformation` use the same config objects, the objects should probably me moved here into the testing root. (But that's directory structure, saving it for last.). Same with everything being inside the `test_base_config_parser.py` file, that WILL be split up later.
+
+TODO:
+
+- Add lambda tests / examples to work from.
+- Split up and re-organize the different "CONFIG" objects. Think about bringing them to this tests root directory, since both config_parser and cloudformation use them.
+- Organize and break apart `test_base_config_parser.py`
+- Rewrite this README.md, and maybe sprinkle more throughout this part of the repo as needed.
