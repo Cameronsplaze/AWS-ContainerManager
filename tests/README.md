@@ -55,3 +55,4 @@ TODO:
 - Split up and re-organize the different "CONFIG" objects. Think about bringing them to this tests root directory, since both config_parser and cloudformation use them.
 - Organize and break apart `test_base_config_parser.py`
 - Rewrite this README.md, and maybe sprinkle more throughout this part of the repo as needed.
+- Look into updating the actions. More details in [#147](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/147).
