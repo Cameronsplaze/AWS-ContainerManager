@@ -14,7 +14,6 @@ from cdk_nag import NagSuppressions
 
 from ContainerManager.base_stack import BaseStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
-# from ContainerManager.utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
 
 ## Import Nested Stacks:
