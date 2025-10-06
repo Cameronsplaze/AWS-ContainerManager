@@ -36,7 +36,6 @@ class TestEfsVolumes():
         enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
     )
     def test_volume_properties(self, volume_id, volume_config, volume_template):
-        print(volume_config)
         volume_properties = {
             # Make sure you're testing the right EFS Volume:
             "FileSystemTags": [
@@ -97,8 +96,8 @@ class TestEfsVolumes():
         volume_template.resource_properties_count_is("AWS::EFS::FileSystem", volume_properties, 1)
         # The Update/Deletion Policies are just outside of "Properties",
         #    so we have to check them manually:
-        volume_js = volume_template.find_resources("AWS::EFS::FileSystem", {"Properties": volume_properties})
+        volume_dict = volume_template.find_resources("AWS::EFS::FileSystem", {"Properties": volume_properties})
         # The one key is random and pointless for testing, move to it's dict:
-        volume_js = list(volume_js.values())[0]
-        assert volume_js['UpdateReplacePolicy'] == ('Retain' if volume_config["KeepOnDelete"] else 'Delete')
-        assert volume_js['DeletionPolicy'] == ('RetainExceptOnCreate' if volume_config["KeepOnDelete"] else 'Delete')
+        volume_dict = list(volume_dict.values())[0]
+        assert volume_dict['UpdateReplacePolicy'] == ('Retain' if volume_config["KeepOnDelete"] else 'Delete')
+        assert volume_dict['DeletionPolicy'] == ('RetainExceptOnCreate' if volume_config["KeepOnDelete"] else 'Delete')
