@@ -54,7 +54,8 @@ class ConfigInfo:
         # goes out of scope:
         with tempfile.NamedTemporaryFile("w+", suffix=".yaml", delete=True) as tmp:
             tmp.write(file_contents)
-            tmp.flush() # Make sure it's written to disk
+            # Make sure it's written to disk
+            tmp.flush()
             # Have the loader read the "fake" file:
             return self.loader(tmp.name)
 
@@ -354,6 +355,32 @@ class TestLeafConfigVolumes():
         # The number the schema generates:
         actual_count = len(config["Volumes"])
         assert actual_count == expected_count, f"Expected {expected_count} volumes, got {actual_count}."
+
+    @pytest.mark.parametrize(
+        "volume_id,volume_input",
+        enumerate(LEAF_VOLUMES.config_input["Volumes"], start=1),
+    )
+    def test_volume_properties(self, volume_id, volume_input):
+        config = LEAF_VOLUMES.create_config()
+        volume_output = config["Volumes"][volume_id - 1] # -1 because enumerate starts at 1
+        # Both of these should default to True, AND always exist in the returned volume_output:
+        assert volume_input.get("KeepOnDelete", True) == volume_output["KeepOnDelete"]
+        assert volume_input.get("EnableBackups", True) == volume_output["EnableBackups"]
+        assert len(volume_input["Paths"]) == len(volume_output["Paths"]), "Volume path count mismatch."
+
+        # Create a lookup for output paths by 'Path' to simplify checks
+        output_paths_by_path = {p["Path"]: p for p in volume_output["Paths"]}
+
+        # Check the paths for each volume:
+        for input_path in volume_input["Paths"]:
+            assert "Path" in input_path, "Each volume path must have a 'Path' key."
+            # Get the corresponding output path:
+            assert input_path["Path"] in output_paths_by_path, f"Volume path {input_path['Path']} not found in output."
+            output_path = output_paths_by_path[input_path["Path"]]
+
+            # ReadOnly should default to False, AND always exist in the returned path:
+            assert input_path.get("ReadOnly", False) == output_path["ReadOnly"], f"Volume path {input_path['Path']} ReadOnly mismatch."
+
 
 class TestLeafConfigEnvironment():
     # Loop on EACH environment variable:
