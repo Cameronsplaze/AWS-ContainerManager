@@ -102,8 +102,8 @@ class Volumes(NestedStack):
             for volume_info in volume_config["Paths"]:
                 volume_path = volume_info["Path"]
                 ## Create a UNIQUE name, using the (modified) path:
-                #   (Will be something like: `data` for minecraft or `opt-valheim` for valheim)
-                access_point_name = volume_path.strip("/").replace("/", "-")
+                #   (Will be something like: `Efs-1-data` for minecraft or `Efs-1-opt-valheim` for valheim)
+                access_point_name = (efs_file_system.node.id + volume_path).replace("/", "-")
                 ## Creating an access point:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
                 ## What it returns:
