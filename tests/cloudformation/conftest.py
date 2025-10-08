@@ -1,6 +1,7 @@
 
 import pytest
 import json
+from dataclasses import dataclass
 
 import aws_cdk as cdk
 from aws_cdk.assertions import Template
@@ -16,9 +17,6 @@ from ..config_parser.test_base_config_parser import (
     LEAF_MINIMAL,
 )
 
-@pytest.fixture
-def cdk_app():
-    return cdk.App()
 
 @pytest.fixture
 def to_template():
@@ -37,98 +35,82 @@ def print_template():
     """ This method is solely for writing tests, and debugging """
     def _print_template(template):
         template_dict = template.to_json()
-        print(json.dumps(template_dict, indent=4))
-        assert False, "Failing to see template output."
+        # End everything now, you want to see the output!
+        pytest.exit(
+            f"Template JSON:\n{json.dumps(template_dict, indent=4)}\n",
+            returncode=1,
+        )
     return _print_template
 
-################
-## BASE STACK ##
-################
-@pytest.fixture
-def create_base_stack(cdk_app):
-    def _create_base_stack(base_config: ConfigInfo=BASE_MINIMAL) -> BaseStack:
+@dataclass
+class CdkApp():
+    def __init__(
+        self,
+        base_config: ConfigInfo=BASE_MINIMAL,
+        leaf_config: ConfigInfo=LEAF_MINIMAL,
+    ) -> None:
+        application_id="test-app"
+        container_id="test-stack"
+        self.app = cdk.App()
+        ## Stacks:
         # Create the base stack:
-        base_stack = BaseStack(
-            cdk_app,
+        self.base_stack = BaseStack(
+            self.app,
             "TestBaseStack",
             config=base_config.create_config(),
             application_id_tag_name="ApplicationId",
-            application_id_tag_value="test-app"
+            application_id_tag_value=application_id
         )
-        return base_stack
-    return _create_base_stack
-
-
-#########################
-## LEAF STACK - Domain ##
-#########################
-@pytest.fixture
-def create_leaf_stack_domain(cdk_app, create_base_stack):
-    def _create_domain_stack(base_stack=None) -> DomainStack:
-        # Default to a minimal base stack if they don`'t provide one:
-        if base_stack is None:
-            base_stack = create_base_stack()
-
         # Create the domain stack:
-        domain_stack = DomainStack(
-            cdk_app,
+        self.domain_stack = DomainStack(
+            self.app,
             "TestLeafStack-Domain",
-            container_id="test-stack",
-            base_stack=base_stack,
+            container_id=container_id,
+            base_stack=self.base_stack,
         )
-        return domain_stack
-    return _create_domain_stack
-
-
-###################################
-## LEAF STACK - ContainerManager ##
-###################################
-@pytest.fixture
-def create_leaf_stack_container_manager(cdk_app, create_base_stack, create_leaf_stack_domain):
-    def _create_container_manager_stack(base_stack=None, domain_stack=None, leaf_config=LEAF_MINIMAL) -> ContainerManagerStack:
-        # Default to a minimal base stack if they don`'t provide one:
-        if base_stack is None:
-            base_stack = create_base_stack()
-        # Same with domain stack, just default to the basic:
-        if domain_stack is None:
-            domain_stack = create_leaf_stack_domain(base_stack=base_stack)
-
-        # Finally create the stack:
-        container_manager_stack = ContainerManagerStack(
-            cdk_app,
+        # Create the container manager stack:
+        self.container_manager_stack = ContainerManagerStack(
+            self.app,
             "TestLeafStack-ContainerManager",
-            base_stack=base_stack,
-            domain_stack=domain_stack,
-            application_id="test-app",
-            container_id="test-stack",
+            base_stack=self.base_stack,
+            domain_stack=self.domain_stack,
+            application_id=application_id,
+            container_id=container_id,
             config=leaf_config.create_config(),
         )
-        return container_manager_stack
-    return _create_container_manager_stack
-
-##############################
-## LEAF STACK - StartSystem ##
-##############################
-@pytest.fixture
-def create_leaf_stack_start_system(cdk_app, create_base_stack, create_leaf_stack_domain, create_leaf_stack_container_manager):
-    def _create_start_system_stack(base_stack=None, domain_stack=None, container_manager_stack=None) -> StartSystemStack:
-        # Default to a minimal base stack if they don't provide one:
-        #   (BOTH other stacks need it below, and need the *same* instance anyways)
-        if base_stack is None:
-            base_stack = create_base_stack()
-        # Same with domain stack, just default to the basic:
-        if domain_stack is None:
-            domain_stack = create_leaf_stack_domain(base_stack=base_stack)
-        # Same with container manager stack:
-        if container_manager_stack is None:
-            container_manager_stack = create_leaf_stack_container_manager(base_stack=base_stack, domain_stack=domain_stack)
-
-        start_system_stack = StartSystemStack(
-            cdk_app,
+        # Create the start system stack:
+        self.start_system_stack = StartSystemStack(
+            self.app,
             "TestLeafStack-StartSystem",
-            domain_stack=domain_stack,
-            container_manager_stack=container_manager_stack,
-            container_id="test-stack",
+            domain_stack=self.domain_stack,
+            container_manager_stack=self.container_manager_stack,
+            container_id=container_id,
         )
-        return start_system_stack
-    return _create_start_system_stack
+        ## Templates:
+        # You can't modify the stack after you create the template (It gets synthed),
+        # So create them here:
+        self.base_template = Template.from_stack(self.base_stack)
+        # Domain Stack
+        self.domain_template = Template.from_stack(self.domain_stack)
+        # Core Container Manager Stack
+        self.container_manager_template = Template.from_stack(self.container_manager_stack)
+        # And it's nested stacks:
+        self.container_manager_sg_template = Template.from_stack(self.container_manager_stack.sg_nested_stack)
+        self.container_manager_container_template = Template.from_stack(self.container_manager_stack.container_nested_stack)
+        self.container_manager_volumes_template = Template.from_stack(self.container_manager_stack.volumes_nested_stack)
+        self.container_manager_ecs_asg_template = Template.from_stack(self.container_manager_stack.ecs_asg_nested_stack)
+        self.container_manager_watchdog_template = Template.from_stack(self.container_manager_stack.watchdog_nested_stack)
+        self.container_manager_asg_state_change_hook_template = Template.from_stack(self.container_manager_stack.asg_state_change_hook_nested_stack)
+        # Start System Stack
+        self.start_system_template = Template.from_stack(self.start_system_stack)
+
+@pytest.fixture(scope="session")
+def minimal_app(cdk_app):
+    return cdk_app(
+        base_config=BASE_MINIMAL,
+        leaf_config=LEAF_MINIMAL,
+    )
+
+@pytest.fixture(scope="session")
+def cdk_app():
+    return CdkApp

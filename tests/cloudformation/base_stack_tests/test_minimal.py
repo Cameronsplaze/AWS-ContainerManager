@@ -1,9 +1,8 @@
 
 class TestBaseStack:
 
-    def test_vpc_properties(self, create_base_stack, to_template):
-        base_stack = create_base_stack()
-        base_template = to_template(base_stack)
+    def test_vpc_properties(self, minimal_app):
+        base_template = minimal_app.base_template
 
         ## Make sure there's only one VPC to check:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.assertions.Template.html#resourcewbrcountwbristype-count

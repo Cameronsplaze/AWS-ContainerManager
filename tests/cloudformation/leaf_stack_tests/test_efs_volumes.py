@@ -6,36 +6,29 @@ from aws_cdk.assertions import Match
 
 from tests.config_parser.test_base_config_parser import LEAF_VOLUMES
 
-@pytest.fixture
-def volume_template(create_leaf_stack_container_manager, to_template):
-    # Setup the template here, so each test can share it:
-    container_manager_stack = create_leaf_stack_container_manager(
-        leaf_config=LEAF_VOLUMES,
-    )
-    # The volume is a nested stack, just return that:
-    #  (returning the whole stack just is references to nested stacks. Nothing else)
-    return to_template(container_manager_stack.volumes_nested_stack)
 
+@pytest.fixture(scope="module")
+def app(cdk_app):
+    return cdk_app(leaf_config=LEAF_VOLUMES)
 
-# TODO: NOTE: For the next time I take a pass at this:
-# - Need to loop over the access points to check THEIR properties too,
-#   since  that's where "read-only" is stored. Append it to the end of the test
-#   below, since 1) you'll need the properties it defines to make sure you're checking
-#   the right AP's, and 2) if this test fails, there's no point to try the AP tests too.
 
 class TestEfsVolumes():
 
-    def test_volume_count(self, volume_template):
+    def test_volume_count(self, app):
         # Check the number of EFS volumes created matches the config::
         volumes_config = LEAF_VOLUMES.create_config()
         expected_efs_count = len(volumes_config["Volumes"])
-        volume_template.resource_count_is("AWS::EFS::FileSystem", expected_efs_count)
+        app.container_manager_volumes_template.resource_count_is(
+            "AWS::EFS::FileSystem",
+            expected_efs_count,
+        )
 
     @pytest.mark.parametrize(
         "volume_id,volume_config",
         enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
     )
-    def test_volume_properties(self, volume_id, volume_config, volume_template):
+    def test_volume_properties_efs(self, volume_id, volume_config, app):
+        volume_template = app.container_manager_volumes_template
         volume_properties = {
             # Make sure you're testing the right EFS Volume:
             "FileSystemTags": [
@@ -101,3 +94,31 @@ class TestEfsVolumes():
         volume_dict = list(volume_dict.values())[0]
         assert volume_dict['UpdateReplacePolicy'] == ('Retain' if volume_config["KeepOnDelete"] else 'Delete')
         assert volume_dict['DeletionPolicy'] == ('RetainExceptOnCreate' if volume_config["KeepOnDelete"] else 'Delete')
+
+
+    @pytest.mark.parametrize(
+        "volume_id,volume_config",
+        enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
+    )
+    def test_volume_properties_container(self, volume_id, volume_config, app):
+        ## Check the ECS Task Definition to make sure it has the right
+        #    mount points for this volume (And verify ReadOnly is correct):
+        container_template = app.container_manager_container_template
+        for path in volume_config["Paths"]:
+            container_template.has_resource_properties(
+                "AWS::ECS::TaskDefinition",
+                {
+                    "ContainerDefinitions": Match.array_with([
+                        Match.object_like({
+                            "MountPoints": 
+                            Match.array_with([
+                                {
+                                    "ContainerPath": path["Path"],
+                                    "ReadOnly": path["ReadOnly"],
+                                    "SourceVolume": f"Efs-{volume_id}{path['Path'].replace('/', '-')}",
+                                },
+                            ]),
+                        }),
+                    ])
+                },
+            )
