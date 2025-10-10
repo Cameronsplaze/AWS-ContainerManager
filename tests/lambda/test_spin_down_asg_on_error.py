@@ -3,13 +3,15 @@ import os
 
 import boto3
 from moto import mock_aws
+import pytest
 
 ### AutoScaling Moto/Boto Docs:
 # moto: https://docs.getmoto.org/en/latest/docs/services/autoscaling.html
 # boto: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html
 
 
-def setup_moto_network(ec2_client: boto3.client):
+def setup_moto_network(region: str = "us-west-2"):
+    ec2_client = boto3.client('ec2', region_name=region)
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_vpc.html
     vpc = ec2_client.create_vpc(CidrBlock="10.0.0.0/16")["Vpc"]
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_subnet.html
@@ -23,36 +25,31 @@ class TestSpinDownASGOnError:
         os.environ["ASG_NAME"] = "test-asg"
         ## These imports have to be the long forum, to let us modify the values here:
         # https://stackoverflow.com/a/12496239/11650472
-        import ContainerManager.leaf_stack_group.lambda_functions.spin_down_asg_on_error.main as spin_down_asg_on_error # pylint: disable # type: ignore
-        # Override the lambda's boto3 client(s) here, to make sure moto mocks them:
-        spin_down_asg_on_error.asg_client = boto3.client('autoscaling', region_name="us-west-2") # type: ignore
+        import ContainerManager.leaf_stack_group.lambda_functions.spin_down_asg_on_error.main as spin_down_asg_on_error # pylint: disable=import-outside-toplevel # type: ignore
         cls.spin_down_asg_on_error = spin_down_asg_on_error
-        cls.asg_client = cls.spin_down_asg_on_error.asg_client
-        # Must create this client here, so it's in scope with the autoscaling client.
-        cls.ec2_client = boto3.client('ec2', region_name="us-west-2")
-        cls.asg_name = os.environ["ASG_NAME"]
 
     @classmethod
     def teardown_class(cls):
         # Remove the env var we set:
         del os.environ["ASG_NAME"]
 
-    def setup_method(self, method):
-        ## Setup info for each test:
-        # Can't be in setup_class, or it'll go out of scope before this point.
-        vpc, subnet = setup_moto_network(self.ec2_client)
+    def setup_method(self, _method):
+        ## Override the lambda's boto3 client(s) here, to make sure moto mocks them:
+        #    (All moto clients have to be in-scope, together. They'll error if in setup_class.)
+        self.spin_down_asg_on_error.asg_client = boto3.client('autoscaling', region_name="us-west-2")
+        _vpc, subnet = setup_moto_network() # This has a moto/boto inside it.
         ## Create a very basic launch template:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/create_launch_configuration.html
         launch_config_name = "test-launch-config"
-        self.asg_client.create_launch_configuration(
+        self.spin_down_asg_on_error.asg_client.create_launch_configuration(
             LaunchConfigurationName=launch_config_name,
             ImageId="ami-12345678",
             InstanceType="t2.micro",
         )
         ## Create a ASG for each test:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/create_auto_scaling_group.html
-        self.asg_client.create_auto_scaling_group(
-            AutoScalingGroupName=self.asg_name,
+        self.spin_down_asg_on_error.asg_client.create_auto_scaling_group(
+            AutoScalingGroupName=os.environ["ASG_NAME"],
             MinSize=0,
             MaxSize=1,
             DesiredCapacity=1,
@@ -60,39 +57,29 @@ class TestSpinDownASGOnError:
             VPCZoneIdentifier=subnet["SubnetId"],
         )
 
-    def test_spin_down_asg_on_error(self):
-        # """ Test the lambda spins down the ASG. """
-        asg = self.asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[self.asg_name])["AutoScalingGroups"][0]
-        assert asg["DesiredCapacity"] == 1
-        assert asg["MinSize"] == 0
-        assert asg["MaxSize"] == 1
-
-        # Call the lambda:
-        self.spin_down_asg_on_error.lambda_handler(event={}, context={})
-
-        # Check the ASG was spun down:
-        asg = self.asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=["test-asg"])["AutoScalingGroups"][0]
-        assert asg["DesiredCapacity"] == 0
-        assert asg["MinSize"] == 0
-        assert asg["MaxSize"] == 1
-
-    def test_noop_if_asg_is_already_down(self):
-        """ Test nothing changes if the ASG is already down. """
-        # First, spin down the ASG:
-        self.asg_client.update_auto_scaling_group(
-            AutoScalingGroupName=self.asg_name,
-            DesiredCapacity=0,
+    @pytest.mark.parametrize("starting_capacity", [0, 1])
+    def test_lambda_spins_down_asg(self, starting_capacity):
+        """Test that the lambda spins down the ASG to 0, regardless of starting capacity."""
+        # First, update the ASG:
+        self.spin_down_asg_on_error.asg_client.update_auto_scaling_group(
+            AutoScalingGroupName=os.environ["ASG_NAME"],
+            DesiredCapacity=starting_capacity,
         )
-        asg = self.asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[self.asg_name])["AutoScalingGroups"][0]
-        assert asg["DesiredCapacity"] == 0
+        # Make sure it's set:
+        asg = self.spin_down_asg_on_error.asg_client.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[os.environ["ASG_NAME"]],
+        )["AutoScalingGroups"][0]
+        assert asg["DesiredCapacity"] == starting_capacity
         assert asg["MinSize"] == 0
         assert asg["MaxSize"] == 1
 
         # Call the lambda:
         self.spin_down_asg_on_error.lambda_handler(event={}, context={})
 
-        # Check the ASG is still down:
-        asg = self.asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[self.asg_name])["AutoScalingGroups"][0]
+        # Check if the ASG is still down:
+        asg = self.spin_down_asg_on_error.asg_client.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[os.environ["ASG_NAME"]],
+        )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == 0
         assert asg["MinSize"] == 0
         assert asg["MaxSize"] == 1
