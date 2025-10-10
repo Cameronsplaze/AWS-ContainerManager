@@ -13,9 +13,9 @@ import pytest
 def setup_moto_network(region: str = "us-west-2"):
     ec2_client = boto3.client('ec2', region_name=region)
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_vpc.html
-    vpc = ec2_client.create_vpc(CidrBlock="10.0.0.0/16")["Vpc"]
+    vpc = ec2_client.create_vpc(CidrBlock="192.168.0.0/16")["Vpc"]
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_subnet.html
-    subnet = ec2_client.create_subnet(VpcId=vpc["VpcId"], CidrBlock="10.0.1.0/24")["Subnet"]
+    subnet = ec2_client.create_subnet(VpcId=vpc["VpcId"], CidrBlock="192.168.1.0/24")["Subnet"]
     return vpc, subnet
 
 @mock_aws
