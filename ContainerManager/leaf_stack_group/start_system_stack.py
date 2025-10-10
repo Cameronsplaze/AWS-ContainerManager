@@ -75,7 +75,7 @@ class StartSystemStack(Stack):
             self,
             "StartSystem",
             description=f"{container_id_alpha}-lambda-start-system: Spin up ASG when someone connects.",
-            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda/trigger-start-system/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/trigger_start_system/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
