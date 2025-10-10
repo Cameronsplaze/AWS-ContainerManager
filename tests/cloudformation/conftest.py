@@ -34,10 +34,13 @@ def to_template():
 def print_template():
     """ This method is solely for writing tests, and debugging """
     def _print_template(template):
-        template_dict = template.to_json()
+        template_json: str = json.dumps(template.to_json(), indent=4)
+        # Save it to a file. Sometimes the output is too long for the terminal:
+        with open("template_output.json", "w", encoding="utf-8") as f:
+            f.write(template_json)
         # End everything now, you want to see the output!
         pytest.exit(
-            f"Template JSON:\n{json.dumps(template_dict, indent=4)}\n",
+            f"Template JSON:\n{template_json}\n",
             returncode=1,
         )
     return _print_template

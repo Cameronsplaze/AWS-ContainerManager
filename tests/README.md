@@ -60,3 +60,4 @@ TODO:
 - Go back through commits/PR's, and look for bugs that have been fixed but not tested against.
 - Look into updating the actions. More details in [#147](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/147).
   - Which will also include updating that section's README, and updating the "Required Actions" list.
+- Enforce in-transit encryption for EFS.
