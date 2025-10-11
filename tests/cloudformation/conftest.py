@@ -11,7 +11,7 @@ from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 from ContainerManager.leaf_stack_group.container_manager_stack import ContainerManagerStack
 from ContainerManager.leaf_stack_group.start_system_stack import StartSystemStack
 
-from ..config_parser.test_base_config_parser import (
+from tests.configs import (
     ConfigInfo,
     BASE_MINIMAL,
     LEAF_MINIMAL,

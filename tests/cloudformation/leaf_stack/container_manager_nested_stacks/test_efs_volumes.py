@@ -4,7 +4,7 @@ import pytest
 
 from aws_cdk.assertions import Match
 
-from tests.config_parser.test_base_config_parser import LEAF_VOLUMES
+from tests.configs import LEAF_VOLUMES
 
 
 @pytest.fixture(scope="module")
