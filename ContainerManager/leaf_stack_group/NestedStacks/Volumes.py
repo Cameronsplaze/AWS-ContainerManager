@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_efs as efs,
+    aws_iam as iam,
     aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
@@ -67,6 +68,19 @@ class Volumes(NestedStack):
                 ## No need to set, only in one AZ/Subnet already. If user increases that
                 ## number, they probably *want* more EFS instances. There's no other reason to:
                 # one_zone=True,
+            )
+            ## Lock down in-transit encryption:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.PolicyStatement.html
+            efs_file_system.add_to_resource_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.DENY,
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.AnyPrincipal.html
+                    principals=[iam.AnyPrincipal()],
+                    actions=["*"],
+                    conditions={
+                        "Bool": {"aws:SecureTransport": "false"},
+                    },
+                )
             )
             ## Create the HOST access point, for the EC2:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions

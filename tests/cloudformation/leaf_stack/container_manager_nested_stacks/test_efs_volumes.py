@@ -27,8 +27,9 @@ class TestEfsVolumes():
         "volume_id,volume_config",
         enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
     )
-    def test_volume_properties_efs(self, volume_id, volume_config, app):
+    def test_volume_properties_efs(self, volume_id, volume_config, app, print_template):
         volume_template = app.container_manager_volumes_template
+        # print_template(volume_template)
         volume_properties = {
             # Make sure you're testing the right EFS Volume:
             "FileSystemTags": [
@@ -44,7 +45,22 @@ class TestEfsVolumes():
             # Make sure encryption is always on:
             "Encrypted": True,
             "FileSystemPolicy": {
-                "Statement": [
+                "Statement": Match.array_with([
+                    ## Enforce in-transit encryption for all clients:
+                    # (Taken from AWS's console, when creating an EFS manually.)
+                    {
+                        "Effect": "Deny",
+                        "Principal": {
+                            "AWS": "*"
+                        },
+                        "Action": "*",
+                        "Condition": {
+                            "Bool": {
+                                "aws:SecureTransport": "false"
+                            }
+                        }
+                    },
+                    ## Allow the ECS tasks to use the access point:
                     {
                         "Effect": "Allow",
                         "Principal": {
@@ -64,20 +80,7 @@ class TestEfsVolumes():
                             }
                         },
                     },
-                    # # Enforce in-transit encryption for all clients:
-                    # {
-                    #     "Effect": "Deny",
-                    #     "Principal": {
-                    #         "AWS": "*"
-                    #     },
-                    #     "Action": "*",
-                    #     "Condition": {
-                    #         "Bool": {
-                    #             "aws:SecureTransport": "false"
-                    #         }
-                    #     }
-                    # }
-                ],
+                ]),
             },
         }
         # Make sure the dict above exists:

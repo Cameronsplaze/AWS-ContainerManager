@@ -45,7 +45,7 @@ Don't judge the directory structure yet, I'm rapidly iterating on tests. The mai
 
 - `config_parser` is to test the config loading, and schema. It's to make sure values are also casted correctly, and defaults are applied.
 - `cloudformation` is to test the CDK stacks, and the synthed templates. It's to make sure the templates have the correct resources, and that the resources have the correct properties.
-- Still need to add a directory for testing the lambda functions themselves.
+- `lambda_functions` is the lambda functions themselves. Only `spin_down_asg_on_error` is done so far, since it was the simplest. The other two should be done soon.
 
 Since both `config_parser` and `cloudformation` use the same config objects, the objects should probably me moved here into the testing root. (But that's directory structure, saving it for last.). Same with everything being inside the `test_base_config_parser.py` file, that WILL be split up later.
 
@@ -58,4 +58,3 @@ TODO:
 - Go back through commits/PR's, and look for bugs that have been fixed but not tested against.
 - Look into updating the actions. More details in [#147](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/147).
   - Which will also include updating that section's README, and updating the "Required Actions" list.
-- Enforce in-transit encryption for EFS.
