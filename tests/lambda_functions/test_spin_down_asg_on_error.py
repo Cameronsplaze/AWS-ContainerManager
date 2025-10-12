@@ -5,18 +5,7 @@ import boto3
 from moto import mock_aws
 import pytest
 
-### AutoScaling Moto/Boto Docs:
-# moto: https://docs.getmoto.org/en/latest/docs/services/autoscaling.html
-# boto: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html
-
-
-def setup_moto_network(region: str = "us-west-2"):
-    ec2_client = boto3.client('ec2', region_name=region)
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_vpc.html
-    vpc = ec2_client.create_vpc(CidrBlock="192.168.0.0/16")["Vpc"]
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_subnet.html
-    subnet = ec2_client.create_subnet(VpcId=vpc["VpcId"], CidrBlock="192.168.1.0/24")["Subnet"]
-    return vpc, subnet
+from .utils import setup_autoscaling_group
 
 @mock_aws
 class TestSpinDownASGOnError:
@@ -34,28 +23,10 @@ class TestSpinDownASGOnError:
         del os.environ["ASG_NAME"]
 
     def setup_method(self, _method):
-        ## Override the lambda's boto3 client(s) here, to make sure moto mocks them:
-        #    (All moto clients have to be in-scope, together. They'll error if in setup_class.)
-        self.spin_down_asg_on_error.asg_client = boto3.client('autoscaling', region_name="us-west-2")
-        _vpc, subnet = setup_moto_network() # This has a moto/boto inside it.
-        ## Create a very basic launch template:
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/create_launch_configuration.html
-        launch_config_name = "test-launch-config"
-        self.spin_down_asg_on_error.asg_client.create_launch_configuration(
-            LaunchConfigurationName=launch_config_name,
-            ImageId="ami-12345678",
-            InstanceType="t2.micro",
+        self.spin_down_asg_on_error.asg_client, _ = setup_autoscaling_group(
+            os.environ["ASG_NAME"],
         )
-        ## Create a ASG for each test:
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/create_auto_scaling_group.html
-        self.spin_down_asg_on_error.asg_client.create_auto_scaling_group(
-            AutoScalingGroupName=os.environ["ASG_NAME"],
-            MinSize=0,
-            MaxSize=1,
-            DesiredCapacity=1,
-            LaunchConfigurationName=launch_config_name,
-            VPCZoneIdentifier=subnet["SubnetId"],
-        )
+
 
     @pytest.mark.parametrize("starting_capacity", [0, 1])
     def test_lambda_spins_down_asg(self, starting_capacity):

@@ -25,6 +25,15 @@ if any(missing_vars):
 #    Can get cached if function is reused, keep clients that are used on spin-UP here:
 route53_client = boto3.client('route53') # Used for updating DNS record
 ec2_client = boto3.client('ec2')         # Used for getting the new instance's IP
+# Optional Client (Only hit when the server's spinning DOWN):
+asg_client = None  # Used for updating DNS record
+def _get_asg_client():
+    """ Lazy-load the asg client, only if needed """
+    global asg_client # pylint: disable=global-statement
+    if asg_client is None:
+        asg_client = boto3.client('autoscaling')
+    return asg_client
+
 
 def lambda_handler(event: dict, context: dict) -> None:
     """
@@ -51,6 +60,7 @@ def get_public_ip(instance_id: str) -> str:
     """ Get the instance's public IP """
     # Since you're supplying an ID, there should always be exactly one:
     instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
+    print(f"Instance details: {json.dumps(instance_details, indent=4, default=str)}")
     return instance_details["PublicIpAddress"]
 
 
@@ -82,12 +92,13 @@ def exit_if_asg_instance_coming_up(asg_name: str) -> None:
     """
     # asg_client: Normally initializing boto3.client is expensive and this should be global, BUT we only
     # care about spin-*UP* time. This only runs when system is shutting *down*.
-    asg_client = boto3.client('autoscaling')
+    asg_client = _get_asg_client() # pylint: disable=redefined-outer-name
     # With using asg_name, we guarantee there's only one output:
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])['AutoScalingGroups'][0]
     for instance in asg_info['Instances']:
         # If there's a instance in ANY of the Pending states, or just finished starting, let IT update the DNS stuff.
         # We don't want to step over it with this instance going down.
         if instance['LifecycleState'].startswith("Pending") or  instance['LifecycleState'] == "InService":
-            print(f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event.")
-            sys.exit()
+            msg = f"Instance '{instance['InstanceId']}' is in '{instance['LifecycleState']}', skipping this termination event."
+            print(msg)
+            sys.exit(msg)
