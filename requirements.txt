@@ -1,7 +1,7 @@
 aws-cdk-lib==2.219.0
-boto3==1.40.45
-cdk-nag==2.37.45
+boto3==1.40.50
+cdk-nag==2.37.51
 constructs>=10.0.0,<11.0.0
 GitPython==3.1.45
 pyaml-env==1.2.2
-schema==0.7.7
+schema==0.7.8
