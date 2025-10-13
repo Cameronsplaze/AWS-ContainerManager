@@ -1,7 +1,6 @@
 
 import os
 
-import boto3
 from moto import mock_aws
 import pytest
 
@@ -27,6 +26,14 @@ class TestSpinDownASGOnError:
             os.environ["ASG_NAME"],
         )
 
+    def test_asg_starting_state(self):
+        """Test that the ASG starts with the correct state."""
+        asg = self.spin_down_asg_on_error.asg_client.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[os.environ["ASG_NAME"]],
+        )["AutoScalingGroups"][0]
+        assert asg["DesiredCapacity"] == 1
+        assert asg["MinSize"] == 0
+        assert asg["MaxSize"] == 1
 
     @pytest.mark.parametrize("starting_capacity", [0, 1])
     def test_lambda_spins_down_asg(self, starting_capacity):
@@ -41,8 +48,6 @@ class TestSpinDownASGOnError:
             AutoScalingGroupNames=[os.environ["ASG_NAME"]],
         )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == starting_capacity
-        assert asg["MinSize"] == 0
-        assert asg["MaxSize"] == 1
 
         # Call the lambda:
         self.spin_down_asg_on_error.lambda_handler(event={}, context={})
@@ -52,5 +57,3 @@ class TestSpinDownASGOnError:
             AutoScalingGroupNames=[os.environ["ASG_NAME"]],
         )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == 0
-        assert asg["MinSize"] == 0
-        assert asg["MaxSize"] == 1

@@ -67,7 +67,7 @@ class TestInstanceStateChangeHook:
         self.instance_StateChange_hook.asg_client, _ = setup_autoscaling_group(self.asg_name)
 
     def test_starting_record_values(self):
-        """ Test that the starting record values are correct """
+        """ Test that the starting record values are correct (Other tests will change these) """
         records = self.instance_StateChange_hook.route53_client.list_resource_record_sets(
             HostedZoneId=os.environ['HOSTED_ZONE_ID']
         )["ResourceRecordSets"]
