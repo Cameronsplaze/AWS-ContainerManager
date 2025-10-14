@@ -8,18 +8,39 @@ import os
 import sys
 import json
 
+from dataclasses import dataclass
+
 import boto3
 
-required_vars = [
-    "HOSTED_ZONE_ID",
-    "DOMAIN_NAME",
-    "UNAVAILABLE_IP",
-    "DNS_TTL",
-    "RECORD_TYPE",
-]
-missing_vars = [x for x in required_vars if not os.environ.get(x)]
-if any(missing_vars):
-    raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
+
+@dataclass(frozen=True)
+class EnvVars:
+    """
+    Env vars that the lambda needs.
+      - frozen=True: Should NOT be changed after loading.
+      - _env_vars=None: Lazy-load the env vars on first use. Warm-starts can cache this.
+    """
+    HOSTED_ZONE_ID: str
+    DOMAIN_NAME: str
+    UNAVAILABLE_IP: str
+    DNS_TTL: str
+    RECORD_TYPE: str
+
+_env_vars: EnvVars | None = None
+
+def get_env_vars() -> EnvVars:
+    """ Lazy-load and validate the environment variables """
+    global _env_vars # pylint: disable=global-statement
+    if _env_vars is None:
+        # Make sure each one is set in the lambda environment:
+        missing_vars = [var for var in EnvVars.__annotations__.keys() if var not in os.environ]
+        if missing_vars:
+            # If there's more than one, flag both of them at once:
+            raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
+        # Set the validated EnvVars for next call:
+        _env_vars = EnvVars(**{k: os.environ[k] for k in EnvVars.__annotations__.keys()})
+    return _env_vars
+
 
 # Boto3 Clients:
 #    Can get cached if function is reused, keep clients that are used on spin-UP here:
@@ -40,6 +61,8 @@ def lambda_handler(event: dict, context: dict) -> None:
     Main function of the lambda.
     """
     print(json.dumps({"Event": event, "Context": context}, default=str))
+    env = get_env_vars()
+    print(env)
 
     # If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
@@ -49,7 +72,7 @@ def lambda_handler(event: dict, context: dict) -> None:
         ### Safety Check - If another instance is spinning up, just quit:
         exit_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"])
         # Now just update DNS like normal:
-        new_ip = os.environ["UNAVAILABLE_IP"]
+        new_ip = env.UNAVAILABLE_IP
     # If the EventBridge filter somehow changed (This should never happen):
     else:
         raise RuntimeError(f"Unknown event type: '{event['detail-type']}'. Did you mess with the EventBridge Rule??")
@@ -60,24 +83,26 @@ def get_public_ip(instance_id: str) -> str:
     """ Get the instance's public IP """
     # Since you're supplying an ID, there should always be exactly one:
     instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
-    print(f"Instance details: {json.dumps(instance_details, indent=4, default=str)}")
+    print(json.dumps({'InstanceDetails': instance_details}, indent=4, default=str))
     return instance_details["PublicIpAddress"]
 
 
 def update_dns_zone(new_ip: str) -> None:
     """ Update the DNS record with the new IP """
     print(f"Changing to new IP: {new_ip}")
+    env = get_env_vars()
+
     ### Update the record with the new IP:
     route53_client.change_resource_record_sets(
-        HostedZoneId=os.environ['HOSTED_ZONE_ID'],
+        HostedZoneId=env.HOSTED_ZONE_ID,
         ChangeBatch={
             'Changes': [{
                 'Action': 'UPSERT',
                 'ResourceRecordSet': {
-                    'Name': os.environ['DOMAIN_NAME'],
-                    'Type': os.environ['RECORD_TYPE'],
+                    'Name': env.DOMAIN_NAME,
+                    'Type': env.RECORD_TYPE,
                     'ResourceRecords': [{'Value': new_ip}],
-                    'TTL': int(os.environ['DNS_TTL']),
+                    'TTL': int(env.DNS_TTL),
                 }
             }]
         }

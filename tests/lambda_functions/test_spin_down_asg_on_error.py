@@ -6,6 +6,10 @@ import pytest
 
 from .utils import setup_autoscaling_group
 
+
+## This seems promising for when re-doing lambda's env vars, and importing the file here:
+# https://ranthebuilder.medium.com/aws-lambda-environment-variables-best-practices-f760384c23ed
+
 @mock_aws
 class TestSpinDownASGOnError:
     @classmethod
