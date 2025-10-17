@@ -7,4 +7,3 @@ class TestLeafStackContainerManager:
         # Add your test logic here
         assert leaf_stack_container_manager is not None # TMP
         assert leaf_template_container_manager is not None # TMP
-

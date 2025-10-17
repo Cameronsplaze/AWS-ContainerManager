@@ -1,6 +1,5 @@
 import boto3
 from moto import mock_aws
-import pytest
 
 ## This has to be the full path, to let us modify the values here:
 # https://stackoverflow.com/a/12496239/11650472

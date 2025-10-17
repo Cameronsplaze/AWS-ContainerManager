@@ -1,8 +1,8 @@
 
-import pytest
 import json
 from dataclasses import dataclass
 
+import pytest
 import aws_cdk as cdk
 from aws_cdk.assertions import Template
 
