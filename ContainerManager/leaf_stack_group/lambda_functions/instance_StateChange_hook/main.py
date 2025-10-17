@@ -8,24 +8,23 @@ import os
 import sys
 import json
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import boto3
 
-
+# frozen=True: This should never be modified (change cdk inputs instead)
 @dataclass(frozen=True)
 class EnvVars:
-    """
-    Env vars that the lambda needs.
-      - frozen=True: Should NOT be changed after loading.
-      - _env_vars=None: Lazy-load the env vars on first use. Warm-starts can cache this.
-    """
+    """ Env vars that the lambda needs. """
+    # pylint: disable=invalid-name
     HOSTED_ZONE_ID: str
     DOMAIN_NAME: str
     UNAVAILABLE_IP: str
     DNS_TTL: str
     RECORD_TYPE: str
+    # pylint: enable=invalid-name
 
+# Lazy-load the env vars on first use
 _env_vars: EnvVars | None = None
 
 def get_env_vars() -> EnvVars:
@@ -42,11 +41,11 @@ def get_env_vars() -> EnvVars:
     return _env_vars
 
 
-# Boto3 Clients:
+## Required Boto3 Clients:
 #    Can get cached if function is reused, keep clients that are used on spin-UP here:
 route53_client = boto3.client('route53') # Used for updating DNS record
 ec2_client = boto3.client('ec2')         # Used for getting the new instance's IP
-# Optional Client (Only hit when the server's spinning DOWN):
+## Optional Client (Only hit when the server's spinning DOWN):
 asg_client = None  # Used for updating DNS record
 def _get_asg_client():
     """ Lazy-load the asg client, only if needed """
@@ -60,9 +59,8 @@ def lambda_handler(event: dict, context: dict) -> None:
     """
     Main function of the lambda.
     """
-    print(json.dumps({"Event": event, "Context": context}, default=str))
     env = get_env_vars()
-    print(env)
+    print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
 
     # If the ec2 instance just FINISHED coming up:
     if event["detail-type"] == "EC2 Instance Launch Successful":
