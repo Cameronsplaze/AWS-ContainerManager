@@ -33,7 +33,7 @@ These are config options for when you deploy the base stack, to fine-tune it to 
 
 ### `Vpc`
 
-- (`dict`, **Required**): Config options for the VPC.
+- (`dict`, Optional): Config options for the VPC.
 
 ### `Vpc.MaxAZs`
 

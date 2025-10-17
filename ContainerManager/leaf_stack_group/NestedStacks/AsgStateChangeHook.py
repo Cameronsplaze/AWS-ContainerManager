@@ -72,7 +72,7 @@ class AsgStateChangeHook(NestedStack):
             self,
             "AsgStateChangeHook",
             description=f"{container_id_alpha}-ASG-StateChange: Triggered by ec2 state changes. Updates DNS with the EC2 IP, or '{domain_stack.unavailable_ip}'.",
-            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda/instance-StateChange-hook/"),
+            code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/instance_StateChange_hook/"),
             handler="main.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),

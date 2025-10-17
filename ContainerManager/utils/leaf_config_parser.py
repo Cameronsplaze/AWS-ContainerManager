@@ -19,7 +19,7 @@ ec2_client = boto3.client('ec2')
 # (AKA with {"a": {"b": "c"}}, if you declare "a" as optional, the "b" and "c" dict won't get
 # created. It'd be an empty dict instead. This below is to stop copy-pasting it in two places.
 # (The default=*, and the parser itself).
-leaf_instanceLeftUp_config = Schema({
+leaf_instanceLeftUp_config = Schema({ # pylint: disable=invalid-name
     # DurationHours: Optional, returns a cdk Duration in hours.
     Optional("DurationHours",
         default=Duration.hours(8),

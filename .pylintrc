@@ -52,7 +52,7 @@ ignore=CVS
 # ignore-list. The regex matches against paths and can be in Posix or Windows
 # format. Because '\\' represents the directory delimiter on Windows systems,
 # it can't be used as an escape character.
-ignore-paths=./tests
+ignore-paths=
 
 # Files or directories matching the regular expression patterns are skipped.
 # The regex matches against base names, not paths. The default value ignores
@@ -99,10 +99,6 @@ recursive=no
 # directory used to determine a package namespace for modules located under the
 # source root.
 source-roots=
-
-# When enabled, pylint would attempt to guess common misconfiguration and emit
-# user-friendly hints instead of false-positive error messages.
-suggestion-mode=yes
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -434,7 +430,9 @@ disable=raw-checker-failed,
         use-implicit-booleaness-not-comparison-to-zero,
         line-too-long,   # I like to comment a lot...
         use-a-generator, # list comprehensions are MUCH easier to read, and similar speed for our size of data
-        duplicate-code,  # Too namy false alarms, cdk code looks limilar all over
+        duplicate-code,  # Too many false alarms, cdk code looks similar all over
+        too-many-positional-arguments, # NestedStacks need a lot of arguments, to keep their components grouped
+
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

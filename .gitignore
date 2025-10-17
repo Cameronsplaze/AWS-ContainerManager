@@ -140,3 +140,6 @@ vars.env
 
 # Node Stuff
 node_modules/
+
+# For developing, temp-saving templates
+template_output.json

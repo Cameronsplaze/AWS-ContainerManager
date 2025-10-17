@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_efs as efs,
+    aws_iam as iam,
     aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
@@ -68,6 +69,19 @@ class Volumes(NestedStack):
                 ## number, they probably *want* more EFS instances. There's no other reason to:
                 # one_zone=True,
             )
+            ## Lock down in-transit encryption:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.PolicyStatement.html
+            efs_file_system.add_to_resource_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.DENY,
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.AnyPrincipal.html
+                    principals=[iam.AnyPrincipal()],
+                    actions=["*"],
+                    conditions={
+                        "Bool": {"aws:SecureTransport": "false"},
+                    },
+                )
+            )
             ## Create the HOST access point, for the EC2:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
             ## What it returns:
@@ -102,8 +116,8 @@ class Volumes(NestedStack):
             for volume_info in volume_config["Paths"]:
                 volume_path = volume_info["Path"]
                 ## Create a UNIQUE name, using the (modified) path:
-                #   (Will be something like: `data` for minecraft or `opt-valheim` for valheim)
-                access_point_name = volume_path.strip("/").replace("/", "-")
+                #   (Will be something like: `Efs-1-data` for minecraft or `Efs-1-opt-valheim` for valheim)
+                access_point_name = (efs_file_system.node.id + volume_path).replace("/", "-")
                 ## Creating an access point:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
                 ## What it returns:
