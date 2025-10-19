@@ -1,0 +1,29 @@
+name: Pytest
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+
+## If another similar workflow is running, kill it:
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      ## Install Python:
+      - name: Setup CDK
+        uses: ./.github/workflows/composite-setup-python
+
+      ## Run Pytest:
+      - name: Run Pytest
+        run: make test
