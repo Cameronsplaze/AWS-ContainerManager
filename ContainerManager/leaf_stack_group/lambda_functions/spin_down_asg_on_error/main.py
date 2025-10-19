@@ -25,13 +25,11 @@ def get_env_vars() -> EnvVars:
     """ Lazy-load and validate the environment variables """
     global _env_vars # pylint: disable=global-statement
     if _env_vars is None:
-        # Make sure each one is set in the lambda environment:
-        missing_vars = [var for var in EnvVars.__annotations__.keys() if var not in os.environ]
-        if missing_vars:
-            # If there's more than one, flag both of them at once:
-            raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
-        # Set the validated EnvVars for next call:
-        _env_vars = EnvVars(**{k: os.environ[k] for k in EnvVars.__annotations__.keys()})
+        # EnvVars will naturally error with ALL the missing env-vars on creation:
+        _env_vars = EnvVars(**{
+            # DON'T use getenv. We don't want the key to exist if it's missing.
+            k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
+        })
     return _env_vars
 
 

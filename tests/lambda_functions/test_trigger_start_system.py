@@ -1,3 +1,6 @@
+
+import json
+
 import boto3
 from moto import mock_aws
 
@@ -10,7 +13,18 @@ class TestTriggerStartSystem:
     @classmethod
     def setup_class(cls):
         ## DON'T use boto3.clients here. The resources they create, won't reset between each test.
-        cls.env = {}
+        cls.env = {
+            "ASG_NAME": "test-asg",
+            "MANAGER_STACK_REGION": "us-west-2",
+            # For not letting the system spin down if someone is trying to connect:
+            "METRIC_NAMESPACE": "test-namespace",
+            "METRIC_NAME": "test-metric",
+            "METRIC_THRESHOLD": "1",
+            "METRIC_UNIT": "Count",
+            "METRIC_DIMENSIONS": json.dumps({
+                "ContainerNameID": "test-stack",
+            }),
+        }
 
     def setup_method(self, _method):
         # Reset the env vars, so each test is a "cold start":

@@ -33,25 +33,35 @@ def get_env_vars() -> EnvVars:
     """ Lazy-load and validate the environment variables """
     global _env_vars # pylint: disable=global-statement
     if _env_vars is None:
-        # Make sure each one is set in the lambda environment:
-        missing_vars = [var for var in EnvVars.__annotations__.keys() if var not in os.environ]
-        if missing_vars:
-            # If there's more than one, flag both of them at once:
-            raise RuntimeError(f"Missing environment vars: [{', '.join(missing_vars)}]")
-        # Set the validated EnvVars for next call:
-        _env_vars = EnvVars(**{k: os.environ[k] for k in EnvVars.__annotations__.keys()})
+        # EnvVars will naturally error with ALL the missing env-vars on creation:
+        _env_vars = EnvVars(**{
+            # DON'T use getenv. We don't want the key to exist if it's missing.
+            k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
+        })
     return _env_vars
 
-# Boto3 Clients:
-config = Config(region_name=os.environ["MANAGER_STACK_REGION"])
-cloudwatch_client = boto3.client('cloudwatch', config=config)
-asg_client = boto3.client('autoscaling', config=config)
+## Boto3 Clients:
+# Lazy-loaded, so they can use env.* and be tested against.
+# (They're used in every call, so we technically don't have to lazy-load otherwise).
+cloudwatch_client = None
+asg_client = None
+def init_clients():
+    """ Initialize the boto3 clients, if they haven't been already. """
+    global cloudwatch_client, asg_client # pylint: disable=global-statement
+    if cloudwatch_client is None or asg_client is None:
+        env = get_env_vars()
+        ## Had to factor clients into a method, so we'd have
+        # access to env.MANAGER_STACK_REGION when testing:
+        config = Config(region_name=env.MANAGER_STACK_REGION)
+        cloudwatch_client = boto3.client('cloudwatch', config=config)
+        asg_client = boto3.client('autoscaling', config=config)
+
 
 def lambda_handler(event, context):
     """ Main function of the lambda. """
     env = get_env_vars()
     print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
-
+    init_clients()
     ### Let the metric know someone is trying to connect, to stop it
     ### from alarming and spinning down the system:
     ###   (Also if the system is in alarm, this resets it so it can spin down again)
