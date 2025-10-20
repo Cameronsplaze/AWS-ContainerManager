@@ -1,4 +1,4 @@
-name: pylint - Lint Python Files
+name: Pylint
 
 on:
   workflow_dispatch: {}
