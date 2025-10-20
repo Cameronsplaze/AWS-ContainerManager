@@ -134,7 +134,7 @@ lint-markdown:
 
 .PHONY := test
 test:
-	pytest ./tests/
+	python3 -m tox run
 
 .PHONY := aws-whoami
 aws-whoami:

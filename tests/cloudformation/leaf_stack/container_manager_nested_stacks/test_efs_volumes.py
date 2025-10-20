@@ -27,9 +27,9 @@ class TestEfsVolumes():
         "volume_id,volume_config",
         enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
     )
-    def test_volume_properties_efs(self, volume_id, volume_config, app, print_template):
+    def test_volume_properties_efs(self, volume_id, volume_config, app):
         volume_template = app.container_manager_volumes_template
-        # print_template(volume_template)
+
         volume_properties = {
             # Make sure you're testing the right EFS Volume:
             "FileSystemTags": [

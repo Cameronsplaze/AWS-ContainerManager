@@ -8,6 +8,11 @@ inputs:
     required: False
     default: "3.12"
 
+  install-packages:
+    description: "Whether to install the requirements(-dev).txt packages"
+    required: False
+    default: "True"
+
 runs:
   using: "composite"
   steps:
@@ -19,6 +24,8 @@ runs:
         cache: 'pip' # caching pip dependencies
 
     - name: Install Python Dependencies
+      # GH ignores case when comparing strings:
+      if: ${{ inputs.install-packages == 'true' }}
       shell: bash
       run: |
         make update-python

@@ -7,11 +7,12 @@ from aws_cdk import (
     Duration,
     aws_ecs as ecs,
 )
-
+from moto import mock_aws
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config, _parse_config
 
 
 # Define the dataclass for each config
+@mock_aws # For describing the ec2_instance in the config loader:
 @dataclass
 class ConfigInfo:
     label: str
