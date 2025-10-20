@@ -34,8 +34,7 @@ class TestSpinDownASGOnError:
     def test_asg_starting_state(self, setup_env):
         """Test that the ASG starts with the correct state."""
         setup_env(self.env)
-        asg_client = self.asg_client
-        asg = asg_client.describe_auto_scaling_groups(
+        asg = self.asg_client.describe_auto_scaling_groups(
             AutoScalingGroupNames=[self.env["ASG_NAME"]],
         )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == 1
@@ -52,16 +51,16 @@ class TestSpinDownASGOnError:
             DesiredCapacity=starting_capacity,
         )
         # Make sure it's set:
-        asg = self.asg_client.describe_auto_scaling_groups(
+        asg_info = self.asg_client.describe_auto_scaling_groups(
             AutoScalingGroupNames=[self.env["ASG_NAME"]],
         )["AutoScalingGroups"][0]
-        assert asg["DesiredCapacity"] == starting_capacity
+        assert asg_info["DesiredCapacity"] == starting_capacity
 
         # Call the lambda:
         spin_down_asg_on_error.lambda_handler(event={}, context={})
 
         # Check if the ASG Is spun down (DesiredCapacity = 0):
-        asg = self.asg_client.describe_auto_scaling_groups(
+        asg_info = self.asg_client.describe_auto_scaling_groups(
             AutoScalingGroupNames=[self.env["ASG_NAME"]],
         )["AutoScalingGroups"][0]
-        assert asg["DesiredCapacity"] == 0
+        assert asg_info["DesiredCapacity"] == 0

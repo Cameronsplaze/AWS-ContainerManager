@@ -10,4 +10,4 @@ def pytest_configure(config): # pylint: disable=unused-argument
     assert os.getenv("AWS_SHARED_CREDENTIALS_FILE") is not None, "We don't want your REAL aws config!"
     aws_creds_file = os.getenv("AWS_SHARED_CREDENTIALS_FILE")
     assert aws_creds_file is not None
-    assert not os.path.isfile(aws_creds_file), "Don't have a real creds file, AWS calls should be mocked anyways."
+    assert os.path.isfile(aws_creds_file)
