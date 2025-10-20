@@ -16,3 +16,4 @@ We run pytest through [tox](https://tox.wiki/en/), so we can create the environm
 
 - First I tried monkeypatching the env-vars in a session-level fixture. The problem is some tests use `pytest.mark.parametrize` on configs, which in turn use boto3 calls to make sure the ec2-instance exists. I want AWS failures to be automatically caught regardless of where they are, so I need the env-vars declared before pytest starts.
 - The other option was to use `os.environ` in `pytest_configure`, but the problem is I don't want to nuke the developers REAL creds after the tests are over. `tox` was the only option I saw that restores env-vars after the tests are done.
+- With the current option, we can verify the test can ONLY run through `tox` with the asserts I have in [pytest_configure(config)](./conftest.py). If the env-vars aren't faked, that'll stop the suite from even collecting the tests.
