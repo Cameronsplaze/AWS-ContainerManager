@@ -1,7 +1,7 @@
 
 import os
 
-def pytest_configure(config):
+def pytest_configure(config): # pylint: disable=unused-argument
     """ Runs at the very start of pytest execution. """
 
     # Make sure AWS is faked, so it's impossible to make real AWS calls during tests:

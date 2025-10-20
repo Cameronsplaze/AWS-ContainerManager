@@ -432,6 +432,7 @@ disable=raw-checker-failed,
         use-a-generator, # list comprehensions are MUCH easier to read, and similar speed for our size of data
         duplicate-code,  # Too many false alarms, cdk code looks similar all over
         too-many-positional-arguments, # NestedStacks need a lot of arguments, to keep their components grouped
+        too-few-public-methods, # Data classes with one method is common for organization. (i.e structs)
 
 
 # Enable the message, report, category or checker with the given id(s). You can
