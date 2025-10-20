@@ -14,5 +14,6 @@ Since both `config_parser` and `cloudformation` use the same config objects, in 
 
 We run pytest through [tox](https://tox.wiki/en/), so we can create the environment to test in. Mainly, remove the AWS creds/configuration while the test suite is running. This makes sure we don't accidentally hit AWS directly, if we miss a mock somewhere.
 
-- First I tried monkeypatching the env-vars in a session-level fixture. The problem is some tests use `pytest.mark.parametrize` on configs, which in turn use boto3 calls to make sure the ec2-instance exists. I want AWS failures to be automatically caught regardless of where they are, so I need the env-vars declared before pytest starts.
+- First I tried monkeypatching the env-vars in a session-level fixture. The problem is this only mocks boto3 clients created AFTER tests are collected. If there are any boto3 clients created at import-time, or if you use boto3 calls in `pytest.mark.parametrize`, those calls will still use the REAL creds. I want to guarantee if the suite is running, you NEVER hit AWS directly.
 - The other option was to use `os.environ` in `pytest_configure`, but the problem is I don't want to nuke the developers REAL creds after the tests are over. `tox` was the only option I saw that restores env-vars after the tests are done.
+- With the current option, we can verify the test can ONLY run through `tox` with the asserts I have in [pytest_configure(config)](./conftest.py). If the env-vars aren't faked, that'll stop the suite from even collecting the tests.

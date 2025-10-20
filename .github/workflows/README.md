@@ -18,10 +18,9 @@ There's a lot of tweaks I had to do to get this working. Will come back to at so
 
 ## main-pipeline-cdk.yml
 
-On PR's, it synths all the cdk stacks, and when merged, will deploy them to main.
+This handles deploying automatically. It'll first deploy the base stack, then loop over each leaf-stack (names declared in env.DEPLOY_EXAMPLES) to deploy.
 
-- It's specifically designed to synth on PR's, and deploy on push's, but not vise-versa. This way when it merges to main, you're not trying to synth and deploying at the same time. (synth-ing THEN deploying is pointless, since it had to successfully synth to be merged in the first place...).
-- These run on PR's even though they only have a `push` trigger, because of how GH does commits behind the scenes. I have these all listed as `required` in the branch protection rules, so GH will still wait for them to finish before letting you merge the branch.
+- It used to handle synthing too, but that's moved into the pytest suite now.
 
 ## Automatic Deployments: Whitelisting/Adding a Container
 
