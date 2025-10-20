@@ -20,9 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # ## Install Python:
-      # - name: Setup CDK
-      #   uses: ./.github/workflows/composite-setup-python
+      ## Install Tox:
+      - name: Install Tox
+        run: sudo apt-get install -y tox
 
       ## Run Pytest:
       - name: Run Pytest
