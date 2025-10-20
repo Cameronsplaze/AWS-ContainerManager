@@ -1,7 +1,6 @@
 
 import json
 
-import boto3
 from moto import mock_aws
 
 ## This has to be the full path, to let us modify the values here:
@@ -28,8 +27,16 @@ class TestTriggerStartSystem:
 
     def setup_method(self, _method):
         # Reset the env vars, so each test is a "cold start":
-        trigger_start_system._env_vars = None # pylint: disable=protected-access
-        ## Override the lambda's boto3 client(s) here, to make sure moto mocks them:
-        #    (All moto clients have to be in-scope, together. They'll error if in setup_class.)
-        trigger_start_system.cloudwatch_client = boto3.client('cloudwatch', region_name="us-west-2")
-        trigger_start_system.asg_client = boto3.client('autoscaling', region_name="us-west-2")
+        trigger_start_system.get_env_vars.cache_clear()
+        # And reset the boto3 clients:
+        trigger_start_system.get_cloudwatch_client.cache_clear()
+        trigger_start_system.get_asg_client.cache_clear()
+
+        ## CAN'T Create shared clients here. They have to be initialized
+        # after the `setup_env` call in each test, so the env-vars exist.
+
+    def test_stuff(self, setup_env):
+        setup_env(self.env)
+        _cloudwatch_client = trigger_start_system.get_cloudwatch_client()
+        _asg_client = trigger_start_system.get_asg_client()
+        assert True, "Add real tests here."

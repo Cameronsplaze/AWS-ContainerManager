@@ -3,6 +3,8 @@ Leaf Config Parser
 
 The docs for schema is at: https://github.com/keleshev/schema
 """
+from functools import cache
+
 from schema import Schema, And, Or, Use, Optional
 
 import boto3
@@ -13,7 +15,10 @@ from aws_cdk import (
 
 from .sns_subscriptions import sns_schema
 
-ec2_client = boto3.client('ec2')
+@cache
+def get_ec2_client():
+    """ Just used to discribe the instance types """
+    return boto3.client('ec2')
 
 ### You have to keep Schema's separate, when you need an Optional dict of an Optional dict.
 # (AKA with {"a": {"b": "c"}}, if you declare "a" as optional, the "b" and "c" dict won't get
@@ -47,7 +52,7 @@ def leaf_config_schema(maturity: str) -> Schema:
             {"InstanceType": Use(str.lower)},
             ## Cast the InstanceType to the boto3 response with ALL it's info:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_types.html#EC2.Client.describe_instance_types
-            Use(lambda info: ec2_client.describe_instance_types(
+            Use(lambda info: get_ec2_client().describe_instance_types(
                 InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0],
             ),
             # Make sure we have at least 1 GB for EACH of host and guest:

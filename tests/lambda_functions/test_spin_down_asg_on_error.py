@@ -22,14 +22,20 @@ class TestSpinDownASGOnError:
         }
 
     def setup_method(self, _method):
-        spin_down_asg_on_error.asg_client, _ = setup_autoscaling_group(
+        # Reset everything, so each test is a "cold start":
+        spin_down_asg_on_error.get_env_vars.cache_clear()
+        spin_down_asg_on_error.get_asg_client.cache_clear()
+
+        setup_autoscaling_group(
             self.env["ASG_NAME"],
         )
+        self.asg_client = spin_down_asg_on_error.get_asg_client() # pylint: disable=attribute-defined-outside-init
 
     def test_asg_starting_state(self, setup_env):
         """Test that the ASG starts with the correct state."""
         setup_env(self.env)
-        asg = spin_down_asg_on_error.asg_client.describe_auto_scaling_groups(
+        asg_client = self.asg_client
+        asg = asg_client.describe_auto_scaling_groups(
             AutoScalingGroupNames=[self.env["ASG_NAME"]],
         )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == 1
@@ -41,12 +47,12 @@ class TestSpinDownASGOnError:
         """Test that the lambda spins down the ASG to 0, regardless of starting capacity."""
         # First, update the ASG:
         setup_env(self.env)
-        spin_down_asg_on_error.asg_client.update_auto_scaling_group(
+        self.asg_client.update_auto_scaling_group(
             AutoScalingGroupName=self.env["ASG_NAME"],
             DesiredCapacity=starting_capacity,
         )
         # Make sure it's set:
-        asg = spin_down_asg_on_error.asg_client.describe_auto_scaling_groups(
+        asg = self.asg_client.describe_auto_scaling_groups(
             AutoScalingGroupNames=[self.env["ASG_NAME"]],
         )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == starting_capacity
@@ -55,7 +61,7 @@ class TestSpinDownASGOnError:
         spin_down_asg_on_error.lambda_handler(event={}, context={})
 
         # Check if the ASG Is spun down (DesiredCapacity = 0):
-        asg = spin_down_asg_on_error.asg_client.describe_auto_scaling_groups(
+        asg = self.asg_client.describe_auto_scaling_groups(
             AutoScalingGroupNames=[self.env["ASG_NAME"]],
         )["AutoScalingGroups"][0]
         assert asg["DesiredCapacity"] == 0

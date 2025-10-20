@@ -121,5 +121,3 @@ class TestConfigParser:
         tmp_expected_output = copy.deepcopy(config.expected_output)
         tmp_expected_output.update(minimal_config)
         assert tmp_expected_output == minimal_config, "Extra keys exist in `config.expected_output`."
-
-

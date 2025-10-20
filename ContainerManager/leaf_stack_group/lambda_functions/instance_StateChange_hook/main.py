@@ -7,7 +7,7 @@ whenever the ASG state changes (instance starts or stops).
 import os
 import sys
 import json
-
+from functools import cache
 from dataclasses import dataclass, asdict
 
 import boto3
@@ -24,33 +24,33 @@ class EnvVars:
     RECORD_TYPE: str
     # pylint: enable=invalid-name
 
-# Lazy-load the env vars on first use
-_env_vars: EnvVars | None = None
-
+@cache
 def get_env_vars() -> EnvVars:
-    """ Lazy-load and validate the environment variables """
-    global _env_vars # pylint: disable=global-statement
-    if _env_vars is None:
-        # EnvVars will naturally error with ALL the missing env-vars on creation:
-        _env_vars = EnvVars(**{
-            # DON'T use getenv. We don't want the key to exist if it's missing.
-            k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
-        })
-    return _env_vars
+    """ Lazy-load and Validate the environment variables """
+    # EnvVars will naturally error with ALL the missing env-vars on creation:
+    return EnvVars(**{
+        # DON'T use getenv. We don't want the key to exist if it's missing.
+        k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
+    })
 
 
-## Required Boto3 Clients:
-#    Can get cached if function is reused, keep clients that are used on spin-UP here:
-route53_client = boto3.client('route53') # Used for updating DNS record
-ec2_client = boto3.client('ec2')         # Used for getting the new instance's IP
-## Optional Client (Only hit when the server's spinning DOWN):
-asg_client = None  # Used for updating DNS record
-def _get_asg_client():
-    """ Lazy-load the asg client, only if needed """
-    global asg_client # pylint: disable=global-statement
-    if asg_client is None:
-        asg_client = boto3.client('autoscaling')
-    return asg_client
+## Boto3 Clients:
+# ALWAYS use @cache for clients. Even if they're always called, it helps
+# them not exist until moto is setup inside of the test suite.
+@cache
+def get_route53_client():
+    """ Used for updating the DNS record """
+    return boto3.client('route53')
+
+@cache
+def get_ec2_client():
+    """ Used for getting the new instance's IP """
+    return boto3.client('ec2')
+
+@cache
+def get_asg_client():
+    """ Used for checking ASG instance states """
+    return boto3.client('autoscaling')
 
 
 def lambda_handler(event: dict, context: dict) -> None:
@@ -78,6 +78,7 @@ def lambda_handler(event: dict, context: dict) -> None:
 def get_public_ip(instance_id: str) -> str:
     """ Get the instance's public IP """
     # Since you're supplying an ID, there should always be exactly one:
+    ec2_client = get_ec2_client()
     instance_details = ec2_client.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
     print(json.dumps({'InstanceDetails': instance_details}, indent=4, default=str))
     return instance_details["PublicIpAddress"]
@@ -89,6 +90,7 @@ def update_dns_zone(new_ip: str) -> None:
     env = get_env_vars()
 
     ### Update the record with the new IP:
+    route53_client = get_route53_client()
     route53_client.change_resource_record_sets(
         HostedZoneId=env.HOSTED_ZONE_ID,
         ChangeBatch={
@@ -113,7 +115,7 @@ def exit_if_asg_instance_coming_up(asg_name: str) -> None:
     """
     # asg_client: Normally initializing boto3.client is expensive and this should be global, BUT we only
     # care about spin-*UP* time. This only runs when system is shutting *down*.
-    asg_client = _get_asg_client() # pylint: disable=redefined-outer-name
+    asg_client = get_asg_client() # pylint: disable=redefined-outer-name
     # With using asg_name, we guarantee there's only one output:
     asg_info = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])['AutoScalingGroups'][0]
     for instance in asg_info['Instances']:

@@ -1,5 +1,4 @@
 
-import boto3
 from moto import mock_aws
 import pytest
 
@@ -24,14 +23,19 @@ class TestInstanceStateChangeHook:
 
     def setup_method(self, _method):
         # Reset the env vars, so each test is a "cold start":
-        instance_StateChange_hook._env_vars = None # pylint: disable=protected-access
+        instance_StateChange_hook.get_env_vars.cache_clear()
         ## Override the lambda's boto3 client(s) here, to make sure moto mocks them:
         #    (All moto clients have to be in-scope, together. They'll error if in setup_class.)
-        instance_StateChange_hook.route53_client = boto3.client('route53', region_name="us-west-2")
-        instance_StateChange_hook.ec2_client = boto3.client('ec2', region_name="us-west-2")
+        instance_StateChange_hook.get_route53_client.cache_clear()
+        instance_StateChange_hook.get_ec2_client.cache_clear()
+        instance_StateChange_hook.get_asg_client.cache_clear()
+
+        self.route53_client = instance_StateChange_hook.get_route53_client() # pylint: disable=attribute-defined-outside-init
+        self.asg_client = instance_StateChange_hook.get_asg_client() # pylint: disable=attribute-defined-outside-init
+
         ## Create a hosted zone for each test:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/create_hosted_zone.html
-        hosted_zone = instance_StateChange_hook.route53_client.create_hosted_zone(
+        hosted_zone = self.route53_client.create_hosted_zone(
             Name="example.com.",
             CallerReference="test-reference",
             HostedZoneConfig={
@@ -46,7 +50,7 @@ class TestInstanceStateChangeHook:
         self.env["HOSTED_ZONE_ID"] = hosted_zone_id
         ## Create a record set for each test:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/change_resource_record_sets.html
-        instance_StateChange_hook.route53_client.change_resource_record_sets(
+        self.route53_client.change_resource_record_sets(
             HostedZoneId=self.env['HOSTED_ZONE_ID'],
             ChangeBatch={
                 'Changes': [{
@@ -62,13 +66,13 @@ class TestInstanceStateChangeHook:
         )
         ## Create an ASG for each test:
         self.asg_name = "test-asg" # pylint: disable=attribute-defined-outside-init
-        instance_StateChange_hook.asg_client, _ = setup_autoscaling_group(self.asg_name)
+        setup_autoscaling_group(self.asg_name)
 
     def test_starting_record_values(self, setup_env):
         """ Test that the starting record values are correct (Other tests will change these) """
         setup_env(self.env)
         ## Check the record:
-        records = instance_StateChange_hook.route53_client.list_resource_record_sets(
+        records = self.route53_client.list_resource_record_sets(
             HostedZoneId=self.env['HOSTED_ZONE_ID']
         )["ResourceRecordSets"]
         # There should be three records: the default NS and SOA, and our A record:
@@ -89,19 +93,20 @@ class TestInstanceStateChangeHook:
         """ Test that the lambda sets the IP correctly on both event types """
         setup_env(self.env)
         ## First, update the ASG:
-        instance_StateChange_hook.asg_client.update_auto_scaling_group(
+        self.asg_client.update_auto_scaling_group(
             AutoScalingGroupName=self.asg_name,
             DesiredCapacity=desired_capacity,
         )
         ## Figure out the instance ID, if there is one:
-        asg_info = instance_StateChange_hook.asg_client.describe_auto_scaling_instances()
+        asg_info = self.asg_client.describe_auto_scaling_instances()
         assert len(asg_info["AutoScalingInstances"]) == desired_capacity
         ## Depending on the event, set what the lambda will check for the IP:
         if event_type == "EC2 Instance Launch Successful":
             # Moto doesn't support public IPs, so we have to mock it:
+            ec2_client = instance_StateChange_hook.get_ec2_client()
             mock_ec2_response = {"Reservations": [{"Instances": [{"PublicIpAddress": "1.2.3.4"}]}]}
             monkeypatch.setattr(
-                instance_StateChange_hook.ec2_client,
+                ec2_client,
                 "describe_instances",
                 lambda *args, **kwargs: mock_ec2_response
             )
@@ -121,7 +126,7 @@ class TestInstanceStateChangeHook:
             context={},
         )
         ## Check the record:
-        records = instance_StateChange_hook.route53_client.list_resource_record_sets(
+        records = self.route53_client.list_resource_record_sets(
             HostedZoneId=self.env['HOSTED_ZONE_ID']
         )["ResourceRecordSets"]
         a_record = records[2]
@@ -137,7 +142,7 @@ class TestInstanceStateChangeHook:
         ## First, update the ASG:
         instance_id = "i-1234567890abcdef0"
         lifecycle_state = "Pending"
-        instance_StateChange_hook.asg_client.update_auto_scaling_group(
+        self.asg_client.update_auto_scaling_group(
             AutoScalingGroupName=self.asg_name,
             DesiredCapacity=0,
         )
@@ -152,7 +157,7 @@ class TestInstanceStateChangeHook:
             }],
         }
         monkeypatch.setattr(
-            instance_StateChange_hook.asg_client,
+            self.asg_client,
             "describe_auto_scaling_groups",
             lambda *args, **kwargs: mock_asg_response
         )

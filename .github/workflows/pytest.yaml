@@ -15,14 +15,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pytest:
+  run-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      ## Install Python:
-      - name: Setup CDK
-        uses: ./.github/workflows/composite-setup-python
+      # ## Install Python:
+      # - name: Setup CDK
+      #   uses: ./.github/workflows/composite-setup-python
 
       ## Run Pytest:
       - name: Run Pytest
