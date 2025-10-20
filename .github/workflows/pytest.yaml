@@ -29,9 +29,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      ## Setup Python:
+      - name: Setup Python
+        uses: ./.github/workflows/composite-setup-python
+        with:
+          # Tox will install them into it's own env:
+          install-packages: False
+
       ## Install Tox:
       - name: Install Tox
-        run: sudo apt-get install -y tox
+        run: python3 -m pip install tox
 
       ## Run Pytest:
       - name: Run Pytest
