@@ -31,23 +31,23 @@ flowchart LR
 
 ### Summary of Actions
 
-- #### [Main Pipeline CDK](./main-pipeline-cdk.yml)
+- #### [Main Pipeline CDK](./main-pipeline-cdk.yml) (./main-pipeline-cdk.yml)
 
     Mainly runs whenever a PR is merged. It'll deploy the base-stack first, then loop over each leaf-stack defined in [vars.DEPLOY_ENVIRONMENTS](#automating-a-new-leaf-stack-deployment) to deploy them one-by-one.
 
-- #### [Dispatch: Deploy Leaf Stack](./dispatch-deploy-leaf-stack.yaml)
+- #### [Dispatch: Deploy Leaf Stack](./dispatch-deploy-leaf-stack.yaml) (./dispatch-deploy-leaf-stack.yaml)
 
-    Similar to [Main Pipeline CDK](#main-pipeline-cdk), but it only deploys a single leaf-stack, and does NOT update the base-stack. Meant to be triggered manually whenever you need quick updates to a single leaf-stack.
+    Similar to [Main Pipeline CDK](#main-pipeline-cdk-main-pipeline-cdkyml), but it only deploys a single leaf-stack, and does NOT update the base-stack. Meant to be triggered manually whenever you need quick updates to a single leaf-stack.
 
-- #### [Dispatch: DELETE Leaf Stack](./dispatch-delete-leaf-stack.yaml)
+- #### [Dispatch: DELETE Leaf Stack](./dispatch-delete-leaf-stack.yaml) (./dispatch-delete-leaf-stack.yaml)
 
-    Similar to [Dispatch: Deploy Leaf Stack](#dispatch-deploy-leaf-stack), but it DELETES the leaf-stack instead.
+    Similar to [Dispatch: Deploy Leaf Stack](#dispatch-deploy-leaf-stack-dispatch-deploy-leaf-stackyaml), but it DELETES the leaf-stack instead.
 
-- #### [Dependabot Automerge PR](./dependabot-automerge-pr.yml)
+- #### [Dependabot Automerge PR](./dependabot-automerge-pr.yml) (./dependabot-automerge-pr.yml)
 
     See [Dependabot Auto-Updates](#dependabot-auto-updates) for details.
 
-- #### [Pytest](./pytest.yaml)
+- #### [Pytest](./pytest.yaml) (./pytest.yaml)
 
     Runs all the unit tests in the repo. Also includes loading ALL `./Examples/*` configs, to make sure they never go out of date.
 
@@ -65,7 +65,7 @@ We keep deployments separate with using GitHub Environments. The `Name` of the e
 
 For each separate environment, you'll have to also set:
 
-- `vars.CONFIG_PATH`: The path to the config file inside this repo. (i.e `./Examples/Minecraft.java.example.yaml`) 
+- `vars.CONFIG_PATH`: The path to the config file inside this repo. (i.e `./Examples/Minecraft.java.example.yaml`)
 
 In the "root" GitHub Variables (NOT the environment), you'll also want to update `DEPLOY_ENVIRONMENTS`. It's a **newline-separated** list of GH environment NAMES to deploy.
 
