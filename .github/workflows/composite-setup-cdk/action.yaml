@@ -38,8 +38,8 @@ runs:
           echo "$VARS_CONTEXT" | to_envs >> $GITHUB_ENV
           echo "$SECRETS_CONTEXT" | to_envs >> $GITHUB_ENV
       env:
-          SECRETS_CONTEXT: ${{ fromJSON(inputs.secrets) }}
-          VARS_CONTEXT: ${{ fromJSON(inputs.vars) }}
+          SECRETS_CONTEXT: ${{ inputs.secrets }}
+          VARS_CONTEXT: ${{ inputs.vars }}
 
     # Finally, install everything:
     - name: Setup Python
