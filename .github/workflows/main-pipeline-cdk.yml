@@ -18,7 +18,9 @@ on:
 ## If another similar workflow is running, kill it:
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  ## You can have variables here, but I want this to cancel
+  # cross-branch AND cross-workflows too. ONLY one deploy at a time:
+  group: "cdk-deploy-leaf"
   cancel-in-progress: true
 
 
@@ -88,37 +90,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup/Check Environment Variables
-        run: |
-          ## IF CONFIG_PATH var doesn't exist:
-          if [[ -z "${{ vars.CONFIG_PATH }}" ]]; then
-            echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-            echo "> **Required EnvVar Not Set** in environment \`${{ matrix.container-id }}\`, exiting. Populate the 'CONFIG_PATH' GH Variable." >> $GITHUB_STEP_SUMMARY
-          ## IF the file inside CONFIG_PATH is missing:
-          elif [[ ! -f "${{ vars.CONFIG_PATH }}" ]]; then
-            echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-            echo "> **Config File Not Found at '${{ vars.CONFIG_PATH }}'** in environment \`${{ matrix.container-id }}\`, exiting." >> $GITHUB_STEP_SUMMARY
-            echo "> (I.e good example: \`CONFIG_PATH=./Examples/Minecraft.java.example.yaml\`)" >> $GITHUB_STEP_SUMMARY
-          ## ELSE, all good:
-          else
-            ## SUCCESS!!!
-            exit 0
-          fi
-          ## One of the checks failed, give extra info and fail:
-          echo "> More info at: $(git config --get remote.origin.url)/blob/main/.github/workflows/README.md" >> $GITHUB_STEP_SUMMARY
-          exit -1
-
-      ## Install Everything / Setup Env Vars:
-      - name: Setup CDK
-        uses: ./.github/workflows/composite-setup-cdk
+      - name: Setup CDK Deploy Leaf
+        uses: ./.github/workflows/composite-cdk-deploy-leaf
         with:
+          environment: ${{ matrix.container-id }}
           secrets: ${{ toJson(secrets) }}
           vars: ${{ toJson(vars) }}
-
-      ## Deploy the Leaf Stack:
-      - name: "Deploying: ${{ matrix.container-id }}"
-        # CONTAINER_ID: Same as the GH Environment name, so it and deployments are one-to-one.
-        run: |
-          make cdk-deploy-leaf \
-            config-file="${{ vars.CONFIG_PATH }}" \
-            container-id=${{ matrix.container-id }}
