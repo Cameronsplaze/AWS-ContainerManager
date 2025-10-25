@@ -16,18 +16,19 @@ inputs:
 runs:
   using: "composite"
   steps:
-
+        # Can switch to using secrets/vars directly if github ever
+        # adds support: https://github.com/actions/toolkit/issues/1168
       - name: Setup/Check Environment Variables
         shell: bash
         run: |
           ## IF CONFIG_PATH var doesn't exist:
-          if [[ -z "${{ vars.CONFIG_PATH }}" ]]; then
+          if [[ -z "${{ fromJSON(inputs.vars).CONFIG_PATH }}" ]]; then
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-            echo "> **Required EnvVar Not Set** in environment \`${{ matrix.container-id }}\`, exiting. Populate the 'CONFIG_PATH' GH Variable." >> $GITHUB_STEP_SUMMARY
+            echo "> **Required EnvVar Not Set** in environment \`${{ inputs.environment }}\`, exiting. Populate the 'CONFIG_PATH' GH Variable." >> $GITHUB_STEP_SUMMARY
           ## IF the file inside CONFIG_PATH is missing:
-          elif [[ ! -f "${{ vars.CONFIG_PATH }}" ]]; then
+          elif [[ ! -f "${{ fromJSON(inputs.vars).CONFIG_PATH }}" ]]; then
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-            echo "> **Config File Not Found at '${{ vars.CONFIG_PATH }}'** in environment \`${{ matrix.container-id }}\`, exiting." >> $GITHUB_STEP_SUMMARY
+            echo "> **Config File Not Found at '${{ fromJSON(inputs.vars).CONFIG_PATH }}'** in environment \`${{ inputs.environment }}\`, exiting." >> $GITHUB_STEP_SUMMARY
             echo "> (I.e good example: \`CONFIG_PATH=./Examples/Minecraft.java.example.yaml\`)" >> $GITHUB_STEP_SUMMARY
           ## ELSE, all good:
           else
@@ -47,10 +48,10 @@ runs:
           vars: ${{ toJson(vars) }}
 
       ## Deploy the Leaf Stack:
-      - name: "Deploying: ${{ matrix.container-id }}"
+      - name: "Deploying: ${{ inputs.environment }}"
         shell: bash
         # CONTAINER_ID: Same as the GH Environment name, so it and deployments are one-to-one.
         run: |
           make cdk-deploy-leaf \
-            config-file="${{ vars.CONFIG_PATH }}" \
-            container-id=${{ matrix.container-id }}
+            config-file="${{ fromJSON(inputs.vars).CONFIG_PATH }}" \
+            container-id=${{ inputs.environment }}
