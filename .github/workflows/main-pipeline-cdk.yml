@@ -88,14 +88,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Environment Variables
+      - name: Setup/Check Environment Variables
         run: |
           if [[ -z "${{ vars.CONFIG_PATH }}" ]]; then
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-            echo "> **Required EnvVar Not Set**, exiting. Populate the 'CONFIG_PATH' GH Variable to change." >> $GITHUB_STEP_SUMMARY
+            echo "> **Required EnvVar Not Set**, exiting. Populate the '<GH_Environment>.CONFIG_PATH' GH Variable to change." >> $GITHUB_STEP_SUMMARY
             exit -1
-          else
-            echo "CONFIG_PATH=${{ vars.CONFIG_PATH }}" >> $GITHUB_ENV
           fi
 
       ## Install Everything / Setup Env Vars:
@@ -110,5 +108,5 @@ jobs:
         # CONTAINER_ID: Same as the GH Environment name, so it and deployments are one-to-one.
         run: |
           make cdk-deploy-leaf \
-            config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.container-id }}" \
+            config-file="${{ vars.CONFIG_PATH }}" \
             container-id=${{ matrix.container-id }}
