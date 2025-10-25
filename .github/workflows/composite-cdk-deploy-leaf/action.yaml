@@ -43,8 +43,10 @@ runs:
       - name: Setup CDK
         uses: ./.github/workflows/composite-setup-cdk
         with:
-          secrets: ${{ toJson(inputs.secrets) }}
-          vars: ${{ toJson(inputs.vars) }}
+          # secrets: ${{ toJson(inputs.secrets) }}
+          # vars: ${{ toJson(inputs.vars) }}
+          secrets: inputs.secrets
+          vars: inputs.vars
 
       ## Deploy the Leaf Stack:
       - name: "Deploying: ${{ inputs.environment }}"

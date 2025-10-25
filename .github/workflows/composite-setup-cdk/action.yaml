@@ -6,11 +6,9 @@ inputs:
   secrets:
     description: "The secrets to export as environment variables"
     required: true
-    default: "{}"
   vars:
     description: "The vars to export as environment variables"
     required: true
-    default: "{}"
 
 runs:
   using: "composite"
