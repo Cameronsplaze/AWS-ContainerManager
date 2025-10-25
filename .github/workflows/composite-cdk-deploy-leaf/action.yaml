@@ -41,7 +41,6 @@ runs:
 
       ## Install Everything / Setup Env Vars:
       - name: Setup CDK
-        shell: bash
         uses: ./.github/workflows/composite-setup-cdk
         with:
           secrets: ${{ toJson(secrets) }}
