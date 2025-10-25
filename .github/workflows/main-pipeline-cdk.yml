@@ -94,6 +94,11 @@ jobs:
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
             echo "> **Required EnvVar Not Set**, exiting. Populate the '<GH_Environment>.CONFIG_PATH' GH Variable to change." >> $GITHUB_STEP_SUMMARY
             exit -1
+          elif [[ ! -f "${{ vars.CONFIG_PATH }}" ]]; then
+            echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
+            echo "> **Config File Not Found at '${{ vars.CONFIG_PATH }}'**, exiting." >> $GITHUB_STEP_SUMMARY
+            echo "> (I.e good example: `CONFIG_PATH=./Examples/Minecraft.java.example.yaml`)" >> $GITHUB_STEP_SUMMARY
+            exit -1
           fi
 
       ## Install Everything / Setup Env Vars:
