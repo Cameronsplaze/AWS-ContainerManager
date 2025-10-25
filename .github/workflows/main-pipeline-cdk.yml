@@ -90,17 +90,23 @@ jobs:
 
       - name: Setup/Check Environment Variables
         run: |
+          ## IF CONFIG_PATH var doesn't exist:
           if [[ -z "${{ vars.CONFIG_PATH }}" ]]; then
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
             echo "> **Required EnvVar Not Set**, exiting. Populate the '<GH_Environment>.CONFIG_PATH' GH Variable to change." >> $GITHUB_STEP_SUMMARY
-            exit -1
+          ## IF the file inside CONFIG_PATH is missing:
           elif [[ ! -f "${{ vars.CONFIG_PATH }}" ]]; then
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
             echo "> **Config File Not Found at '${{ vars.CONFIG_PATH }}'**, exiting." >> $GITHUB_STEP_SUMMARY
             echo "> (I.e good example: \`CONFIG_PATH=./Examples/Minecraft.java.example.yaml\`)" >> $GITHUB_STEP_SUMMARY
-            echo "> More info at: $(git config --get remote.origin.url)/blob/main/.github/workflows/README.md" >> $GITHUB_STEP_SUMMARY
-            exit -1
+          ## ELSE, all good:
+          else
+            ## SUCCESS!!!
+            exit 0
           fi
+          ## One of the checks failed, give extra info and fail:
+          echo "> More info at: $(git config --get remote.origin.url)/blob/main/.github/workflows/README.md" >> $GITHUB_STEP_SUMMARY
+          exit -1
 
       ## Install Everything / Setup Env Vars:
       - name: Setup CDK
