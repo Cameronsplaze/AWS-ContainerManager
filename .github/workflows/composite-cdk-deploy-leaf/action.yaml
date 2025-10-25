@@ -1,0 +1,56 @@
+name: "Composite: CDK Deploy Leaf"
+
+description: "Deploy Leaf Stack via CDK"
+
+inputs:
+  environment:
+    description: "The GitHub Environment (And thus, container-id) to use"
+    required: true
+  secrets:
+    description: "The secrets to export as environment variables"
+    required: true
+  vars:
+    description: "The vars to export as environment variables"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+        # Can switch to using secrets/vars directly if github ever
+        # adds support: https://github.com/actions/toolkit/issues/1168
+      - name: Setup/Check Environment Variables
+        shell: bash
+        run: |
+          ## IF CONFIG_PATH var doesn't exist:
+          if [[ -z "${{ fromJSON(inputs.vars).CONFIG_PATH }}" ]]; then
+            echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
+            echo "> **Required EnvVar Not Set** in environment \`${{ inputs.environment }}\`, exiting. Populate the 'CONFIG_PATH' GH Variable." >> $GITHUB_STEP_SUMMARY
+          ## IF the file inside CONFIG_PATH is missing:
+          elif [[ ! -f "${{ fromJSON(inputs.vars).CONFIG_PATH }}" ]]; then
+            echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
+            echo "> **Config File Not Found at '${{ fromJSON(inputs.vars).CONFIG_PATH }}'** in environment \`${{ inputs.environment }}\`, exiting." >> $GITHUB_STEP_SUMMARY
+            echo "> (I.e good example: \`CONFIG_PATH=./Examples/Minecraft.java.example.yaml\`)" >> $GITHUB_STEP_SUMMARY
+          ## ELSE, all good:
+          else
+            ## SUCCESS!!!
+            exit 0
+          fi
+          ## One of the checks failed, give extra info and fail:
+          echo "> More info at: $(git config --get remote.origin.url)/blob/main/.github/workflows/README.md#automating-a-new-leaf-stack-deployment" >> $GITHUB_STEP_SUMMARY
+          exit -1
+
+      ## Install Everything / Setup Env Vars:
+      - name: Setup CDK
+        uses: ./.github/workflows/composite-setup-cdk
+        with:
+          secrets: ${{ inputs.secrets }}
+          vars: ${{ inputs.vars }}
+
+      ## Deploy the Leaf Stack:
+      - name: "Deploying: ${{ inputs.environment }}"
+        shell: bash
+        # CONTAINER_ID: Same as the GH Environment name, so it and deployments are one-to-one.
+        run: |
+          make cdk-deploy-leaf \
+            config-file="${{ fromJSON(inputs.vars).CONFIG_PATH }}" \
+            container-id=${{ inputs.environment }}

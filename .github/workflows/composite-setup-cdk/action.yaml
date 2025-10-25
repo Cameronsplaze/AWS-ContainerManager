@@ -63,7 +63,7 @@ runs:
     # Do this last, so the timeout lasts the longest.
     - uses: aws-actions/configure-aws-credentials@v4
       with:
-        # Can switch to using secrets directly if github ever
+        # Can switch to using secrets/vars directly if github ever
         # adds support: https://github.com/actions/toolkit/issues/1168
         aws-region: "${{ fromJSON(inputs.vars).AWS_REGION }}"
         role-to-assume: "arn:aws:iam::${{ fromJSON(inputs.secrets).AWS_ACCOUNT_ID }}:role/${{ fromJSON(inputs.vars).AWS_DEPLOY_ROLE }}"

@@ -18,7 +18,9 @@ on:
 ## If another similar workflow is running, kill it:
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  ## You can have variables here, but I want this to cancel
+  # cross-branch AND cross-workflows too. ONLY one deploy at a time:
+  group: "cdk-deploy-leaf"
   cancel-in-progress: true
 
 
@@ -30,19 +32,19 @@ jobs:
   setup-matrix:
     runs-on: ubuntu-latest
     outputs:
-      deploy-matrix: ${{ steps.setup-deploy.outputs.deploy-config-files }}
+      deploy-matrix: ${{ steps.setup-deploy.outputs.container-id-files }}
     steps:
       - uses: actions/checkout@v5
 
       - name: Setup cdk-deploy Matrix
         id: setup-deploy
         run: |
-          github_vars_list=$(echo "${{ vars.DEPLOY_EXAMPLES }}" | tr '\r\n' ' ')
+          github_vars_list=$(echo "${{ vars.DEPLOY_ENVIRONMENTS }}" | tr '\r\n' ' ')
           json_list=$(echo $github_vars_list | jq --raw-input --compact-output 'split(" ")')
-          echo "deploy-config-files=$json_list" >> "$GITHUB_OUTPUT"
+          echo "container-id-files=$json_list" >> "$GITHUB_OUTPUT"
           if [ $json_list == '[]' ] && ([ ${{ github.event.pull_request.merged }} == 'true' ] || [ ${{ github.event_name }} == 'workflow_dispatch' ]); then
               echo "> [!WARNING]" >> $GITHUB_STEP_SUMMARY
-              echo "> **No deploy examples found**, skipping deployments. Populate the 'DEPLOY_EXAMPLES' GH Variable to change." >> $GITHUB_STEP_SUMMARY
+              echo "> **No deploy environments found**, skipping deployments. Populate the 'DEPLOY_ENVIRONMENTS' GH Variable to change." >> $GITHUB_STEP_SUMMARY
               echo "> More info at `./.github/workflows/README.md#forking-this-repo`" >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -60,15 +62,6 @@ jobs:
     needs:
       - setup-matrix
     steps:
-      ## Moved this check away from the job-level 'if', so it actually fails if you're
-      # not on main. Failure is easier to see than a skipped job.
-      - name: Fail if not 'main' (else skips this step)
-        # Yes the pull_request line is redundant with the 'branch' trigger at the top of the
-        # file, but better safe than sorry. Keeps the logic uniform with workflow_dispatch too.
-        if: ( github.event_name == 'pull_request' && github.base_ref != 'main' ) ||
-            ( github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' )
-        run: exit -1
-
       - uses: actions/checkout@v5
 
       ## Install Everything / Setup Env Vars:
@@ -91,24 +84,15 @@ jobs:
       # Since they all use the Base Stack, only one can create/update at a time:
       max-parallel: 1
       matrix:
-        deploy-config: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
-    environment: "${{ matrix.deploy-config }}"
-    name: "${{ matrix.deploy-config }}"
+        container-id: ${{ fromJson(needs.setup-matrix.outputs.deploy-matrix) }}
+    environment: "${{ matrix.container-id }}"
+    name: "${{ matrix.container-id }}"
     steps:
       - uses: actions/checkout@v5
 
-      ## Install Everything / Setup Env Vars:
-      - name: Setup CDK
-        uses: ./.github/workflows/composite-setup-cdk
+      - name: Setup CDK Deploy Leaf
+        uses: ./.github/workflows/composite-cdk-deploy-leaf
         with:
+          environment: ${{ matrix.container-id }}
           secrets: ${{ toJson(secrets) }}
           vars: ${{ toJson(vars) }}
-
-      ## Deploy the Leaf Stack:
-      - name: "Deploying: ${{ matrix.deploy-config }}"
-        # CONTAINER_ID: If not defined in Environment, default to everything before the first period in the filename.
-        run: |
-          CONTAINER_ID=${CONTAINER_ID:=$(echo "${{ matrix.deploy-config }}" | sed 's/\..*//i')}
-          make cdk-deploy-leaf \
-            config-file="${{ env.EXAMPLES_PATH }}/${{ matrix.deploy-config }}" \
-            container-id=${CONTAINER_ID}
