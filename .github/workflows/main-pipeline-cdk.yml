@@ -98,6 +98,7 @@ jobs:
             echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
             echo "> **Config File Not Found at '${{ vars.CONFIG_PATH }}'**, exiting." >> $GITHUB_STEP_SUMMARY
             echo "> (I.e good example: \`CONFIG_PATH=./Examples/Minecraft.java.example.yaml\`)" >> $GITHUB_STEP_SUMMARY
+            echo "> More info at: $(git config --get remote.origin.url)"
             exit -1
           fi
 
