@@ -4,12 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "The leaf stack to DESTROY"
+        description: "The leaf stack to DESTROY!!!"
         type: environment
         required: true
 
-env:
-  EXAMPLES_PATH: ./Examples # No trailing slash plz!
 
 jobs:
   cdk-destroy-leaf:
@@ -29,10 +27,8 @@ jobs:
           vars: ${{ toJson(vars) }}
 
       ## Destroy the Leaf Stack:
-      # CONTAINER_ID: If not defined in Environment, default to everything before the first period in the filename.
       - name: "Destroying: ${{ inputs.environment }}"
         run: |
-          CONTAINER_ID=${CONTAINER_ID:=$(echo "${{ inputs.environment }}" | sed 's/\..*//i')}
           make cdk-destroy-leaf \
-            config-file="${{ env.EXAMPLES_PATH }}/${{ inputs.environment }}" \
-            container-id=${CONTAINER_ID}
+            config-file="${{ vars.CONFIG_FILE }}" \
+            container-id="${{ inputs.environment }}"

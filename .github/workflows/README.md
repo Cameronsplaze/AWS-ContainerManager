@@ -5,58 +5,84 @@
 - The GOOD docs on [writing workflows](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions) that I can never find when I need.
 - Docs on [context](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)'s (i.e ${{ github.* }}, and other built-in variables)
 
+## Workflow Overview
+
+```mermaid
+flowchart LR
+    C_CDL[Composite: CDK Deploy Leaf]
+    C_SC[Composite: Setup CDK]
+    C_SP[Composite: Setup Python]
+    D_RLS[Dispatch: DELETE Leaf Stack]
+    D_DLS[Dispatch: Deploy Leaf Stack]
+    LP[Linter - Pylint]
+    CICD[Main Pipeline CDK]
+    PT[Pytest]
+    LM[Linter - Markdown]
+    DAP[Dependabot Automerge PR]
+
+    C_SC --depends on--> C_SP
+    C_CDL --depends on--> C_SC
+    D_RLS --depends on--> C_SC
+    D_DLS --depends on--> C_CDL
+    CICD --depends on--> C_CDL
+    LP --depends on--> C_SP
+    PT --depends on--> C_SP
+```
+
+### Summary of Actions
+
+- #### [Main Pipeline CDK](./main-pipeline-cdk.yml)
+
+    Mainly runs whenever a PR is merged. It'll deploy the base-stack first, then loop over each leaf-stack defined in [vars.DEPLOY_ENVIRONMENTS](#automating-a-new-leaf-stack-deployment) to deploy them one-by-one.
+
+- #### [Dispatch: Deploy Leaf Stack](./dispatch-deploy-leaf-stack.yaml)
+
+    Similar to [Main Pipeline CDK](#main-pipeline-cdk), but it only deploys a single leaf-stack, and does NOT update the base-stack. Meant to be triggered manually whenever you need quick updates to a single leaf-stack.
+
+- #### [Dispatch: DELETE Leaf Stack](./dispatch-delete-leaf-stack.yaml)
+
+    Similar to [Dispatch: Deploy Leaf Stack](#dispatch-deploy-leaf-stack), but it DELETES the leaf-stack instead.
+
+- #### [Dependabot Automerge PR](./dependabot-automerge-pr.yml)
+
+    See [Dependabot Auto-Updates](#dependabot-auto-updates) for details.
+
+- #### [Pytest](./pytest.yaml)
+
+    Runs all the unit tests in the repo. Also includes loading ALL `./Examples/*` configs, to make sure they never go out of date.
+
+- #### All `composite-*` Actions
+
+    Composite GH Actions are a way to re-use common steps across multiple workflows. This eliminates repeated code, and keeps it in manageable/readable chunks.
+
+## Automating the `base-stack`
+
+[Main Pipeline CDK](./main-pipeline-cdk.yml) will naturally do this. See [Forking this Repo](#forking-this-repo) for setting up the required secrets/variables (in the "root", NOT any GH environment).
+
+## Automating a New `leaf-stack` Deployment
+
+We keep deployments separate with using GitHub Environments. The `Name` of the environment has to match the [container-id](../../README.md#container-id) you'll want to use (so it'll be in the URL too).
+
+For each separate environment, you'll have to also set:
+
+- `vars.CONFIG_PATH`: The path to the config file inside this repo. (i.e `./Examples/Minecraft.java.example.yaml`) 
+
+In the "root" GitHub Variables (NOT the environment), you'll also want to update `DEPLOY_ENVIRONMENTS`. It's a **newline-separated** list of GH environment NAMES to deploy.
+
+> [!NOTE]
+> ALL Vars/Secrets will become environment variables inside the action. You can hide server secrets while deploying this way, by declaring them in the environment. This lets ONLY that deployment config have access to that secret, and not echo it out. It then can be used in the config file yaml with the `!ENV ${VAR_NAME}` syntax.
+
 ## Dependabot Auto-Updates
 
-There's a lot of tweaks I had to do to get this working. Will come back to at some point and re-write this readme. To include:
+This repo auto-merges Dependabot PR's if all the required actions pass. This is done with the [Dependabot Automerge PR](./dependabot-automerge-pr.yml) workflow. Changes to support this include:
 
 - Disabled PR code having to be up to date with base. If two dependabot PRs are open at the same time, the second one will fail to merge.
   - We can technically get around this by setting the max-pr to 1 in each config block, then having each block run a different day of the week. This feels really hacky though...
-- Added [CODEOWNERS](../CODEOWNERS) file, but had to disable on the files dependabot touches. There's no way to add apps to CODEOWNERS. (More details in the CODEOWNERS file itself.).
+- Added [CODEOWNERS](../CODEOWNERS) file, but had to disable on the files dependabot touches. There's no way to add apps (`dependabot[bot]`) to CODEOWNERS. (More details in the CODEOWNERS file itself.).
 - Added a list of required actions to Branch Protections Rules for `main`. When dependabot waits to auto-merge, it'll only wait for **required** actions to finish.
-  - They also can't contain the `on.<trigger>.paths` key. If they do, and the paths isn't in the PR, you won't be able to merge it. (It just freezes saying "Expected — Waiting for status to be reported")
+  - They also can't contain the `on.<trigger>.paths` key. If they do, and the paths isn't in the PR, you won't be able to merge it. (It just freezes saying "Expected — Waiting for status to be reported", but that trigger stops the action from running).
 - In [dependabot.yml](../dependabot.yml), added a `groups` section. This makes all updates happen under a single PR. That way if 3 updates get created, you don't merge all 3 at the same time and try to do 3 deployment updates at once.
-
-## main-pipeline-cdk.yml
-
-This handles deploying automatically. It'll first deploy the base stack, then loop over each leaf-stack (names declared in env.DEPLOY_EXAMPLES) to deploy.
-
-- It used to handle synthing too, but that's moved into the pytest suite now.
-
-## Automatic Deployments: Whitelisting/Adding a Container
-
-I made this different than `cdk-synth`. For synth, it should run on EVERY config to make sure they always work. For deploy, it'll change randomly depending on what games you find fun at the time (update `DEPLOY_EXAMPLES` to **add** stacks, or **delete** with the `dispatch-delete-leaf-stack.yaml` action).
-
-1) Add a new line to the **Github Variable** `DEPLOY_EXAMPLES`. Each line is the filename for a config **inside** `./Examples/` in this repo. For example, it might contain:
-
-    ```txt
-    Minecraft.java.example.yaml
-    Valheim.example.yaml
-    ```
-
-    **NOTE**: If you deploy *manually*, the `container-id` will be `minecraft.java.example`. If the *pipeline* does it though, I made it default to everything left of the first period (i.e here, just `minecraft`). This is to keep the urls short, and also not conflict with manual deployments by default.
-
-    - This means `minecraft.java.example` and `minecraft.bedrock.example` will conflict by default. I figured no one wants both running at once, and there's away to override this if you do.
-    - You can override this by adding `CONTAINER_ID` as either a **secret** or **variable** in your Github Environment.
-
-2) Create a new Github Environment, with the same name as the line you added. For example, `Minecraft.java.example.yaml`.
-
-3) Inside that environment, you can create any number of variables / secrets specific to that deployment. Since they're apart of the environment, they won't be exposed to the other containers either. They'll be *environment variables* when the action deploys, so reference them directly in the `./Examples/<container>` yaml file. I.e:
-
-    ```txt
-    Github Secret: ${{ secrets.SERVER_PASS }}
-    Or Variable: ${{ vars.SERVER_NAME }}
-    ```
-
-    Can be referenced in the yaml file as:
-
-    ```yaml
-    !ENV ${SERVER_PASS}
-    !ENV ${SERVER_NAME}
-    ```
-
-    Technically to do this, **all** secrets/variables are turned into environment variables in the action. However, even if the container is untrusted, if you don't pass the env-vars to the container in the `./Examples/<container>` yaml file, it won't be able to see them.
-
-**Finally**: If you decide to remove it to save money, you can just remove the one line from `DEPLOY_EXAMPLES`, then delete the stack. This lets you keep the environment around with all the variables, in case you want to re-deploy it later.
+- EnvVars: All secrets/vars dependabot needs to run the test-suite, need to be declared in `Settings -> Secrets and Variables -> Dependabot`. It can't access the normal secrets/vars.
 
 ## Forking this Repo
 
@@ -77,11 +103,11 @@ I specifically designed all the automation, so that if it's forked, you can re-u
 
     - **AWS_DEPLOY_ROLE**: The role to use with OIDC. (If you're using my repo, it's `github_actions_role`).
     - **AWS_REGION**: The region to deploy to. (Some HAS to be deployed to `us-east-1`, this is everything else that's not restricted).
-    - **DEPLOY_EXAMPLES**: The list of container config paths to deploy, each on their own line. (See '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for details).
+    - **DEPLOY_ENVIRONMENTS**: The list of container config paths to deploy, each on their own line. (See '[Automating a New Leaf Stack Deployment](#automating-a-new-leaf-stack-deployment)' for details).
 
 5) **Secrets and variables: *Dependabot Secrets***: These are only accessible to dependabot, BUT dependabot can't access any of the github secrets above. This all will be duplicates of the above section.
 
     - **AWS_ACCOUNT_ID**: Your AWS Account ID.
     - **PAT_AUTOMERGE_PR**: A *classic* PAT with ONLY `repo:public_repo` permissions. (Has to be classic until [this issue](https://github.com/cli/cli/issues/9166) is fixed. You'll get permission denied otherwise.) Create this under `Account` -> `Settings` -> `Developer Settings` -> `Personal Access Tokens` -> `Tokens (classic)`
 
-6) Follow '[Automatic Deployments](#automatic-deployments-whitelistingadding-a-container)' for adding a new container to deploy. Can go through any number of times.
+6) Follow '[Automating a New Leaf Stack Deployment](#automating-a-new-leaf-stack-deployment)' above for adding a new container to deploy. Can go through any number of times, once per server.

@@ -36,7 +36,7 @@ runs:
             exit 0
           fi
           ## One of the checks failed, give extra info and fail:
-          echo "> More info at: $(git config --get remote.origin.url)/blob/main/.github/workflows/README.md" >> $GITHUB_STEP_SUMMARY
+          echo "> More info at: $(git config --get remote.origin.url)/blob/main/.github/workflows/README.md#automating-a-new-leaf-stack-deployment" >> $GITHUB_STEP_SUMMARY
           exit -1
 
       ## Install Everything / Setup Env Vars:
