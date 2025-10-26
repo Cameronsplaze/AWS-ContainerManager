@@ -67,7 +67,7 @@ For each separate environment, you'll have to also set:
 
 - `vars.CONFIG_PATH`: The path to the config file inside this repo. (i.e `./Examples/Minecraft.java.example.yaml`)
 
-In the "root" GitHub Variables (NOT the environment), you'll also want to update `DEPLOY_ENVIRONMENTS`. It's a **newline-separated** list of GH environment NAMES to deploy.
+In the "root" GitHub Variables (NOT the environment), you'll also want to update `DEPLOY_ENVIRONMENTS`. It's a **whitespace-separated** list of GH environment NAMES to deploy. (Both spaces, or newlines work)
 
 > [!NOTE]
 > ALL Vars/Secrets will become environment variables inside the action. You can hide server secrets while deploying this way, by declaring them in the environment. This lets ONLY that deployment config have access to that secret, and not echo it out. It then can be used in the config file yaml with the `!ENV ${VAR_NAME}` syntax.
