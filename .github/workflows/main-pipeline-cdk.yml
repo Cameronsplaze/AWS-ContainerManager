@@ -20,7 +20,7 @@ on:
 concurrency:
   ## You can have variables here, but I want this to cancel
   # cross-branch AND cross-workflows too. ONLY one deploy at a time:
-  group: "cdk-deploy-leaf"
+  group: "cdk-leaf"
   cancel-in-progress: true
 
 
