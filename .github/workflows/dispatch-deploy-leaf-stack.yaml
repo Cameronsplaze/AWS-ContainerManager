@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   cdk-deploy-leaf:
+    name: Deploy Leaf Stack (${inputs.environment})
     runs-on: ubuntu-latest
     permissions:
       id-token: write

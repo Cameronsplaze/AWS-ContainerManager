@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   cdk-destroy-leaf:
+    name: Destroy Leaf Stack (${inputs.environment})
     runs-on: ubuntu-latest
     permissions:
       id-token: write
