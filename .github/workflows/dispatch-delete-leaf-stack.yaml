@@ -1,4 +1,4 @@
-# name: Dispatch - DELETE Leaf Stack
+name: Dispatch - DELETE Leaf Stack
 
 on:
   workflow_dispatch:
