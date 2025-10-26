@@ -45,9 +45,7 @@ class TestInstanceStateChangeHook:
         )
         ## Can't use monkeypatch.setenv here, because this isn't a test_* function
         #    and thus can't use fixtures.
-        hosted_zone_id = hosted_zone["HostedZone"]["Id"].split("/")[-1]  # Update the env var to the real ID
-        # Don't persist back into DEFAULT_ENV_VARS (shared mutable!)
-        self.env["HOSTED_ZONE_ID"] = hosted_zone_id
+        self.env["HOSTED_ZONE_ID"] = hosted_zone["HostedZone"]["Id"].split("/")[-1]
         ## Create a record set for each test:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/change_resource_record_sets.html
         self.route53_client.change_resource_record_sets(
