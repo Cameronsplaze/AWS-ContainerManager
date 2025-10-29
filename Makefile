@@ -28,7 +28,9 @@ guard-%:
     fi
 
 ## IF vars.env exists, load it:
-#   (For dev environments. File won't exist otherwise)
+#    For dev environments only. File won't exist otherwise.
+#    If you forgot to source it, vars like `EMAILS` wouldn't exist,
+#    and remove resources when deployed locally.
 -include ./vars.env
 
 #########################
