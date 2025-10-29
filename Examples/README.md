@@ -9,7 +9,7 @@ Click here to jump to '[Config File Options](#config-file-options)'. It's the la
 ## Gotchas when Writing Configs
 
 - [Environment Variables](#containerenvironment) to set **for the container itself** when Writing Configs:
-  - **For backups**: Completely Disable. We use EFS behind the scenes. Use the [Volumes.EnableBackups](#volumesenablebackups) option if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too.
+  - **For backups**: Completely Disable. We use EFS behind the scenes. Use the [Volumes.EnableBackups](#volumesidenablebackups) option if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too.
   - **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it **first** spins up. Also disable so that it doesn't conflict with the [Watchdog.Threshold](#watchdogthreshold) and keep the container up.
   - **For file permissions (UID/GID)**: Set to `1000:1000`. When you access the files through the EC2, this'll make them a LOT easier to modify/upload to.
 - **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of whitelist. You can use it, but it means you have to re-deploy this project every time you add someone. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
@@ -24,6 +24,8 @@ Click here to jump to '[Config File Options](#config-file-options)'. It's the la
 ## Config File Options
 
 You can also look at the yaml's in the [./Examples](./) directory here to see how each of these are used directly.
+
+The options for the base stack are in [/ContainerManager/README.md](../ContainerManager/README.md#base-stack-config-options).
 
 ---
 
@@ -85,7 +87,7 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
 
 ### `Volumes`
 
-- (`list`, Optional): Config options for Volumes (Persistent Storage).
+- (`dict`, Optional): Config options for Volumes (Persistent Storage).
 
    Each "block" defines one volume, for example:
 
@@ -93,35 +95,37 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
    Volumes:
      ## Minimal Volume:
      # EnableBackups, and KeepOnDelete are True by default
-     - Paths:
-       - Path: /data
+     Data: # <- The Id of the volume
+       Paths:
+         - Path: /data
      ## Or if you wanted something persistent, but not backed up:
      #     (i.e the path to the valheim server binary. Saves
      #      on startup time, but not critical if lost.)
-     - EnableBackups: False
+     DownloadCache: # <- The Id of the volume
+       EnableBackups: False
        KeepOnDelete: False
        Paths:
          - Path: /opt/valheim
    ```
 
 > [!NOTE]
-> The filesystems inside `/mnt/efs` are labeled `Efs-1`, `Efs-2`, etc. They are in the same order as listed here (starting at `1`). IF YOU CHANGE THE ORDER, aws will replace the volumes that changed. I have it set to orphan instead of delete, so you'll have to go in and copy the files to the new EFS it creates.
+> The filesystems inside `/mnt/efs` are labeled `Efs-<Id>` (I.e `Efs-Data` above). The Id **MUST** be unique in the config file. If you change it's Id after deploying, CDK will create a new EFS and you'll have to transfer data over manually (assuming KeepOnDelete is enabled. Otherwise the data is lost).
 
-### `Volumes[*].Type`
+### `Volumes.<Id>.Type`
 
 - (`str`, Optional, default=`EFS`): The type of volume to use. Currently only `EFS` is supported.
 
    I plan to add [`S3` support](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/10) when I get a chance, this is here for future-proofing.
 
-### `Volumes[*].EnableBackups`
+### `Volumes.<Id>.EnableBackups`
 
 - (`bool`, Optional, default=`if "maturity" == "prod"`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
 
-### `Volumes[*].KeepOnDelete`
+### `Volumes.<Id>.KeepOnDelete`
 
 - (`bool`, Optional, default=`if "maturity" == "prod"`): If you should keep the data when the stack is destroyed. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
 
-### `Volumes[*].Paths`
+### `Volumes.<Id>.Paths`
 
 - (`list`, **Required**): The list of paths to persist INSIDE the container.
 
@@ -136,11 +140,11 @@ You can also look at the yaml's in the [./Examples](./) directory here to see ho
          - Path: /data
    ```
 
-### `Volumes[*].Paths[*].Path`
+### `Volumes.<Id>.Paths[*].Path`
 
 - (`str`, **Required**): The path inside the container to persist. I.e `/data`, `/opt/valheim`, `/config`, etc.
 
-### `Volumes[*].Paths[*].ReadOnly`
+### `Volumes.<Id>.Paths[*].ReadOnly`
 
 - (`bool`, Optional, default=`False`): If the path should be read-only.
 

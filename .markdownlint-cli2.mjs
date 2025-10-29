@@ -1,3 +1,5 @@
+// https://github.com/theoludwig/markdownlint-rule-relative-links
+
 import relativeLinksRule from "markdownlint-rule-relative-links"
 
 const config = {
@@ -9,6 +11,8 @@ const config = {
   ignores: [
     "**/node_modules",
     ".github/pull_request_template.md",
+    ".tox/",
+    ".venv/",
   ],
   customRules: [relativeLinksRule],
 }

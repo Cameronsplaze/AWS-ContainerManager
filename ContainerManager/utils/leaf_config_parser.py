@@ -84,20 +84,24 @@ def leaf_config_schema(maturity: str) -> Schema:
                 {},
             ),
         },
-        Optional("Volumes", default=[]): [{
-            Optional("Type", default="EFS"): And(
-                Use(str.upper),
-                # Add S3 as apart of the Or here when it's supported!
-                Or("EFS")
-            ),
-            Optional("EnableBackups", default=bool(maturity == "prod")): bool,
-            Optional("KeepOnDelete", default=bool(maturity == "prod")): bool,
-            # List of Path Configs to save:
-            "Paths": [{
-                "Path": str,
-                Optional("ReadOnly", default=False): bool,
-            }],
-        }],
+        Optional("Volumes", default={}): {
+            # The ID can be anything:
+            str: {
+                # Contents of each volume config:
+                Optional("Type", default="EFS"): And(
+                    Use(str.upper),
+                    # Add S3 as apart of the Or here when it's supported!
+                    Or("EFS")
+                ),
+                Optional("EnableBackups", default=bool(maturity == "prod")): bool,
+                Optional("KeepOnDelete", default=bool(maturity == "prod")): bool,
+                # List of Path Configs to save:
+                "Paths": [{
+                    "Path": str,
+                    Optional("ReadOnly", default=False): bool,
+                }],
+            },
+        },
         "Watchdog": {
             "Threshold": int,
             # MinutesWithoutConnections: Optional, returns a cdk Duration in minutes.

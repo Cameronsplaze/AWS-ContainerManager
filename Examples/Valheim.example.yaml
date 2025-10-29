@@ -33,10 +33,12 @@ Container:
     PGID: 1000
 Volumes:
   # Holds server config info
-  - Paths:
+  Config:
+    Paths:
       - Path: /config
   # Holds server download file
-  - EnableBackups: False
+  Download:
+    EnableBackups: False
     KeepOnDelete: False
     Paths:
       - Path: /opt/valheim

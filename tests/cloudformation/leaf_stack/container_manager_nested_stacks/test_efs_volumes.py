@@ -25,7 +25,7 @@ class TestEfsVolumes():
 
     @pytest.mark.parametrize(
         "volume_id,volume_config",
-        enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
+        LEAF_VOLUMES.create_config()["Volumes"].items(),
     )
     def test_volume_properties_efs(self, volume_id, volume_config, app):
         volume_template = app.container_manager_volumes_template
@@ -101,7 +101,7 @@ class TestEfsVolumes():
 
     @pytest.mark.parametrize(
         "volume_id,volume_config",
-        enumerate(LEAF_VOLUMES.create_config()["Volumes"], start=1),
+        LEAF_VOLUMES.create_config()["Volumes"].items(),
     )
     def test_volume_properties_container(self, volume_id, volume_config, app):
         ## Check the ECS Task Definition to make sure it has the right
