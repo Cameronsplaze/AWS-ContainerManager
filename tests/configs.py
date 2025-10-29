@@ -6,6 +6,7 @@ import yaml
 from aws_cdk import (
     Duration,
     aws_ecs as ecs,
+    aws_sns as sns,
 )
 from moto import mock_aws
 from ContainerManager.utils.config_loader import load_base_config, load_leaf_config, _parse_config
@@ -48,11 +49,11 @@ BASE_MINIMAL = ConfigInfo(
     expected_output={
         'AlertSubscription': dict,
         'Domain': {
-            'HostedZoneId': str,
-            'Name': str,
+            'HostedZoneId': "Z123456789",
+            'Name': "example.com",
         },
         'Vpc': {
-            'MaxAZs': int,
+            'MaxAZs': 1,
         },
     },
 )
@@ -64,6 +65,43 @@ BASE_VPC_MAXAZS = BASE_MINIMAL.copy(
         'Vpc': {
             'MaxAZs': 2,
         },
+    },
+    expected_output=BASE_MINIMAL.expected_output | {
+        'Vpc': {
+            'MaxAZs': 2,
+        },
+    },
+)
+
+BASE_ALERT_SUBSCRIPTION = BASE_MINIMAL.copy(
+    label="BaseAlertSubscription",
+    config_input=BASE_MINIMAL.config_input | {
+        'AlertSubscription': {
+            # Can be any whitespace-separated list of emails:
+            'Email': "DoesNotExist1@gmail.com DoesNotExist2@gmail.com\nDoesNotExist3@gmail.com"
+        },
+    },
+    expected_output=BASE_MINIMAL.expected_output | {
+        'AlertSubscription': {
+            sns.SubscriptionProtocol.EMAIL: [
+                "DoesNotExist1@gmail.com",
+                "DoesNotExist2@gmail.com",
+                "DoesNotExist3@gmail.com",
+            ],
+        },
+    },
+)
+
+BASE_ALERT_SUBSCRIPTION_NONE = BASE_MINIMAL.copy(
+    label="BaseAlertSubscription",
+    config_input=BASE_MINIMAL.config_input | {
+        'AlertSubscription': {
+            # If None, Nothing should exist in expected_output:
+            'Email': None,
+        },
+    },
+    expected_output=BASE_MINIMAL.expected_output | {
+        'AlertSubscription': {},
     },
 )
 
@@ -85,18 +123,18 @@ LEAF_MINIMAL = ConfigInfo(
     },
     expected_output={
         'Container': {
-            'Image': str,
+            'Image': "hello-world:latest",
             'Ports': [],
             'Environment': {}
         },
         'Ec2': {
-            'InstanceType': str,
+            'InstanceType': "m5.large",
             'MemoryInfo': {
                 'SizeInMiB': int,
             },
         },
         'Watchdog': {
-            'Threshold': int,
+            'Threshold': 2000,
             'InstanceLeftUp': {
                 'DurationHours': Duration,
                 'ShouldStop': bool,
@@ -130,7 +168,18 @@ LEAF_CONTAINER_PORTS = LEAF_MINIMAL.copy(
     expected_output=LEAF_MINIMAL.expected_output | {
         "Container": LEAF_MINIMAL.expected_output["Container"] | {
             # Each port should translate to an ecs.PortMapping:
-            "Ports": [ecs.PortMapping],
+            "Ports": [
+                ecs.PortMapping(
+                    container_port=25565,
+                    host_port=25565,
+                    protocol=ecs.Protocol.TCP,
+                ),
+                ecs.PortMapping(
+                    container_port=12345,
+                    host_port=12345,
+                    protocol=ecs.Protocol.UDP,
+                ),
+            ],
         }
     },
 )
@@ -151,10 +200,10 @@ LEAF_CONTAINER_ENVIRONMENT = LEAF_MINIMAL.copy(
         "Container": LEAF_MINIMAL.expected_output["Container"] | {
             "Environment": {
                 # Environment variables are always strings
-                "STRING_VAR": str,
-                "BOOL_VAR": str,
-                "INT_VAR": str,
-                "FLOAT_VAR": str,
+                "STRING_VAR": "TRUE",
+                "BOOL_VAR": "true", # Bools cast to all-lower.
+                "INT_VAR": "12345",
+                "FLOAT_VAR": "12.345",
             },
         }
     },
@@ -167,13 +216,13 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
             # 1: To check defaults:
             "Default": {
                 "Paths": [
-                    {"Path": "/data"},
+                    {"Path": "/data-default"},
                 ],
             },
             # 2: To check all True:
             "AllTrue": {
                 "Paths": [
-                    {"Path": "/data", "ReadOnly": True},
+                    {"Path": "/data-all-true", "ReadOnly": True},
                 ],
                 "EnableBackups": True,
                 "KeepOnDelete": True,
@@ -181,7 +230,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
             # 3: To check all False:
             "AllFalse": {
                 "Paths": [
-                    {"Path": "/data", "ReadOnly": False},
+                    {"Path": "/data-all-false", "ReadOnly": False},
                 ],
                 "EnableBackups": False,
                 "KeepOnDelete": False,
@@ -189,8 +238,8 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
             # 4: To check multiple paths:
             "MultiplePaths": {
                 "Paths": [
-                    {"Path": "/data"},
-                    {"Path": "/config"},
+                    {"Path": "/data-1"},
+                    {"Path": "/config-2"},
                 ],
             },
         },
@@ -202,31 +251,32 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
             #  (plus it's probably better to make sure the keys exist anyways)
             "Default": {
                 "Paths": [
-                    {"Path": str, "ReadOnly": bool},
+                    {"Path": "/data-default", "ReadOnly": False},
                 ],
-                "EnableBackups": bool,
-                "KeepOnDelete": bool,
+                "EnableBackups": True,
+                "KeepOnDelete": True,
             },
             "AllTrue": {
                 "Paths": [
-                    {"Path": str, "ReadOnly": bool},
+                    {"Path": "/data-all-true", "ReadOnly": True},
                 ],
-                "EnableBackups": bool,
-                "KeepOnDelete": bool,
+                "EnableBackups": True,
+                "KeepOnDelete": True,
             },
             "AllFalse": {
                 "Paths": [
-                    {"Path": str, "ReadOnly": bool},
+                    {"Path": "/data-all-false", "ReadOnly": False},
                 ],
-                "EnableBackups": bool,
-                "KeepOnDelete": bool,
+                "EnableBackups": False,
+                "KeepOnDelete": False,
             },
             "MultiplePaths": {
                 "Paths": [
-                    {"Path": str, "ReadOnly": bool},
+                    {"Path": "/data-1", "ReadOnly": False},
+                    {"Path": "/config-2", "ReadOnly": False},
                 ],
-                "EnableBackups": bool,
-                "KeepOnDelete": bool,
+                "EnableBackups": True,
+                "KeepOnDelete": True,
             },
         },
     },
@@ -257,6 +307,13 @@ CONFIGS_MINIMAL = [BASE_MINIMAL, LEAF_MINIMAL]
 # Configs based on real files:
 CONFIGS_LOADED = [BASE_CONFIG_LOADED] + LEAF_CONFIGS_LOADED
 # All valid configs:
-CONFIGS_VALID = CONFIGS_MINIMAL + CONFIGS_LOADED + [BASE_VPC_MAXAZS, LEAF_CONTAINER_PORTS, LEAF_CONTAINER_ENVIRONMENT, LEAF_VOLUMES]
+CONFIGS_VALID = CONFIGS_MINIMAL + CONFIGS_LOADED + [
+    BASE_VPC_MAXAZS,
+    BASE_ALERT_SUBSCRIPTION,
+    BASE_ALERT_SUBSCRIPTION_NONE,
+    LEAF_CONTAINER_PORTS,
+    LEAF_CONTAINER_ENVIRONMENT,
+    LEAF_VOLUMES,
+]
 # All invalid configs:
 CONFIGS_INVALID = []

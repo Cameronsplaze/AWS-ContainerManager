@@ -207,7 +207,7 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ### `AlertSubscription`
 
-- (`dict`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is a space separated list (i.e `Does@Not.Exist Does@Not.Exist2`)
+- (`dict`, Optional): Any number of key-value pairs, where the key is the [protocol](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html) (i.e "Email"), and the value is a whitespace separated list (i.e `Does@Not.Exist Does@Not.Exist2`)
 
    ```yaml
    AlertSubscription:
@@ -218,7 +218,7 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
    Options like `SMS` and `HTTPS` I hope to add [at some point](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/22), but `Email` was the easiest to just get off the ground.
 
-   Adding subscriptions here instead of [the base stack config](../ContainerManager/README.md#alertsubscription), will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**.
+   Adding subscriptions here instead of [the base stack config](../ContainerManager/README.md#alertsubscription), will only give you *some* of the events, and only specific to *this* stack. Mainly used for friends connecting to the game they love. Only have someone subscribed to this, **OR** the base stack, **NOT BOTH**. (Otherwise you'll just get notified twice, there's no point).
 
    (It's setup like this, so a single GitHub Secret can pass in any number of emails)
 

@@ -70,7 +70,7 @@ The options for the leaf stack groups are in [/Examples/README.md](../Examples/R
 
 ### `AlertSubscription`
 
-- (`dict`, Optional): Any number of key-value pairs, where the key is the protocol (i.e "Email"), and the value is a space separated list (i.e `Does@Not.Exist Does@Not.Exist2`)
+- (`dict`, Optional): Any number of key-value pairs, where the key is the [protocol](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.SubscriptionProtocol.html) (i.e "Email"), and the value is a whitespace separated list (i.e `Does@Not.Exist Does@Not.Exist2`)
 
    ```yaml
    AlertSubscription:

@@ -93,11 +93,16 @@ class TestConfigParser:
         """
         expected_type = keys.pop(-1)
         value = config.create_config()
+
         # walk down the nested dict using the remaining keys
         for key in keys:
             value = value[key]
 
-        assert isinstance(value, expected_type), f"Expected {expected_type} but got {type(value)} for {keys} in {config.label}"
+        if isinstance(expected_type, type):
+            assert isinstance(value, expected_type), f"Expected type: {expected_type} but got {type(value)} for {keys} in {config.label}"
+        else:
+            # If the "expected_type" isn't a type, make sure it's that **exact** value then:
+            assert value == expected_type, f"Expected value: {expected_type} but got {value} for {keys} in {config.label}"
 
 
     @pytest.mark.parametrize(

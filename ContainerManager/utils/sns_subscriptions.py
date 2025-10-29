@@ -6,28 +6,35 @@ Broken into it's own file since it's used in both the base and leaf stacks,
 AND since it takes 'context', it can't be created in the 'config_loader.py' file.
 """
 
-from schema import Schema, And, Use, Optional
+from schema import Schema, And, Or, Use, Optional
 
 from aws_cdk import (
     aws_sns as sns,
 )
 
-sns_schema = Schema({
-    Optional(And(
-        ## KEY
-        # You should just have to remove the "Email" to support other subscription types.
-        # I want to test that out more before opening it up though.
-        "Email",
-        Use(str.upper),
-        Use(lambda x: getattr(sns.SubscriptionProtocol, x)),
-    )):  And(
-        ## VALUE
-        # Break into a list, separating by ANY whitespace:
-        str,
-        Use(lambda x: x.split()),
-    ),
-})
 
+sns_schema = Schema(Or(
+    # Option 1: Empty
+    And(
+        {Optional("Email"): None},
+        # Remove it from the final output:
+        Use(lambda _: {}),
+    ),
+    # Option 2: With subscriptions
+    And(
+        {Optional("Email"): str},
+        {
+            ## Key:
+            # Cast to the sns.SubscriptionProtocol enum:
+            Use(
+                lambda x: getattr(sns.SubscriptionProtocol, x.upper())
+            ):
+            ## Value:
+            # Break into a list, separating by ANY whitespace:
+            Use(lambda x: x.split()),
+        }
+    )
+))
 
 def add_sns_subscriptions(context, sns_topic: sns.Topic, subscriptions: dict) -> None:
     """
