@@ -25,6 +25,8 @@ Click here to jump to '[Config File Options](#config-file-options)'. It's the la
 
 You can also look at the yaml's in the [./Examples](./) directory here to see how each of these are used directly.
 
+The options for the base stack are in [/ContainerManager/README.md](../ContainerManager/README.md#base-stack-config-options).
+
 ---
 
 ### `Ec2`
