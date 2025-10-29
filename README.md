@@ -84,7 +84,7 @@ If it's installing updates, keep spamming refresh. It sees those connection atte
 
 You have to clean up all the 'leaf stacks' first, *then* the 'base stack'.
 
-If your config has [Volume.KeepOnDelete](./Examples/README.md#volumeskeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
+If your config has [Volume.KeepOnDelete](./Examples/README.md#volumesidkeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
 
 ```bash
 # Destroying one leaf:
