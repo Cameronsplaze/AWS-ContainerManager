@@ -82,6 +82,8 @@ if file_path:
     stack_tags = {
         "ContainerId": container_id,
         "StackId": f"{application_id}-{container_id_alpha}",
+        "FilePath": file_path,
+        "Maturity": maturity,
     }
 
     ### Create the Base Stack Domain for ALL leaf stacks:
