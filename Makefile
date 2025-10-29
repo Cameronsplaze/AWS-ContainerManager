@@ -27,6 +27,10 @@ guard-%:
         exit -1; \
     fi
 
+## IF vars.env exists, load it:
+#   (For dev environments. File won't exist otherwise)
+-include ./vars.env
+
 #########################
 ## Generic CDK Helpers ##
 #########################
