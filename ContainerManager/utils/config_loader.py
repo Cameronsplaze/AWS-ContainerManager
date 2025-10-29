@@ -21,7 +21,7 @@ from .base_config_parser import base_config_schema
 
 # I broke this out, to make sure the test-suite and the stack always use the same "default_value":
 def _parse_config(path: str) -> dict:
-    return parse_config(path, default_value="UNDECLARED")
+    return parse_config(path, default_value=None)
 
 def _load(path: str, schema: Schema, error_info: dict) -> dict:
     config = _parse_config(path)
