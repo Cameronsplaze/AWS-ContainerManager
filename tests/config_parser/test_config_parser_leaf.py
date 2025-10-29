@@ -20,12 +20,12 @@ class TestLeafConfigVolumes():
         assert actual_count == expected_count, f"Expected {expected_count} volumes, got {actual_count}."
 
     @pytest.mark.parametrize(
-        "volume_id,volume_input",
-        enumerate(LEAF_VOLUMES.config_input["Volumes"], start=1),
+        "volume_name,volume_input",
+        LEAF_VOLUMES.config_input["Volumes"].items(),
     )
-    def test_volume_properties(self, volume_id, volume_input):
+    def test_volume_properties(self, volume_name, volume_input):
         config = LEAF_VOLUMES.create_config()
-        volume_output = config["Volumes"][volume_id - 1] # -1 because enumerate starts at 1
+        volume_output = config["Volumes"][volume_name]
         # Both of these should default to True, AND always exist in the returned volume_output:
         assert volume_input.get("KeepOnDelete", True) == volume_output["KeepOnDelete"]
         assert volume_input.get("EnableBackups", True) == volume_output["EnableBackups"]

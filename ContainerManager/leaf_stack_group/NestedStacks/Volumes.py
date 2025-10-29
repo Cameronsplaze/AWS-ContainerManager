@@ -46,24 +46,24 @@ class Volumes(NestedStack):
 
         self.efs_file_systems = {}
         traffic_out_metrics = {}
-        # i: each construct must have a different name inside the for-loop.
-        for i, volume_config in enumerate(volumes_config, start=1):
-            if not volume_config["Type"] == "EFS":
+        ## Loop over each volume in the config:
+        for volume_name, volume_info in volumes_config.items():
+            if not volume_info["Type"] == "EFS":
                 continue
 
             volume_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE \
-                                    if volume_config["KeepOnDelete"] else \
+                                    if volume_info["KeepOnDelete"] else \
                                     RemovalPolicy.DESTROY
 
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
             efs_file_system = efs.FileSystem(
                 self,
-                f"Efs-{i}",
+                f"Efs-{volume_name}",
                 vpc=vpc,
                 removal_policy=volume_removal_policy,
                 security_group=sg_efs_traffic,
                 allow_anonymous_access=False,
-                enable_automatic_backups=volume_config["EnableBackups"],
+                enable_automatic_backups=volume_info["EnableBackups"],
                 encrypted=True,
                 ## No need to set, only in one AZ/Subnet already. If user increases that
                 ## number, they probably *want* more EFS instances. There's no other reason to:
@@ -103,7 +103,7 @@ class Volumes(NestedStack):
 
             ## EFS Traffic Out:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-            traffic_out_metrics[f"efs_out_{i}"] = cloudwatch.Metric(
+            traffic_out_metrics[f"efs_out_{volume_name}"] = cloudwatch.Metric(
                 label="EFS Traffic Out",
                 metric_name="DataReadIOBytes",
                 namespace="AWS/EFS",
@@ -113,10 +113,10 @@ class Volumes(NestedStack):
             )
 
             ### Create mounts and attach them into the CONTAINER:
-            for volume_info in volume_config["Paths"]:
-                volume_path = volume_info["Path"]
+            for volume_path_info in volume_info["Paths"]:
+                volume_path = volume_path_info["Path"]
                 ## Create a UNIQUE name, using the (modified) path:
-                #   (Will be something like: `Efs-1-data` for minecraft or `Efs-1-opt-valheim` for valheim)
+                #   (Will be something like: `Efs-<Id>-data` for minecraft or `Efs-<Id>-opt-valheim` for valheim)
                 access_point_name = (efs_file_system.node.id + volume_path).replace("/", "-")
                 ## Creating an access point:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
@@ -152,7 +152,7 @@ class Volumes(NestedStack):
                     ecs.MountPoint(
                         container_path=volume_path,
                         source_volume=access_point_name,
-                        read_only=volume_info["ReadOnly"],
+                        read_only=volume_path_info["ReadOnly"],
                     )
                 )
 

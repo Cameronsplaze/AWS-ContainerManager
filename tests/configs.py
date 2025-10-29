@@ -108,7 +108,7 @@ LEAF_MINIMAL = ConfigInfo(
             'IntervalMinutes': Duration,
             'ShowContainerLogTimestamp': bool,
         },
-        'Volumes': [],
+        'Volumes': {},
         'AlertSubscription': {},
     },
 )
@@ -163,15 +163,15 @@ LEAF_CONTAINER_ENVIRONMENT = LEAF_MINIMAL.copy(
 LEAF_VOLUMES = LEAF_MINIMAL.copy(
     label="LeafVolumes",
     config_input=LEAF_MINIMAL.config_input | {
-        "Volumes": [
+        "Volumes": {
             # 1: To check defaults:
-            {
+            "Default": {
                 "Paths": [
                     {"Path": "/data"},
                 ],
             },
             # 2: To check all True:
-            {
+            "AllTrue": {
                 "Paths": [
                     {"Path": "/data", "ReadOnly": True},
                 ],
@@ -179,7 +179,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
                 "KeepOnDelete": True,
             },
             # 3: To check all False:
-            {
+            "AllFalse": {
                 "Paths": [
                     {"Path": "/data", "ReadOnly": False},
                 ],
@@ -187,24 +187,48 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
                 "KeepOnDelete": False,
             },
             # 4: To check multiple paths:
-            {
+            "MultiplePaths": {
                 "Paths": [
                     {"Path": "/data"},
                     {"Path": "/config"},
                 ],
             },
-        ],
+        },
     },
     expected_output=LEAF_MINIMAL.expected_output | {
-        "Volumes": [
-            {
+        "Volumes": {
+            ## The `flatten_keys` function can't handle wildcard dict keys, so we
+            # have to specify each volume by name here:
+            #  (plus it's probably better to make sure the keys exist anyways)
+            "Default": {
                 "Paths": [
                     {"Path": str, "ReadOnly": bool},
                 ],
                 "EnableBackups": bool,
                 "KeepOnDelete": bool,
             },
-        ],
+            "AllTrue": {
+                "Paths": [
+                    {"Path": str, "ReadOnly": bool},
+                ],
+                "EnableBackups": bool,
+                "KeepOnDelete": bool,
+            },
+            "AllFalse": {
+                "Paths": [
+                    {"Path": str, "ReadOnly": bool},
+                ],
+                "EnableBackups": bool,
+                "KeepOnDelete": bool,
+            },
+            "MultiplePaths": {
+                "Paths": [
+                    {"Path": str, "ReadOnly": bool},
+                ],
+                "EnableBackups": bool,
+                "KeepOnDelete": bool,
+            },
+        },
     },
 )
 
