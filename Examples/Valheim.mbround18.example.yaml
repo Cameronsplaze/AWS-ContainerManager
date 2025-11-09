@@ -36,16 +36,17 @@ Volumes:
   # You get a Regex. That regex does NOT allow hidden directories, hence why
   # this Config path doesn't work:
   ## ALSO apparently you only get a max of 4 directories deep w/ that regex:
-  # # Holds the save info
-  # Config:
-  #   Paths:
-  #     - Path: /home/steam/.config/unity3d/IronGate/Valheim
-  # Holds server download file
-  Download:
-    EnableBackups: False
-    KeepOnDelete: False
+
+  # Holds the save info
+  Config:
     Paths:
-      - Path: /home/steam/valheim
+      - Path: /home/steam/.config/unity3d/IronGate/Valheim
+  # Holds server download file
+  # Download:
+  #   EnableBackups: False
+  #   KeepOnDelete: False
+  #   Paths:
+  #     - Path: /home/steam/valheim
 
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 
