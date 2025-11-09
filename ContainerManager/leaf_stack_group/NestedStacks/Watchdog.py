@@ -293,6 +293,8 @@ class Watchdog(NestedStack):
             targets=[
                 ## NOTE: Not doing SNS here since it can trigger 2-4 times before
                 # lambda below finally disables it. Do in alarm instead to only get 1 email/alert.
+                ## ALSO if DNS comes in and the instance tries to spin up during an error, this'll still trigger.
+                #  However the alarm will still be "alarmed", and won't trigger. This HAS to happen here.
                 ## https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events_targets.LambdaFunction.html
                 events_targets.LambdaFunction(self.lambda_break_crash_loop),
             ],
