@@ -13,7 +13,7 @@ on:
     #   (Apart of dependabot updates. See the
     #    README.md in this dir for more details...)
 
-## If another similar workflow is running, kill it:
+## If a older test-suite job is running, kill it:
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
