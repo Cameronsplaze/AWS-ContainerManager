@@ -1,0 +1,58 @@
+## WARNING:
+# The container image this example uses is technically the most popular,
+# but might not be maintained anymore. The last commit was 8 months ago,
+# and it no longer starts the latest updates.
+# (Exact Issue: https://github.com/lloesche/valheim-server-docker/issues/752)
+
+# Until that issue is fixed, I recommend using Valheim.mbround18.example.yaml instead.
+Ec2:
+  InstanceType: m5.large
+
+Container:
+  # Docs here: https://github.com/lloesche/valheim-server-docker
+  Image: lloesche/valheim-server
+  Ports:
+    - UDP: 2456
+    - UDP: 2457
+    - UDP: 2458 # For CrossPlay! (Mods not recommended with XBox, they can't connect)
+  Environment:
+    SERVER_NAME: !ENV ${VALHEIM_SERVER_NAME}
+    WORLD_NAME: "Valhalla"
+    SERVER_PASS: !ENV ${VALHEIM_SERVER_PASS}
+    CROSSPLAY: True # For Microsoft store, NOT XBox. You can't do mods with XBox anyways.
+    # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
+    SERVER_ARGS: "-modifier resources most -modifier portals casual"
+    # VALHEIM_PLUS: True # This project is becoming more and more unmaintained. Use BepInEx instead.
+    BEPINEX: True
+    SERVER_PUBLIC: False
+    # Since we're in the cloud, and server is only up when someone is connected,
+    # we can't do stuff "when idle". Instead download update, and server will pick
+    # it up on next launch:
+    UPDATE_IF_IDLE: False
+    RESTART_IF_IDLE: False
+    UPDATE_CRON: "" # Otherwise it'll flag the watchdog every 15 minutes.
+    RESTART_CRON: ""
+    # Backups happen in EFS already, no need to do it here too:
+    BACKUPS: False
+    # Set File Permissions (Helps when accessing files through ec2):
+    PUID: 1000
+    PGID: 1000
+Volumes:
+  # Holds server config info
+  Config:
+    Paths:
+      - Path: /config
+  # Holds server download file
+  Download:
+    EnableBackups: False
+    KeepOnDelete: False
+    Paths:
+      - Path: /opt/valheim
+
+## Config options for how to monitor for players:
+##   (Currently the default anyways...) 
+Watchdog:
+  Threshold: 400
+  InstanceLeftUp:
+    DurationHours: 8
+    ShouldStop: True
