@@ -16,3 +16,5 @@
 /requirements-dev.txt
 /.github/workflows/**.yml
 /.github/workflows/**.yaml
+/package.json
+/package-lock.json
