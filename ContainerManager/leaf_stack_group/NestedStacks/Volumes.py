@@ -37,15 +37,6 @@ class Volumes(NestedStack):
     ) -> None:
         super().__init__(scope, "VolumesNestedStack", **kwargs)
 
-        ### Settings for ALL access points:
-        ## Create ACL:
-        # (From the docs, if the `path` above does not exist, you must specify this)
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPointOptions.html#createacl
-        efs_ap_acl = efs.Acl(owner_uid="1000", owner_gid="1000", permissions="755")
-        ## Create a "user" for the ACL:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.PosixUser.html
-        posix_user = efs.PosixUser(uid=efs_ap_acl.owner_uid, gid=efs_ap_acl.owner_gid)
-
         self.efs_file_systems = {}
         traffic_out_metrics = {}
         ## Loop over each volume in the config:
@@ -84,17 +75,9 @@ class Volumes(NestedStack):
                     },
                 )
             )
-            ## Create the HOST access point, for the EC2:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-            ## What it returns:
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-            container_access_point = efs_file_system.add_access_point(
-                "host-mount-access-point",
-                create_acl=efs_ap_acl,
-                path="/",
-                posix_user=posix_user,
-            )
-            self.efs_file_systems[efs_file_system] = container_access_point
+
+            ## Setup the paths to mount in the EC2:
+            self.efs_file_systems[efs_file_system] = []
 
             ## Tell the EFS side that the task can access it:
             # (This is code INSIDE the container's permissions)
@@ -117,37 +100,22 @@ class Volumes(NestedStack):
             ### Create mounts and attach them into the CONTAINER:
             for volume_path_info in volume_info["Paths"]:
                 volume_path = volume_path_info["Path"]
+                self.efs_file_systems[efs_file_system].append(volume_path)
                 ## Create a UNIQUE name, using the path (Removing '.' and '/' too):
-                #   (Will be something like: `Efs-<Id>-<hash>`)
-                access_point_name = efs_file_system.node.id + "-" + hashlib.md5(volume_path.encode()).hexdigest()[:8]
-                # ## Creating an access point:
-                # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html#addwbraccesswbrpointid-accesspointoptions
-                # ## What it returns:
-                # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.AccessPoint.html
-                # container_access_point = efs_file_system.add_access_point(
-                #     access_point_name,
-                #     create_acl=efs_ap_acl,
-                #     # path=volume_path,
-                #     path="/",
-                #     ## NOTE: you can't use `posix_user` here. Since this is mounted into the container, and INSIDE
-                #     # the container might be 0:0 (instead of 1000:1000), this'll cause starting up to fail.
-                #     # https://github.com/aws/amazon-ecs-agent/issues/4702
-                #     # posix_user=posix_user,
-                # )
+                #   (Will be something like: `Efs-<Id>-<hash>`. Can't use path directly: names got too long, and prefix are all similar.)
+                volume_name = efs_file_system.node.id + "-" + hashlib.md5(volume_path.encode()).hexdigest()[:8]
 
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
                 task_definition.add_volume(
-                    name=access_point_name,
+                    name=volume_name,
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
                     efs_volume_configuration=ecs.EfsVolumeConfiguration(
                         file_system_id=efs_file_system.file_system_id,
-                        # root_directory="/": Relative to *access_point* already anyways, and MUST be "/" if you have AP's. Don't use.
                         root_directory=volume_path,
-                        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
-                        # authorization_config=ecs.AuthorizationConfig(
-                        #     access_point_id=container_access_point.access_point_id,
-                        #     iam="ENABLED",
-                        # ),
+                        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
+                        authorization_config=ecs.AuthorizationConfig(
+                            iam="ENABLED",
+                        ),
                         transit_encryption="ENABLED",
                     ),
                 )
@@ -155,7 +123,7 @@ class Volumes(NestedStack):
                 container.add_mount_points(
                     ecs.MountPoint(
                         container_path=volume_path,
-                        source_volume=access_point_name,
+                        source_volume=volume_name,
                         read_only=volume_path_info["ReadOnly"],
                     )
                 )
