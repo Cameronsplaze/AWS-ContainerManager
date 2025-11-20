@@ -37,7 +37,7 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 - (`str`, **Required**): The EC2 instance type to use. I.e `r4.large`, `m5.large`, etc. This config option will verify it's a valid EC2 instance type, then replace this block with the [`EC2.Client.describe_instance_types`](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_types.html#EC2.Client.describe_instance_types) response. (For example, `Ec2.MemoryInfo.SizeInMiB` will become a valid lookup in the stack).
 
-  The ec2 instance must have at least 2 GB of memory, so that the host and guest can both run. **1 GB is reserved for the host**.
+  The ec2 instance must have at least 3 GB of memory, so that the host and guest can both run. **2 GB is reserved for the host**.
 
    ```yaml
    Ec2:

@@ -55,8 +55,8 @@ def leaf_config_schema(maturity: str) -> Schema:
             Use(lambda info: get_ec2_client().describe_instance_types(
                 InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0],
             ),
-            # Make sure we have at least 1 GB for EACH of host and guest:
-            lambda instance_info: instance_info["MemoryInfo"]["SizeInMiB"] >= 2*1024, # # 2 GB
+            # Make sure we have at LEAST 2 GB for Host, and 1 GB for guest:
+            lambda instance_info: instance_info["MemoryInfo"]["SizeInMiB"] >= 3*1024, # # 3 GB
         ),
         "Container": {
             "Image": Use(str.lower),

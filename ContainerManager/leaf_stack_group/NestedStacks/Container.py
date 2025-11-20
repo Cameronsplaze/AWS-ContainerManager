@@ -65,8 +65,9 @@ class Container(NestedStack):
             ## Hard limit. Will get killed if it exceeds this.
             # memory_limit_mib=999999999,
             ## The "Soft limit". However since there'll only ever be this one task, it can grow as much as it wants.
-            # Reserve 1GB for the host. Use the SOFT LIMIT, so it won't get killed if it maxes out.
-            memory_reservation_mib=ec2_config['MemoryInfo']['SizeInMiB'] - 1024,
+            # Reserve 2GB for the host. Use the SOFT LIMIT, so it won't get killed if it maxes out.
+            #   (Tried 1GB, but palworld couldn't place on the instance from time to time).
+            memory_reservation_mib=ec2_config['MemoryInfo']['SizeInMiB'] - 2*1024,
             ## Add environment variables into the container here:
             environment=container_config["Environment"],
             ## Logging, straight from:
