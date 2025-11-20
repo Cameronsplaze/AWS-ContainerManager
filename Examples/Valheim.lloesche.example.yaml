@@ -1,4 +1,10 @@
+## WARNING:
+# The container image this example uses is technically the most popular,
+# but might not be maintained anymore. The last commit was 8 months ago,
+# and it no longer starts the latest updates.
+# (Exact Issue: https://github.com/lloesche/valheim-server-docker/issues/752)
 
+# Until that issue is fixed, I recommend using Valheim.mbround18.example.yaml instead.
 Ec2:
   InstanceType: m5.large
 

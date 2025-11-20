@@ -6,13 +6,25 @@ MAKEFLAGS += --no-print-directory
 # Default action:
 .DEFAULT_GOAL := cdk-synth
 
+## IF vars.env exists, load it:
+#    For dev environments only. File won't exist otherwise.
+#    If you forgot to source it, vars like `EMAILS` wouldn't exist,
+#    and remove resources when deployed locally.
+# Also doing it here lets `MATURITY` be set if desired.
+-include ./vars.env
+
 ### Figure out the application variables:
 #    Do here instead of the cdk app, so they're not duplicated in both and
 #    avoid getting out of sync. Just pass them in
-maturity ?= prod
+##  Precedence: CLI > EnvVar > Default
+maturity ?= $(MATURITY)
+maturity ?= Prod
+# Make the first-letter uppercase, so it's easy to see in resource names:
+override maturity := $(shell echo "$(maturity)" | sed 's/^\(.\)\(.*\)/\U\1\L\2/')
+
 # The _application_id and _base_stack_name are only here to have in one place,
 #    THEY'RE NOT MEANT TO BE MODIFIED DIRECTLY, except through the 'maturity' var:
-ifeq ($(maturity),prod)
+ifeq ($(maturity),Prod)
 	_application_id := "ContainerManager"
 else
 	_application_id := "ContainerManager-$(maturity)"
@@ -26,12 +38,6 @@ guard-%:
 		echo "    (either export it, or use 'make <target> $*=abc')"; \
         exit -1; \
     fi
-
-## IF vars.env exists, load it:
-#    For dev environments only. File won't exist otherwise.
-#    If you forgot to source it, vars like `EMAILS` wouldn't exist,
-#    and remove resources when deployed locally.
--include ./vars.env
 
 #########################
 ## Generic CDK Helpers ##

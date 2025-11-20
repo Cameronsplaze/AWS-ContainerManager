@@ -228,7 +228,7 @@ Those are the only charges I've seen of note in my account.
 
 These are the core commands of cdk. Both deploy and destroy are broken into two for the base and leaf stacks. So in total, you have: `cdk-synth`, `cdk-deploy-base`, `cdk-deploy-leaf`, `cdk-destroy-base`, `cdk-destroy-leaf`.
 
-**With the exception of** the `*-base` commands, the other three commands have three parameters for customization:
+The `maturity` flag works for BOTH `*-leaf` and `*-base` commands. The other two (`config-file` and `container-id`) are only for the `*-leaf` commands.
 
 > ![NOTE]
 > When deploying/destroying a stack, all three parameters must be exactly the same as the first deployment.
@@ -280,6 +280,8 @@ These are the core commands of cdk. Both deploy and destroy are broken into two 
   make cdk-destroy-leaf maturity=devel config-file=<FILE>
   # And never touch the stuff in the normal stacks!
   ```
+
+  You can also set `MATURITY` in your `vars.env` (or just `export MATURITY=devel`) to change the default 'maturity=prod' for all commands.
 
 ### lint-python
 

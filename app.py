@@ -32,10 +32,10 @@ Tags.of(app).add(APPLICATION_ID_TAG_NAME, application_id)
 ### Fact-check the maturity, and save it for leaf stacks:
 # (Makefile defaults to prod if not set. We want to fail-fast
 # here, so throw if it doesn't exist)
-maturity = app.node.get_context("maturity")
-supported_maturities = ["devel", "prod"]
+maturity = app.node.get_context("maturity").title()
+supported_maturities = ["Devel", "Prod"]
 assert maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
-maturity_description = f"({maturity=}) " if maturity!="prod" else "" #pylint: disable=invalid-name
+maturity_description = f"({maturity=}) " if maturity!="Prod" else "" #pylint: disable=invalid-name
 
 # Lets you reference self.account and self.region in your CDK code
 # if you need to:
@@ -102,7 +102,8 @@ if file_path:
 
     container_manager_stack = ContainerManagerStack(
         app,
-        f"{application_id}-{container_id_alpha}-ContainerManager",
+        # No "Sub-Id", it's the main stack:
+        f"{application_id}-{container_id_alpha}",
         description=f"{maturity_description}For managing, and automatically spinning DOWN the container.",
         cross_region_references=True,
         env=main_env,

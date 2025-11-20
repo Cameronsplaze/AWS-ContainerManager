@@ -68,39 +68,49 @@ class EcsAsg(NestedStack):
 
         efs_root_host = "/mnt/efs"
         ### Tie all the EFS's to the host:
-        for efs_file_system, host_access_point in efs_file_systems.items():
+        for efs_file_system, mount_paths in efs_file_systems.items():
+            ### Give EC2 access to the EFS:
+            efs_file_system.grant_read_write(self.ec2_role)
+
             # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
             efs_mount_point = f"{efs_root_host}/{efs_file_system.node.id}"
-            ### Give it root access to the EFS:
-            efs_file_system.grant_root_access(self.ec2_role)
 
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
             #      (You can also mount efs directly by removing the access-point flag)
             # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
             # https://docs.aws.amazon.com/efs/latest/ug/mount-fs-auto-mount-update-fstab.html
+            # https://docs.aws.amazon.com/efs/latest/ug/mount-helper-setting.html
             self.ec2_user_data.add_commands(
                 # Make sure the EFS Mount Point exists:
                 f'mkdir -p "{efs_mount_point}"',
                 ## Add the entry to fstab, so it mounts on boot:
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs defaults,_netdev,tls,iam,accesspoint={host_access_point.access_point_id} 0 0" >> /etc/fstab',
+                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs _netdev,tls,iam 0 0" >> /etc/fstab',
+                ## Mount that specific entry:
+                f'mount {efs_mount_point}',
             )
-
-        ## Actually mount the EFS volumes:
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs-readme.html#mounting-the-file-system-using-user-data
-        #  (the first few commands on that page aren't needed. Since we're a optimized ecs image, we have those packages already)
-        self.ec2_user_data.add_commands(
-            'mount --all --types efs defaults',
-            ## You CAN'T chown efs_root_host here, since it's an access point. But the files inside already have correct permissions.
-        )
+            for mount_path in mount_paths:
+                # Make sure each specific mount path exists INSIDE the EFS, now that it's mounted:
+                full_mount_path = f"{efs_mount_point}/{mount_path.lstrip('/')}"
+                self.ec2_user_data.add_commands(
+                    ### I tried everything possible to avoid the 777 here. The problem is:
+                    #     - We need to support ANY container, and they have different UID:GID's.
+                    #     - Some container's don't support overriding UID:GID's.
+                    #     - This is only the *last* directory in the path, and not any files too.
+                    f'mkdir -p -m 777 "{full_mount_path}"',
+                )
 
         ## Add ECS Agent Config Variables:
         # (Full list at: https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables)
         # (ECS Agent config information: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html)
         self.ec2_user_data.add_commands(
-            ## Security Flags:
+            ### Security Flags:
             'echo "ECS_DISABLE_PRIVILEGED=true" >> /etc/ecs/ecs.config',
+            # Enable SELinux Enforcing mode (It's passive on Amazon 2023??)
+            'sudo setenforce 1',
+            # Make SELinux enforcing on reboot (Userdata only runs on first boot):
+            'sudo sed -i "s/^SELINUX=.*/SELINUX=enforcing/" /etc/selinux/config',
             'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
-            ## Instance isn't ever on long enough to worry about cleanup anyways:
+            ### Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
         )
 

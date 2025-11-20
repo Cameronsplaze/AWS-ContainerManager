@@ -1,5 +1,6 @@
 
 
+import hashlib
 import pytest
 
 from aws_cdk.assertions import Match
@@ -118,7 +119,7 @@ class TestEfsVolumes():
                                 {
                                     "ContainerPath": path["Path"],
                                     "ReadOnly": path["ReadOnly"],
-                                    "SourceVolume": f"Efs-{volume_id}{path['Path'].replace('/', '-')}",
+                                    "SourceVolume": f"Efs-{volume_id}-{hashlib.md5(path["Path"].encode()).hexdigest()[:8]}",
                                 },
                             ]),
                         }),
