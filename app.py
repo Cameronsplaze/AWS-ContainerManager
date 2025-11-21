@@ -32,7 +32,7 @@ Tags.of(app).add(APPLICATION_ID_TAG_NAME, application_id)
 ### Fact-check the maturity, and save it for leaf stacks:
 # (Makefile defaults to prod if not set. We want to fail-fast
 # here, so throw if it doesn't exist)
-maturity = app.node.get_context("maturity").title()
+maturity = app.node.get_context("maturity")
 supported_maturities = ["Devel", "Prod"]
 assert maturity in supported_maturities, f"ERROR: Unknown maturity ({maturity}). Must be in {supported_maturities}"
 maturity_description = "" if maturity == "Prod" else f"({maturity=}) " #pylint: disable=invalid-name
