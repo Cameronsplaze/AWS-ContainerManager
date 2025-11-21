@@ -34,8 +34,8 @@ Tags.of(app).add(APPLICATION_ID_TAG_NAME, application_id)
 # here, so throw if it doesn't exist)
 maturity = app.node.get_context("maturity").title()
 supported_maturities = ["Devel", "Prod"]
-assert maturity in supported_maturities, f"ERROR: Unknown maturity. Must be in {supported_maturities}"
-maturity_description = f"({maturity=}) " if maturity!="Prod" else "" #pylint: disable=invalid-name
+assert maturity in supported_maturities, f"ERROR: Unknown maturity ({maturity}). Must be in {supported_maturities}"
+maturity_description = "" if maturity == "Prod" else f"({maturity=}) " #pylint: disable=invalid-name
 
 # Lets you reference self.account and self.region in your CDK code
 # if you need to:
