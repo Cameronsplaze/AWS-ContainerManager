@@ -17,12 +17,11 @@ MAKEFLAGS += --no-print-directory
 #    Do here instead of the cdk app, so they're not duplicated in both and
 #    avoid getting out of sync. Just pass them in
 ##  Precedence: CLI > EnvVar > Default
-maturity ?= $(MATURITY)
-maturity ?= Prod
+maturity := $(or $(maturity),$(MATURITY),Prod)
 # Make the first-letter uppercase, so it's easy to see in resource names:
 override maturity := $(shell echo "$(maturity)" | sed 's/^\(.\)\(.*\)/\U\1\L\2/')
 
-# The _application_id and _base_stack_name are only here to have in one place,
+# The _application_id and _base_stack_name are only here to have in one place (Makefile vs CDK App),
 #    THEY'RE NOT MEANT TO BE MODIFIED DIRECTLY, except through the 'maturity' var:
 ifeq ($(maturity),Prod)
 	_application_id := "ContainerManager"
