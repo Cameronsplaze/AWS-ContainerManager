@@ -24,7 +24,7 @@ jobs:
       contents: read
     environment: "${{ inputs.environment }}"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup CDK Deploy Leaf
         uses: ./.github/workflows/composite-cdk-deploy-leaf

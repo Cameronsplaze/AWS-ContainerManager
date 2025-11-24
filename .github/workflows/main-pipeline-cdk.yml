@@ -33,7 +33,7 @@ jobs:
     outputs:
       deploy-matrix: ${{ steps.setup-deploy.outputs.container-id-files }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup cdk-deploy Matrix
         id: setup-deploy
@@ -62,7 +62,7 @@ jobs:
     needs:
       - setup-matrix
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       ## Install Everything / Setup Env Vars:
       - name: Setup CDK
@@ -88,7 +88,7 @@ jobs:
     environment: "${{ matrix.container-id }}"
     name: "${{ matrix.container-id }}"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup CDK Deploy Leaf
         uses: ./.github/workflows/composite-cdk-deploy-leaf
