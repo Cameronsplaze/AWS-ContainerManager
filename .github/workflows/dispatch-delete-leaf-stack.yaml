@@ -24,7 +24,7 @@ jobs:
       contents: read
     environment: "${{ inputs.environment }}"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       ## Install Everything / Setup Env Vars:
       - name: Setup CDK
