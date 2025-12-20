@@ -78,8 +78,8 @@ class Container(NestedStack):
             ),
         )
 
-        ### Save the environment to Parameters:
+        ### Save the environment for the AWS Console:
         for key, val in container_config["Environment"].items():
             CfnOutput(self, key, value=val, description=f"[EnvVar]: {key}")
-            # These are important, attach them to the base stack too:
+            # These are important, attach them to the main stack too:
             CfnOutput(scope, key, value=val, description=f"[EnvVar]: {key}")
