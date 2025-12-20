@@ -26,7 +26,6 @@ Container:
     # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
     MODIFIERS: "resources=most,portals=casual"
     # Mods Docs: https://github.com/mbround18/valheim-docker/blob/main/docs/tutorials/getting_started_with_mods.md
-    # MODS: "Grantapher-ValheimPlus_Grantapher_temporary-9.16.2\\nMarlthon-LandAnimals-0.4.2"
     # MODS: |
     #   Grantapher-ValheimPlus_Grantapher_temporary-9.16.2
     #   Marlthon-LandAnimals-0.4.2

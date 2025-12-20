@@ -138,6 +138,9 @@ lint-python:
 lint-markdown:
 	node --run lint:markdown
 
+.PHONY := lint
+lint: lint-python lint-markdown
+
 ###################
 ## Misc Commands ##
 ###################
@@ -153,13 +156,11 @@ aws-whoami:
 		--query "$${query:-Arn}" \
 		--output text
 
-.PHONY := update-npm-lint
+.PHONY := update-npm-dev
 # Installs locally:
-update-npm-lint:
-	echo "## Updating NPM Lint Stuff..."
-	npm install --save-dev \
-		markdownlint-cli2@latest \
-		markdownlint-rule-relative-links@latest
+update-npm-dev:
+	echo "## Updating NPM Dev Stuff..."
+	npm update --no-fund
 	echo ""
 
 .PHONY := update-npm-cdk
@@ -184,7 +185,7 @@ update-python:
 	echo ""
 
 .PHONY := update
-update: update-npm-cdk update-npm-lint update-python
+update: update-npm-cdk update-npm-dev update-python
 
 .PHONY := cdk-bootstrap
 # --app="": CDK can't synth without the right variables, so don't load the app:
