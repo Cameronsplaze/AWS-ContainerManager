@@ -143,3 +143,6 @@ node_modules/
 
 # For developing, temp-saving templates
 template_output.json
+
+# We have automatic updates anyways, and there's so many conflicts with this file:
+package-lock.json

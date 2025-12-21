@@ -10,6 +10,8 @@ on:
     paths:
       # Changes to any markdown file:
       - '**.md'
+      # Updates to the markdownlint package:
+      - 'package.json'
       # Or Actions this workflow depends on (including itself):
       - '.markdownlint.yaml'
       - '.markdownlint-cli2.yaml'
@@ -31,7 +33,7 @@ jobs:
 
       - name: Install NPM Stuff (linting)
         shell: bash
-        run: make update-npm-lint
+        run: make update-npm-dev
 
       - name: Analyzing with markdownlint
         run: make lint-markdown

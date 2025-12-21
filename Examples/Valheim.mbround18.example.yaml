@@ -10,10 +10,12 @@ Container:
     - UDP: 2457
     - UDP: 2458
   Environment:
+    ## FOR DEBUGGING:
+    # https://github.com/mbround18/valheim-docker/discussions/1287
+    # CLEAN_INSTALL: 1
+    ## Env Vars:
+    # https://github.com/mbround18/valheim-docker?tab=readme-ov-file#environment-variables
     TYPE: BepInEx
-    # Mods Docs: https://github.com/mbround18/valheim-docker/blob/main/docs/tutorials/getting_started_with_mods.md
-    # MODS: |
-    #   TODO
     PORT: 2456
     NAME: !ENV ${VALHEIM_SERVER_NAME}
     WORLD: "Valhalla"
@@ -22,36 +24,39 @@ Container:
     ENABLE_CROSSPLAY: 0 # For Microsoft store, NOT XBox. You can't do mods with XBox anyways.
     # World Modifiers list: https://www.reddit.com/r/valheim/comments/16us3ql/how_to_world_modifiers_in_game_works_on_dedicated/
     MODIFIERS: "resources=most,portals=casual"
+    # # Mods Docs: https://github.com/mbround18/valheim-docker/blob/main/docs/tutorials/getting_started_with_mods.md
+    MODS: |
+      https://thunderstore.io/package/download/Grantapher/ValheimPlus_Grantapher_Temporary/9.16.2/
     TZ: !ENV ${TIMEZONE}
     # Since this container is on-demand, the only time we can update is on startup:
-    UPDATE_ON_STARTUP: 1 # True
-    AUTO_UPDATE: 0 # False
-    AUTO_BACKUP: 0 # False
-    SCHEDULED_RESTART: 0 # Turns off when idle.
+    UPDATE_ON_STARTUP: 1    # True: Need the latest steam-client to be able to connect
+    AUTO_UPDATE: 0          # False: No point since we're checking on startup
+    AUTO_BACKUP: 0          # False: We do that ourselves
+    SCHEDULED_RESTART: 0    # False: Turns off when idle. We do that ourselves
 
 Volumes:
-  ## NOTE:
-  # Under 'root directory' here: https://docs.aws.amazon.com/efs/latest/ug/API_CreateAccessPoint.html#API_CreateAccessPoint_RequestBody
-  # Then under 'Path' here: https://docs.aws.amazon.com/efs/latest/ug/API_RootDirectory.html
-  # You get a Regex. That regex does NOT allow hidden directories, hence why
-  # this Config path doesn't work:
-  ## ALSO apparently you only get a max of 4 directories deep w/ that regex:
-
   # Holds the save info
   Config:
     Paths:
       - Path: /home/steam/.config/unity3d/IronGate/Valheim
   # Holds server download file
-  # Download:
-  #   EnableBackups: False
-  #   KeepOnDelete: False
-  #   Paths:
-  #     - Path: /home/steam/valheim
+  Download:
+    EnableBackups: False
+    KeepOnDelete: False
+    Paths:
+      - Path: /home/steam/valheim
+      ## Other persistent paths. Also stop SteamCLI from thinking it's out of space on disk:
+      # https://github.com/mbround18/valheim-docker/discussions/1268#discussioncomment-14805708
+      - Path: /home/steam/backups
+      - Path: /home/steam/Steam
+      - Path: /home/steam/.steam
+      - Path: /home/steam/.local/share/Steam
+      - Path: /home/steam/steamcmd
 
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 
 Watchdog:
-  Threshold: 400
+  Threshold: 1000
   InstanceLeftUp:
     DurationHours: 8
     ShouldStop: True

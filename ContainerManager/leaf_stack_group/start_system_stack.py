@@ -12,6 +12,7 @@ import json
 from aws_cdk import (
     Stack,
     Duration,
+    CfnOutput,
     RemovalPolicy,
     aws_iam as iam,
     aws_logs as logs,
@@ -135,6 +136,16 @@ class StartSystemStack(Stack):
                 resources=[container_manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_arn],
             )
         )
+
+        ###############
+        ### Outputs ###
+        ###############
+        # Because this is the very last stack, this output will show at the end of the terminal output:
+        CfnOutput(self, "DomainName", value=domain_stack.sub_domain_name, description="[Domain]: The domain for the container.")
+        # Also save it to the domain stack:
+        CfnOutput(domain_stack, "DomainName", value=domain_stack.sub_domain_name, description="[Domain]: The domain for the container.")
+        # Aaaand the main leaf stack too:
+        CfnOutput(container_manager_stack, "DomainName", value=domain_stack.sub_domain_name, description="[Domain]: The domain for the container.")
 
         #####################
         ### cdk_nag stuff ###

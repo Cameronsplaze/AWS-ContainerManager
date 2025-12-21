@@ -14,7 +14,7 @@ updates:
     open-pull-requests-limit: 1
     ### Group them together, so that when the PR is merged, we're
     ### not trying to deploy 4 different times at once.
-    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups--
     groups:
       action-updates:
         patterns: ["*"]
@@ -26,8 +26,19 @@ updates:
     open-pull-requests-limit: 1
     ### Group them together, so that when the PR is merged, we're
     ### not trying to deploy 4 different times at once.
-    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups--
     groups:
       python-updates:
         patterns: ["*"]
 
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 1
+    ### Group them together, so that when the PR is merged, we're
+    ### not trying to deploy 4 different times at once.
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups--
+    groups:
+      npm-updates:
+        patterns: ["*"]

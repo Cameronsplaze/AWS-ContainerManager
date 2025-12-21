@@ -6,7 +6,7 @@ MAKEFLAGS += --no-print-directory
 # Default action:
 .DEFAULT_GOAL := cdk-synth
 
-## IF vars.env exists, load it:
+### IF vars.env exists, load it:
 #    For dev environments only. File won't exist otherwise.
 #    If you forgot to source it, vars like `EMAILS` wouldn't exist,
 #    and remove resources when deployed locally.
@@ -20,8 +20,7 @@ MAKEFLAGS += --no-print-directory
 maturity := $(or $(maturity),$(MATURITY),Prod)
 # Make the first-letter uppercase, so it's easy to see in resource names:
 override maturity := $(shell echo "$(maturity)" | sed 's/^\(.\)\(.*\)/\U\1\L\2/')
-
-# The _application_id and _base_stack_name are only here to have in one place (Makefile vs CDK App),
+## The _application_id and _base_stack_name are only here to have in one place (Makefile vs CDK App),
 #    THEY'RE NOT MEANT TO BE MODIFIED DIRECTLY, except through the 'maturity' var:
 ifeq ($(maturity),Prod)
 	_application_id := "ContainerManager"
@@ -139,6 +138,9 @@ lint-python:
 lint-markdown:
 	node --run lint:markdown
 
+.PHONY := lint
+lint: lint-python lint-markdown
+
 ###################
 ## Misc Commands ##
 ###################
@@ -154,13 +156,11 @@ aws-whoami:
 		--query "$${query:-Arn}" \
 		--output text
 
-.PHONY := update-npm-lint
+.PHONY := update-npm-dev
 # Installs locally:
-update-npm-lint:
-	echo "## Updating NPM Lint Stuff..."
-	npm install --save-dev \
-		markdownlint-cli2@latest \
-		markdownlint-rule-relative-links@latest
+update-npm-dev:
+	echo "## Updating NPM Dev Stuff..."
+	npm update --no-fund
 	echo ""
 
 .PHONY := update-npm-cdk
@@ -185,7 +185,7 @@ update-python:
 	echo ""
 
 .PHONY := update
-update: update-npm-cdk update-npm-lint update-python
+update: update-npm-cdk update-npm-dev update-python
 
 .PHONY := cdk-bootstrap
 # --app="": CDK can't synth without the right variables, so don't load the app:
