@@ -1,5 +1,4 @@
-# Respect pathing
-export PWD=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+
 SHELL:=/bin/bash
 .SILENT:
 MAKEFLAGS += --no-print-directory
