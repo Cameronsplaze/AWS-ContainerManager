@@ -123,7 +123,7 @@ class EcsAsg(NestedStack):
             instance_type=ec2.InstanceType(ec2_config["InstanceType"]),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
-            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(),
+            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(), # DON'T set hardware type here, not sure if it switches to ARM automatically.
             # Lets Specific traffic to/from the instance:
             security_group=sg_container_traffic,
             user_data=self.ec2_user_data,
@@ -184,6 +184,7 @@ class EcsAsg(NestedStack):
             "Ec2Service",
             cluster=self.ecs_cluster,
             task_definition=task_definition,
+            # Uses pre-defined ECS Tags on the resource:
             enable_ecs_managed_tags=True,
             ## Daemon let me rip out SOOO much code. It will start the task for you whenever the instance
             # starts automatically, so you don't need task management logic in the AsgStateChangeHook lambda.
