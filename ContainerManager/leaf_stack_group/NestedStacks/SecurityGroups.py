@@ -31,18 +31,18 @@ class SecurityGroups(NestedStack):
 
         ## Security Group for Container's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html
-        self.sg_ec2_instance_traffic = ec2.SecurityGroup(
+        self.sg_container_traffic = ec2.SecurityGroup(
             self,
-            "SgEc2InstanceTraffic",
+            "SgContainerTraffic",
             vpc=vpc,
-            description=f"({container_id}): Traffic for the EC2 instance",
+            description=f"({container_id}): Traffic for the Container",
             # Impossible to know container will need/want:
             allow_all_outbound=True,
         )
-        # Create a name of `<StackName>/sg-ec2-instance-traffic` to find it easier:
-        Tags.of(self.sg_ec2_instance_traffic).add("Name", f"{leaf_construct_id}/sg-ec2-instance-traffic")
+        # Create a name of `<StackName>/sg-container-traffic` to find it easier:
+        Tags.of(self.sg_container_traffic).add("Name", f"{leaf_construct_id}/sg-container-traffic")
         ## Allow SSH traffic:
-        self.sg_ec2_instance_traffic.connections.allow_from(
+        self.sg_container_traffic.connections.allow_from(
             ec2.Peer.any_ipv4(),
             # Same as TCP 22:
             ec2.Port.SSH,
@@ -62,12 +62,12 @@ class SecurityGroups(NestedStack):
         # Create a name of `<StackName>/sg-efs-traffic` to find it easier:
         Tags.of(self.sg_efs_traffic).add("Name", f"{leaf_construct_id}/sg-efs-traffic")
 
-        ## Allow EFS to receive traffic from the EC2 instance:
+        ## Allow EFS to receive traffic from the container:
         #   (sg's are stateful, so it can reply too)
         self.sg_efs_traffic.connections.allow_from(
-            self.sg_ec2_instance_traffic,
+            self.sg_container_traffic,
             port_range=ec2.Port.tcp(2049),
-            description="Allow EFS traffic IN - from EC2 instance",
+            description="Allow EFS traffic IN - from container",
         )
 
         # Loop over each port and figure out what it wants:
@@ -79,7 +79,7 @@ class SecurityGroups(NestedStack):
             #   are the same.
             port = port_mapping.host_port
 
-            self.sg_ec2_instance_traffic.connections.allow_from(
+            self.sg_container_traffic.connections.allow_from(
                 ec2.Peer.any_ipv4(),
                 getattr(ec2.Port, protocol.lower())(port),
                 description=f"Game port: allow {protocol.lower()} traffic IN from {port}",
