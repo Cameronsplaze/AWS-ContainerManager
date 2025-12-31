@@ -79,11 +79,7 @@ class Volumes(NestedStack):
             ## Setup the paths to mount in the EC2:
             self.efs_file_systems[efs_file_system] = []
 
-            ## Tell the EFS side that the task can access it:
-            # (This is code INSIDE the container's permissions)
-            efs_file_system.grant_read_write(task_definition.task_role)
-
-            ## (NOTE: There's another grant_root_access in EcsAsg.py ec2-role.
+            ## (NOTE: There's another grant_read_write in EcsAsg.py ec2-role.
             #         I just didn't see a way to move it here without moving the role.)
 
             ## EFS Traffic Out:
@@ -108,15 +104,9 @@ class Volumes(NestedStack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
                 task_definition.add_volume(
                     name=volume_name,
-                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
-                    efs_volume_configuration=ecs.EfsVolumeConfiguration(
-                        file_system_id=efs_file_system.file_system_id,
-                        root_directory=volume_path,
-                        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
-                        authorization_config=ecs.AuthorizationConfig(
-                            iam="ENABLED",
-                        ),
-                        transit_encryption="ENABLED",
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Host.html
+                    host=ecs.Host(
+                        source_path=volume_path,
                     ),
                 )
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html#addwbrmountwbrpointsmountpoints
