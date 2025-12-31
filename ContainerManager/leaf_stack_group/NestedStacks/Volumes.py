@@ -108,15 +108,9 @@ class Volumes(NestedStack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
                 task_definition.add_volume(
                     name=volume_name,
-                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EfsVolumeConfiguration.html
-                    efs_volume_configuration=ecs.EfsVolumeConfiguration(
-                        file_system_id=efs_file_system.file_system_id,
-                        root_directory=volume_path,
-                        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.AuthorizationConfig.html
-                        authorization_config=ecs.AuthorizationConfig(
-                            iam="ENABLED",
-                        ),
-                        transit_encryption="ENABLED",
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Host.html
+                    host=ecs.Host(
+                        source_path="/mnt/efs/" + efs_file_system.node.id + volume_path,
                     ),
                 )
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html#addwbrmountwbrpointsmountpoints
