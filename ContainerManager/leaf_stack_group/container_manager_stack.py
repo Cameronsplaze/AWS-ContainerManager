@@ -117,7 +117,7 @@ class ContainerManagerStack(Stack):
             leaf_stack_sns_topic=self.sns_notify_topic,
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
-            sg_ec2_instance_traffic=self.sg_nested_stack.sg_ec2_instance_traffic,
+            sg_container_traffic=self.sg_nested_stack.sg_container_traffic,
             efs_file_systems=self.volumes_nested_stack.efs_file_systems,
         )
 

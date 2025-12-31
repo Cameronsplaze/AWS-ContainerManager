@@ -40,7 +40,9 @@ Volumes:
       - Path: /palworld
 
 Watchdog:
-  Threshold: 1000
+  # NOTE: The threshold slowly should increase as more things happen in the world.
+  # I can't figure out why yet. For new worlds, start around 2000.
+  Threshold: 6750
   InstanceLeftUp:
     DurationHours: 8
     ShouldStop: True
