@@ -93,8 +93,8 @@ def leaf_config_schema(maturity: str) -> Schema:
                     # Add S3 as apart of the Or here when it's supported!
                     Or("EFS")
                 ),
-                Optional("EnableBackups", default=bool(maturity == "prod")): bool,
-                Optional("KeepOnDelete", default=bool(maturity == "prod")): bool,
+                Optional("EnableBackups", default=bool(maturity == "Prod")): bool,
+                Optional("KeepOnDelete", default=bool(maturity == "Prod")): bool,
                 # List of Path Configs to save:
                 "Paths": [{
                     "Path": str,
