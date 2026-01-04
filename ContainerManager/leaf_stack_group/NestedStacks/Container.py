@@ -40,6 +40,10 @@ class Container(NestedStack):
             "TaskDefinition",
             # execution_role= ecs **agent** permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
             # task_role= permissions for *inside* the container
+            ## HOST Netorking Mode:
+            # - The security "drawback" doesn't affect us: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-host-modes.html
+            # - It's the fastest performing mode: https://docs.docker.com/engine/network/drivers/host/
+            network_mode=ecs.NetworkMode.HOST,
         )
 
         ## Logs for the container:
@@ -53,9 +57,9 @@ class Container(NestedStack):
         ### Give the task write logging permissions:
         self.container_log_group.grant_write(self.task_definition.task_role)
 
-        ## Details for add_container:
+        ## Details for task_definition.add_container:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#addwbrcontainerid-props
-        ## And what it returns:
+        ## And the container object itself:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html
         self.container = self.task_definition.add_container(
             container_id_alpha,

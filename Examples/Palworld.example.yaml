@@ -40,9 +40,11 @@ Volumes:
       - Path: /palworld
 
 Watchdog:
-  # NOTE: The threshold slowly should increase as more things happen in the world.
-  # I can't figure out why yet. For new worlds, start around 2000.
-  Threshold: 6750
+  # New World - Connected: 7300
+  # New World - Idle:      4450
+  # Old World - Connected: xxxx
+  # Old World - Idle:      xxxx
+  Threshold: 5750
   InstanceLeftUp:
     DurationHours: 8
     ShouldStop: True
