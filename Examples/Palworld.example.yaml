@@ -40,7 +40,11 @@ Volumes:
       - Path: /palworld
 
 Watchdog:
-  Threshold: 5500
+  # New World - Connected: 7300
+  # New World - Idle:      4450
+  # Old World - Connected: xxxx
+  # Old World - Idle:      xxxx
+  Threshold: 5750
   InstanceLeftUp:
     DurationHours: 8
     ShouldStop: True
