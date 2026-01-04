@@ -110,10 +110,6 @@ class EcsAsg(NestedStack):
             # Make SELinux enforcing on reboot (Userdata only runs on first boot):
             'sudo sed -i "s/^SELINUX=.*/SELINUX=enforcing/" /etc/selinux/config',
             'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
-            # Block Access to Instance Metadata (We're in HOST mode, so we don't need the others):
-            # - https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-roles.html#security-iam-roles-recommendations
-            # - https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-network.html#security-network-ecs-agent-settings
-            'echo "ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=false" >> /etc/ecs/ecs.config',
             ### Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
         )
