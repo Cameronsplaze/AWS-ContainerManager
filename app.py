@@ -18,7 +18,7 @@ from ContainerManager.base_stack import BaseStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 from ContainerManager.leaf_stack_group.container_manager_stack import ContainerManagerStack
 from ContainerManager.leaf_stack_group.start_system_stack import StartSystemStack
-from ContainerManager.utils import load_base_config, load_leaf_config
+from ContainerManager.utils import load_base_config, load_leaf_config, check_maturities
 
 
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
@@ -33,8 +33,7 @@ Tags.of(app).add(APPLICATION_ID_TAG_NAME, application_id)
 # (Makefile defaults to prod if not set. We want to fail-fast
 # here, so throw if it doesn't exist)
 maturity = app.node.get_context("maturity")
-supported_maturities = ["Devel", "Prod"]
-assert maturity in supported_maturities, f"ERROR: Unknown maturity ({maturity}). Must be in {supported_maturities}"
+check_maturities(maturity)
 maturity_description = "" if maturity == "Prod" else f"({maturity=}) " #pylint: disable=invalid-name
 
 # Lets you reference self.account and self.region in your CDK code
