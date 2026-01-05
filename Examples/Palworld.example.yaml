@@ -18,7 +18,11 @@ Container:
     RCON_ENABLED: False # Makes logs noisy, and might be extra network traffic keeping the container up
     MULTITHREADING: True # Not *exactly* sure what this does, but every bit of performance helps
     BACKUP_ENABLED: False # We have this with AWS already.
-    ENABLE_PLAYER_LOGGING: False # No reason, we're not connecting it to discord anyways.
+    ### TODO: Pausing is promising, but needs more debugging. I think I have to set the ADMIN_PASSWORD or somehting?
+    # # Pause the server when not in use, so that the Watchdog can shut it down:
+    # ENABLE_PLAYER_LOGGING: True
+    # AUTO_PAUSE_ENABLED: True
+    # AUTO_PAUSE_TIMEOUT_EST: 60 # Seconds
     # Update when the server turns on, it isn't up 24/7:
     UPDATE_ON_BOOT: True
     AUTO_UPDATE_ENABLED: False
@@ -42,8 +46,8 @@ Volumes:
 Watchdog:
   # New World - Connected: 7300
   # New World - Idle:      4450
-  # Old World - Connected: xxxx
-  # Old World - Idle:      xxxx
+  # Old World - Connected: 8500
+  # Old World - Idle:      6700
   Threshold: 5750
   InstanceLeftUp:
     DurationHours: 8

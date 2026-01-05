@@ -14,6 +14,7 @@ from aws_cdk import (
 )
 
 from .sns_subscriptions import sns_schema
+from .maturity import Maturity
 
 @cache
 def get_ec2_client():
@@ -45,7 +46,7 @@ leaf_dashboard_defaults = leaf_dashboard_config.validate({})
 ###################
 ### Leaf Config ###
 ###################
-def leaf_config_schema(maturity: str) -> Schema:
+def leaf_config_schema(maturity: Maturity) -> Schema:
     """ Leaf config schema for the leaf stack. """
     return Schema({
         "Ec2": And(
@@ -93,8 +94,8 @@ def leaf_config_schema(maturity: str) -> Schema:
                     # Add S3 as apart of the Or here when it's supported!
                     Or("EFS")
                 ),
-                Optional("EnableBackups", default=bool(maturity == "Prod")): bool,
-                Optional("KeepOnDelete", default=bool(maturity == "Prod")): bool,
+                Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
+                Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
                 # List of Path Configs to save:
                 "Paths": [{
                     "Path": str,

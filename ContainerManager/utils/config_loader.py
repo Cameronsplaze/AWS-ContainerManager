@@ -18,7 +18,7 @@ from git import Repo, exc
 
 from .leaf_config_parser import leaf_config_schema
 from .base_config_parser import base_config_schema
-from .check_maturities import check_maturities
+from .maturity import Maturity
 
 # I broke this out, to make sure the test-suite and the stack always use the same "default_value":
 def _parse_config(path: str) -> dict:
@@ -54,9 +54,8 @@ def load_base_config(path: str) -> dict:
     return _load(path, schema, error_info)
 
 # Default maturity to "Prod", for the test suite:
-def load_leaf_config(path: str, maturity: str="Prod") -> dict:
+def load_leaf_config(path: str, maturity: Maturity=Maturity.PROD) -> dict:
     """ Load the leaf stack config file and validate it against the schema. """
-    check_maturities(maturity)
     error_info = {
         "online_docs": "tree/main/Examples#config-file-options",
         "local_docs": "./Examples/README.md",

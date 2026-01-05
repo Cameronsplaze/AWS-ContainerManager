@@ -6,6 +6,7 @@ This module contains the BaseStackMain class.
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Tags,
     CfnOutput,
     aws_ec2 as ec2,
     aws_sns as sns,
@@ -62,6 +63,10 @@ class BaseStack(Stack):
             public_key_material=None,
             key_pair_name=f"{construct_id}-SshKey",
         )
+        ## Tags remove: Let the stack deploy. Adding a tag requires replacing this
+        # resource, which you CAN'T do since it's used by leaf stacks. I'll have to
+        # tare down everything, re-deploy, and re-upload game data to add this tag here...
+        Tags.of(self.ssh_key_pair).remove("Maturity")
 
         ########################
         ### SNS Notify STUFF ###
