@@ -79,11 +79,7 @@ class Volumes(NestedStack):
             ## Setup the paths to mount in the EC2:
             self.efs_file_systems[efs_file_system] = []
 
-            ## Tell the EFS side that the task can access it:
-            # (This is code INSIDE the container's permissions)
-            efs_file_system.grant_read_write(task_definition.task_role)
-
-            ## (NOTE: There's another grant_root_access in EcsAsg.py ec2-role.
+            ## (NOTE: There's a grant_root_access in EcsAsg.py ec2-role.
             #         I just didn't see a way to move it here without moving the role.)
 
             ## EFS Traffic Out:
