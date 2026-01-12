@@ -33,7 +33,7 @@ class EcsAsg(NestedStack):
         leaf_stack_sns_topic: sns.Topic,
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
-        sg_container_traffic: ec2.SecurityGroup,
+        sg_ec2_instance_traffic: ec2.SecurityGroup,
         efs_file_systems: dict[efs.FileSystem, efs.AccessPoint],
         **kwargs,
     ) -> None:
@@ -125,7 +125,7 @@ class EcsAsg(NestedStack):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
             machine_image=ecs.EcsOptimizedImage.amazon_linux2023(), # DON'T set hardware type here, not sure if it switches to ARM automatically.
             # Lets Specific traffic to/from the instance:
-            security_group=sg_container_traffic,
+            security_group=sg_ec2_instance_traffic,
             user_data=self.ec2_user_data,
             role=self.ec2_role,
             key_pair=ssh_key_pair,
