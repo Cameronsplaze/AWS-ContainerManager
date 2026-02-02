@@ -1,5 +1,5 @@
-aws-cdk-lib==2.236.0
-boto3==1.42.34
+aws-cdk-lib==2.237.0
+boto3==1.42.39
 cdk-nag==2.37.55
 constructs>=10.0.0,<11.0.0
 GitPython==3.1.46
