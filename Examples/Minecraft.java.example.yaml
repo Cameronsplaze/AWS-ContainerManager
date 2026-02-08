@@ -14,8 +14,7 @@ Container:
     TYPE: PAPER
     ## Let the memory limit adjust based on how big the ec2 instance is:
     # https://docker-minecraft-server.readthedocs.io/en/latest/configuration/jvm-options/#memory-limit
-    MEMORY: "75%"
-    # JVM_XX_OPTS: "-XX:MaxRAMPercentage=75"
+    MEMORY: "80%"
     ## Inject this to server.properties, so it's dynamic and tells users when server updates:
     # (since we use the latest version that the plugins allow, it'll be random when we update).
     MOTD: |
@@ -78,5 +77,6 @@ Watchdog:
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
+
 
 
