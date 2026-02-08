@@ -14,8 +14,8 @@ Container:
     TYPE: PAPER
     ## Let the memory limit adjust based on how big the ec2 instance is:
     # https://docker-minecraft-server.readthedocs.io/en/latest/configuration/jvm-options/#memory-limit
-    MEMORY: ""
-    JVM_XX_OPTS: "-XX:MaxRAMPercentage=75"
+    MEMORY: "75%"
+    # JVM_XX_OPTS: "-XX:MaxRAMPercentage=75"
     ## Inject this to server.properties, so it's dynamic and tells users when server updates:
     # (since we use the latest version that the plugins allow, it'll be random when we update).
     MOTD: |
@@ -26,6 +26,9 @@ Container:
     TUNE_VIRTUALIZED: True
     ENABLE_RCON: False
     ENABLE_ROLLING_LOGS: True
+
+    ## From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/jvm-options/#enable-aikars-flags
+    USE_AIKAR_FLAGS: True
 
     ## https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
     MODRINTH_DOWNLOAD_DEPENDENCIES: required
@@ -66,13 +69,14 @@ Volumes:
         ReadOnly: False
 
 ## Config options for how to monitor for players:
-# (Only required since we're using BOTH tcp and udp)
 Watchdog:
   Threshold: 1175
   InstanceLeftUp:
+    # Just notify:
     DurationHours: 8
-    ShouldStop: True
+    ShouldStop: False
 
 # AlertSubscription:
 #   Email: Does@Not.Exist Does@Not.Exist2
+
 
