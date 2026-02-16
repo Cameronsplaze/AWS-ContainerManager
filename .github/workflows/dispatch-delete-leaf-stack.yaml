@@ -8,12 +8,12 @@ on:
         type: environment
         required: true
 
-## Concurrency would be nice if it cancelled the NEW run. CDK can only update a
-# stack, if it's not being updated by something else. Let CDK just fail the second job.
+## Concurrency: DON'T cancel, otherwise the second deployment would try to update the
+#     base-stack before the first finished and fail. This makes it wait until the first finishes.
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
-# concurrency:
-#   group: "cdk-leaf"
-#   cancel-in-progress: true
+concurrency:
+  group: "cdk-leaf"
+  cancel-in-progress: false
 
 jobs:
   cdk-destroy-leaf:
