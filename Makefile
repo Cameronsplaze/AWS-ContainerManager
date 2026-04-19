@@ -42,7 +42,7 @@ guard-%:
 
 ##################
 #### DEPLOY STUFF:
-.PHONY := _cdk-deploy-helper
+.PHONY: _cdk-deploy-helper
 _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Deploying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
@@ -58,13 +58,13 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Edit the base stack:
-.PHONY := cdk-deploy-base
+.PHONY: cdk-deploy-base
 cdk-deploy-base:
 	$(MAKE) _cdk-deploy-helper stack-regix="$(_base_stack_name)"
 
 # Edit everything BUT the base stack, within the config-file scope:
 #  (The base stack will still be updated as a 'Dependency Stack')
-.PHONY := cdk-deploy-leaf
+.PHONY: cdk-deploy-leaf
 cdk-deploy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
 	$(MAKE) _cdk-deploy-helper stack-regix="!$(_base_stack_name)"
@@ -73,7 +73,7 @@ cdk-deploy-leaf: guard-config-file
 
 ###################
 #### DESTROY STUFF:
-.PHONY := _cdk-destroy-helper
+.PHONY: _cdk-destroy-helper
 _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Destroying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
@@ -88,13 +88,13 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Destroy the base stack
-.PHONY := cdk-destroy-base
+.PHONY: cdk-destroy-base
 cdk-destroy-base:
 	$(MAKE) _cdk-destroy-helper stack-regix="$(_base_stack_name)"
 
 # Destroy everything BUT the base stack, within the config-file scope:
 #  (The base stack will still be updated as a 'Dependency Stack')
-.PHONY := cdk-destroy-leaf
+.PHONY: cdk-destroy-leaf
 cdk-destroy-leaf: guard-config-file
 	echo "Config File: $(config-file)"
 	$(MAKE) _cdk-destroy-helper stack-regix="!$(_base_stack_name)"
@@ -111,7 +111,7 @@ ifeq (cdk-synth,$(firstword $(MAKECMDGOALS)))
   # ...and turn them into do-nothing targets
   $(eval $(STACKS):;@:)
 endif
-.PHONY := cdk-synth
+.PHONY: cdk-synth
 cdk-synth:
 	if [[ -n "$(config-file)" ]]; then \
 		echo "Config File: $(config-file)"; \
@@ -129,40 +129,40 @@ cdk-synth:
 		--context container-id="$(container-id)" \
 		$(STACKS)
 
-.PHONY := lint-python
+.PHONY: lint-python
 lint-python:
 	pylint $$(git ls-files '*.py')
 
-.PHONY := lint-markdown
+.PHONY: lint-markdown
 lint-markdown:
 	node --run lint:markdown
 
-.PHONY := lint
+.PHONY: lint
 lint: lint-python lint-markdown
 
 ###################
 ## Misc Commands ##
 ###################
 
-.PHONY := test
+.PHONY: test
 test:
 	python3 -m tox --conf tests/tox.ini --root ./ run
 
-.PHONY := aws-whoami
+.PHONY: aws-whoami
 aws-whoami:
 	# Make sure you're in the right account
 	aws sts get-caller-identity \
 		--query "$${query:-Arn}" \
 		--output text
 
-.PHONY := update-npm-dev
+.PHONY: update-npm-dev
 # Installs locally:
 update-npm-dev:
 	echo "## Updating NPM Dev Stuff..."
 	npm update --no-fund
 	echo ""
 
-.PHONY := update-npm-cdk
+.PHONY: update-npm-cdk
 # Installs globally:
 update-npm-cdk:
 	echo "## Setting up non-root Install..."
@@ -174,7 +174,7 @@ update-npm-cdk:
 		aws-cdk@latest
 	echo ""
 
-.PHONY := update-python
+.PHONY: update-python
 update-python:
 	echo "Updating Python Stuff..."
 	python3 -m pip install --upgrade \
@@ -183,10 +183,10 @@ update-python:
 		-r requirements-dev.txt
 	echo ""
 
-.PHONY := update
+.PHONY: update
 update: update-npm-cdk update-npm-dev update-python
 
-.PHONY := cdk-bootstrap
+.PHONY: cdk-bootstrap
 # --app="": CDK can't synth without the right variables, so don't load the app:
 cdk-bootstrap:
 	echo "Bootstrapping/Updating CDKToolkit..." && \
