@@ -1,0 +1,64 @@
+
+Ec2:
+  InstanceType: m5.large # 2vCPUs, 8GB RAM
+
+Container:
+  # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/
+  Image: itzg/minecraft-server
+  Ports:
+    - TCP: 25565
+  Environment:
+    EULA: True
+    TYPE: FABRIC
+    ## Let the memory limit adjust based on how big the ec2 instance is:
+    # https://docker-minecraft-server.readthedocs.io/en/latest/configuration/jvm-options/#memory-limit
+    MEMORY: "80%"
+    ## Inject this to server.properties, so it's dynamic and tells users when server updates:
+    # (since we use the latest version that the plugins allow, it'll be random when we update).
+    MOTD: |
+      §3Sharing Life, so Don't Die ;)
+      §r(on §4%VERSION%§r)
+
+    ## From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
+    TUNE_VIRTUALIZED: True
+    ENABLE_RCON: False
+    ENABLE_ROLLING_LOGS: True
+
+    ## From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/jvm-options/#enable-aikars-flags
+    USE_AIKAR_FLAGS: True
+
+    ## https://docker-minecraft-server.readthedocs.io/en/latest/mods-and-plugins/modrinth/#extra-options
+    MODRINTH_DOWNLOAD_DEPENDENCIES: required
+
+    # LifeShare:
+    #      https://modrinth.com/mod/shared-life
+    MODRINTH_PROJECTS: |
+      fabric-api
+      shared-life
+
+    ## Use maximum version of MC that mods allow:
+    VERSION_FROM_MODRINTH_PROJECTS: True
+
+
+Volumes:
+  Data:
+    Type: EFS # EFS or (eventually) S3. EFS is the default.
+    EnableBackups: True
+    KeepOnDelete: True
+    Paths:
+      - Path: /data
+        ReadOnly: False
+
+## Config options for how to monitor for players:
+Watchdog:
+  Threshold: 1175
+  InstanceLeftUp:
+    # Just notify:
+    DurationHours: 8
+    ShouldStop: False
+
+# AlertSubscription:
+#   Email: Does@Not.Exist Does@Not.Exist2
+
+
+
