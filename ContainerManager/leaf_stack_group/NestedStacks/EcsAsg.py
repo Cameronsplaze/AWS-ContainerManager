@@ -166,10 +166,11 @@ class EcsAsg(NestedStack):
             "AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
             ## To let me delete the stack!!:
+            # Although this doesn't do anything now, since we switched to Daemon mode.
             enable_managed_termination_protection=False,
-            ## Since the instances don't live long, this doesn't do anything, and the
-            # lambda to spin down the system would trigger TWICE when going down with this.
-            enable_managed_draining=False,
+            ## Let the instance exit by itself for 5 minutes. If it doesn't, hard-kill it.
+            # If this is false, the instance will wait for 5 min before hard-killing always.
+            enable_managed_draining=True,
             ## We directly manage the ASG, that's how this architecture is designed.
             # And since we'll ever have 1 or 0 instances, we don't need this. Save on
             # cloudwatch api calls, and clean up the console instead.
