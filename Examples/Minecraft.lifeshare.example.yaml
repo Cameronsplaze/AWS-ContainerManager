@@ -18,6 +18,7 @@ Container:
     MOTD: |
       §3Sharing Life, so Don't Die ;)
       §r(on §4%VERSION%§r)
+    DIFFICULTY: hard
 
     ## From https://docker-minecraft-server.readthedocs.io/en/latest/configuration/misc-options/#openj9-specific-options
     TUNE_VIRTUALIZED: True
