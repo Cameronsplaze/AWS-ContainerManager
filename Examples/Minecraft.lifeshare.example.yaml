@@ -52,7 +52,7 @@ Volumes:
 
 ## Config options for how to monitor for players:
 Watchdog:
-  Threshold: 1175
+  Threshold: 1400
   InstanceLeftUp:
     # Just notify:
     DurationHours: 8
