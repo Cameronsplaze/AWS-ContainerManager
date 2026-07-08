@@ -1,4 +1,4 @@
-pytest==9.0.3
-pylint===4.0.5
+pytest==9.1.1
+pylint===4.0.6
 moto==5.2.2
-tox==4.55.1
+tox==4.56.1
