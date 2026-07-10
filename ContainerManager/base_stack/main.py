@@ -8,13 +8,13 @@ from aws_cdk import (
     Stack,
     Tags,
     CfnOutput,
+    Validations,
+    Acknowledgment,
     aws_ec2 as ec2,
     aws_sns as sns,
     aws_iam as iam,
     aws_route53 as route53,
 )
-
-from cdk_nag import NagSuppressions
 
 # from .utils.get_param import get_param
 from ContainerManager.utils.sns_subscriptions import add_sns_subscriptions
@@ -63,10 +63,6 @@ class BaseStack(Stack):
             public_key_material=None,
             key_pair_name=f"{construct_id}-SshKey",
         )
-        ## Tags remove: Let the stack deploy. Adding a tag requires replacing this
-        # resource, which you CAN'T do since it's used by leaf stacks. I'll have to
-        # tare down everything, re-deploy, and re-upload game data to add this tag here...
-        Tags.of(self.ssh_key_pair).remove("Maturity")
 
         ########################
         ### SNS Notify STUFF ###
@@ -115,43 +111,26 @@ class BaseStack(Stack):
             zone_name=self.domain_name,
         )
 
-        ####################
-        ### Output Stuff ###
-        ####################
-        CfnOutput(self, "SshKeyPairId", value=f"/ec2/keypair/{self.ssh_key_pair.key_pair_id}")
-        CfnOutput(self, "HostedZoneId", value=config["Domain"]["HostedZoneId"])
-
-        #####################
-        ### Export Values ###
-        #####################
-        ## To stop cdk from trying to delete the exports when cdk is deployed by
-        ## itself, but still has leaf stacks attached to it.
-        # https://blogs.thedevs.co/aws-cdk-export-cannot-be-deleted-as-it-is-in-use-by-stack-5c205b8004b4
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.ExportValueOptions.html
-        # https://github.com/aws/aws-cdk/blob/v1-main/packages/@aws-cdk/core/README.md#removing-automatic-cross-stack-references
-        self.export_value(self.ssh_key_pair.key_pair_name)
-        self.export_value(self.sns_notify_topic.topic_arn)
-        self.export_value(self.vpc.vpc_id)
-        for subnet in self.vpc.public_subnets:
-            self.export_value(subnet.subnet_id)
+        # ####################
+        # ### Output Stuff ###
+        # ####################
+        # CfnOutput(self, "SshKeyPairId", value=f"/ec2/keypair/{self.ssh_key_pair.key_pair_id}")
+        # CfnOutput(self, "HostedZoneId", value=config["Domain"]["HostedZoneId"])
 
         #####################
         ### cdk_nag stuff ###
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
-        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
-            {
-                "id": "AwsSolutions-SNS2",
-                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
-            },
-        ])
+        Validations.of(self.sns_notify_topic).acknowledge(
+            Acknowledgment(
+                id="AwsSolutions-SNS2",
+                reason="KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            ),
+        )
 
-        NagSuppressions.add_resource_suppressions(
-            self.vpc,
-            [
-                {
-                    "id": "AwsSolutions-VPC7",
-                    "reason": "Flow logs cost a lot, and the average user won't need them.",
-                },
-            ],
+        Validations.of(self.vpc).acknowledge(
+            Acknowledgment(
+                id="AwsSolutions-VPC7",
+                reason="Flow logs cost a lot, and the average user won't need them.",
+            ),
         )

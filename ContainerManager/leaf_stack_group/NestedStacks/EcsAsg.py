@@ -5,6 +5,8 @@ This module contains the EcsAsg NestedStack class.
 
 from aws_cdk import (
     NestedStack,
+    # Validations,
+    # Acknowledgment,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
@@ -14,7 +16,6 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-from cdk_nag import NagSuppressions
 
 
 
@@ -34,7 +35,7 @@ class EcsAsg(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
         sg_ec2_instance_traffic: ec2.SecurityGroup,
-        efs_file_systems: dict[efs.FileSystem, efs.AccessPoint],
+        efs_file_systems: dict[efs.FileSystem, list[efs.AccessPoint]],
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -194,7 +195,7 @@ class EcsAsg(NestedStack):
             min_healthy_percent=0,
             max_healthy_percent=100,
             ## We use the 'spin-down-asg-on-error' lambda to take care of circuit breaker-like
-            ## logic. If we *just* spun down the task, the instance would still be running.
+            ## logic. If we *just* spun down the task, the ec2-instance would still be running.
             ## That'd both charge money, and not let the system "spin back up/reset".
             # circuit_breaker={
             #     "rollback": False # Don't keep trying to restart the container if it fails
@@ -206,60 +207,62 @@ class EcsAsg(NestedStack):
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
 
-        NagSuppressions.add_resource_suppressions(
-            self.auto_scaling_group,
-            [
-                # Lambda Function:
-                {
-                    "id": "AwsSolutions-L1",
-                    "reason": "This lambda function is controlled by cdk, can't update to latest version.",
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                # SNS Drain Hook:
-                {
-                    "id": "AwsSolutions-SNS2",
-                    "reason": "This sns topic is controlled by cdk, can't add server-side encryption."
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                {
-                    "id": "AwsSolutions-SNS3",
-                    "reason": "This sns topic is controlled by cdk, can't add ssl/tls encryption."
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                # ASG Permissions:
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
-                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
-                },
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "\n".join([
-                        "There's a bunch of '*' permissions, but they're either only 'Describe' type, or locked down by the 'conditions' key.",
-                        "(cdk code here: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-ecs/lib/drain-hook/instance-drain-hook.ts)"
-                    ]),
-                    "appliesTo": ["Resource::*"],
-                },
-                # ASG Notifications:
-                {
-                    "id": "AwsSolutions-AS3",
-                    "reason": "\n".join([
-                        "We have the important notifications on instance lifecycles, but not all.",
-                        "(We tell users when it *finishes* coming up, but who cares about when it *starts* to...)"
-                    ]),
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                # ASG EBS Encryption:
-                {
-                    "id": "AwsSolutions-EC26",
-                    "reason": "\n".join([
-                        "This is the default EBS storage cdk creates and attaches to the ASG EC2 Instances.",
-                        "We can create one ourselves so the default is overidden with one with encryption,",
-                        "but I don't want to maintain those settings, just use the one the cdk team supports.",
-                        "(This Issue will add support anyways: https://github.com/aws/aws-cdk/issues/6459)"
-                    ]),
-                    # "appliesTo": "N/A (Does not exist)"
-                }
-            ],
-            apply_to_children=True,
-        )
+        # https://github.com/cdklabs/cdk-nag#migrating-from-v2
+
+        # NagSuppressions.add_resource_suppressions(
+        #     self.auto_scaling_group,
+        #     [
+        #         # Lambda Function:
+        #         {
+        #             "id": "AwsSolutions-L1",
+        #             "reason": "This lambda function is controlled by cdk, can't update to latest version.",
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         # SNS Drain Hook:
+        #         {
+        #             "id": "AwsSolutions-SNS2",
+        #             "reason": "This sns topic is controlled by cdk, can't add server-side encryption."
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         {
+        #             "id": "AwsSolutions-SNS3",
+        #             "reason": "This sns topic is controlled by cdk, can't add ssl/tls encryption."
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         # ASG Permissions:
+        #         {
+        #             "id": "AwsSolutions-IAM5",
+        #             "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
+        #             "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
+        #         },
+        #         {
+        #             "id": "AwsSolutions-IAM5",
+        #             "reason": "\n".join([
+        #                 "There's a bunch of '*' permissions, but they're either only 'Describe' type, or locked down by the 'conditions' key.",
+        #                 "(cdk code here: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-ecs/lib/drain-hook/instance-drain-hook.ts)"
+        #             ]),
+        #             "appliesTo": ["Resource::*"],
+        #         },
+        #         # ASG Notifications:
+        #         {
+        #             "id": "AwsSolutions-AS3",
+        #             "reason": "\n".join([
+        #                 "We have the important notifications on instance lifecycles, but not all.",
+        #                 "(We tell users when it *finishes* coming up, but who cares about when it *starts* to...)"
+        #             ]),
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         # ASG EBS Encryption:
+        #         {
+        #             "id": "AwsSolutions-EC26",
+        #             "reason": "\n".join([
+        #                 "This is the default EBS storage cdk creates and attaches to the ASG EC2 Instances.",
+        #                 "We can create one ourselves so the default is overidden with one with encryption,",
+        #                 "but I don't want to maintain those settings, just use the one the cdk team supports.",
+        #                 "(This Issue will add support anyways: https://github.com/aws/aws-cdk/issues/6459)"
+        #             ]),
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         }
+        #     ],
+        #     apply_to_children=True,
+        # )

@@ -7,6 +7,8 @@ from aws_cdk import (
     NestedStack,
     Duration,
     RemovalPolicy,
+    Validations,
+    Acknowledgment,
     aws_lambda,
     aws_sns as sns,
     aws_iam as iam,
@@ -16,7 +18,6 @@ from aws_cdk import (
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
-from cdk_nag import NagSuppressions
 
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 
@@ -171,14 +172,10 @@ class AsgStateChangeHook(NestedStack):
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
 
-        NagSuppressions.add_resource_suppressions(
-            self.asg_state_change_policy,
-            [
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "These actions require the wildcard resource, since they're 'Describe'.",
-                    "appliesTo": ["Resource::*"]
-                }
-            ],
-            apply_to_children=True,
+        Validations.of(self.asg_state_change_policy).acknowledge(
+            Acknowledgment(
+                id='AwsSolutions-SNS2[{"appliesTo": ["Resource::*"]}]',
+                reason="These actions require the wildcard resource, since they're 'Describe'.",
+                # apply_to_children=True,
+            ),
         )

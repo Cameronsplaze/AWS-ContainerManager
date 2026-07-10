@@ -7,10 +7,11 @@ import re
 
 from aws_cdk import (
     Stack,
+    Validations,
+    Acknowledgment,
     aws_sns as sns,
 )
 from constructs import Construct
-from cdk_nag import NagSuppressions
 
 from ContainerManager.base_stack import BaseStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
@@ -169,9 +170,9 @@ class ContainerManagerStack(Stack):
         ### cdk_nag stuff ###
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
-        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
-            {
-                "id": "AwsSolutions-SNS2",
-                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
-            },
-        ])
+        Validations.of(self.sns_notify_topic).acknowledge(
+            Acknowledgment(
+                id="AwsSolutions-SNS2",
+                reason="KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            ),
+        )

@@ -14,14 +14,14 @@ from aws_cdk import (
     Duration,
     CfnOutput,
     RemovalPolicy,
+    Validations,
+    Acknowledgment,
     aws_iam as iam,
     aws_logs as logs,
     aws_logs_destinations as logs_destinations,
     aws_lambda as aws_lambda,
 )
 from constructs import Construct
-
-from cdk_nag import NagSuppressions
 
 from ContainerManager.leaf_stack_group.container_manager_stack import ContainerManagerStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
@@ -152,19 +152,17 @@ class StartSystemStack(Stack):
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
 
-        NagSuppressions.add_resource_suppressions(
-            self.start_system_policy,
-            [
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
-                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
-                },
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "CloudWatch Metrics don't have ARN's. You need '*' to push to them. We lock down permissions based on Namespace.",
-                    "appliesTo": ["Resource::*"]
-                }
-            ],
-            apply_to_children=True,
+        Validations.of(self.start_system_policy).acknowledge(
+            Acknowledgment(
+                id='AwsSolutions-IAM5[{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}]',
+                reason="It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
+                # apply_to_children=True,
+            ),
+        )
+        Validations.of(self.start_system_policy).acknowledge(
+            Acknowledgment(
+                id='AwsSolutions-IAM5[{"appliesTo": ["Resource::*"]}]',
+                reason="CloudWatch Metrics don't have ARN's. You need '*' to push to them. We lock down permissions based on Namespace.",
+                # apply_to_children=True,
+            ),
         )

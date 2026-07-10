@@ -117,7 +117,7 @@ cdk-synth:
 		echo "Config File: $(config-file)"; \
 	else \
 		echo "No Config File"; \
-		echo "    (Pass in with 'make cdk-synth config-file=<config>' to synth that stack too!)"; \
+		echo "    (Pass in with 'make cdk-synth config-file=<config> <ContainerID>' to synth that stack too!)"; \
 	fi
 	echo "Synthesizing Stack..."
 	echo ""

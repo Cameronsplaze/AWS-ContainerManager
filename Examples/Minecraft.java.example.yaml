@@ -59,13 +59,19 @@ Container:
 
 
 Volumes:
+  # Data:
+  #   Type: EFS # EFS or (eventually) S3. EFS is the default.
+  #   EnableBackups: True
+  #   KeepOnDelete: True
+  #   Paths:
+  #     - Path: /data
+  #       ReadOnly: False
+
   Data:
-    Type: EFS # EFS or (eventually) S3. EFS is the default.
-    EnableBackups: True
-    KeepOnDelete: True
+    Type: "S3"
     Paths:
       - Path: /data
-        ReadOnly: False
+        # ReadOnly: False
 
 ## Config options for how to monitor for players:
 Watchdog:

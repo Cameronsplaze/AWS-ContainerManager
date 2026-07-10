@@ -39,8 +39,8 @@ First setup your Environment Variables used for deploying, and just delete any s
 ```bash
 source .venv/bin/activate
 cp vars.env.example vars.env
-nano vars.env # Use the text editor that's better than vim :)
-source vars.env # Do this after every edit you make too!
+code vars.env # Or any text editor...
+source vars.env # The Makefile will also do this on each command.
 ```
 
 - **For more Advanced Customization while Deploying**: see [(cdk) Synth / Deploy / Destroy](#cdk-synth--deploy--destroy) below.

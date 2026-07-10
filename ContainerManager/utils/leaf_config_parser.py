@@ -91,8 +91,7 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 # Contents of each volume config:
                 Optional("Type", default="EFS"): And(
                     Use(str.upper),
-                    # Add S3 as apart of the Or here when it's supported!
-                    Or("EFS")
+                    Or("EFS", "S3"),
                 ),
                 Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
                 Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
