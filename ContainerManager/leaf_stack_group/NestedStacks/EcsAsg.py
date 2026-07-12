@@ -2,6 +2,7 @@
 """
 This module contains the EcsAsg NestedStack class.
 """
+import os
 
 from aws_cdk import (
     NestedStack,
@@ -11,7 +12,8 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_iam as iam,
     aws_sns as sns,
-    aws_efs as efs,
+    aws_s3 as s3,
+    aws_s3files as s3files,
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
@@ -35,7 +37,7 @@ class EcsAsg(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
         sg_ec2_instance_traffic: ec2.SecurityGroup,
-        efs_file_systems: dict[efs.FileSystem, list[efs.AccessPoint]],
+        file_systems: list[dict],
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -67,31 +69,46 @@ class EcsAsg(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
         self.ec2_user_data = ec2.UserData.for_linux() # (Can also set to python, etc. Default bash)
 
-        efs_root_host = "/mnt/efs"
-        ### Tie all the EFS's to the host:
-        for efs_file_system, mount_paths in efs_file_systems.items():
-            ### Give EC2 access to the EFS:
-            efs_file_system.grant_read_write(self.ec2_role)
+        s3_files_root_host = "/mnt/s3files"
 
-            # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
-            efs_mount_point = f"{efs_root_host}/{efs_file_system.node.id}"
+        for file_system_info in file_systems:
+            if file_system_info["Type"] != "S3":
+                raise ValueError(f"Unsupported file system type: {file_system_info['Type']}")
+
+            s3_bucket: s3.Bucket = file_system_info["Bucket"]
+            s3_file_system: s3files.CfnFileSystem = file_system_info["FileSystem"]
+            mount_paths: list[str] = file_system_info["Paths"]
+
+            ### Give EC2 access to the bucket:
+            s3_bucket.grant_read_write(self.ec2_role)
+
+            # Mount on host, each has to be unique. (/mnt/s3files/S3FilesFs-<ID>)
+            # s3_files_mount_point = f"{s3_files_root_host}/{s3_file_system.node.id}"
+            s3_files_mount_point = os.path.join(s3_files_root_host, s3_file_system.node.id)
 
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
             #      (You can also mount efs directly by removing the access-point flag)
-            # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
+            # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-mounting.html
+            # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-prereq-policies.html
             # https://docs.aws.amazon.com/efs/latest/ug/mount-fs-auto-mount-update-fstab.html
             # https://docs.aws.amazon.com/efs/latest/ug/mount-helper-setting.html
             self.ec2_user_data.add_commands(
                 # Make sure the EFS Mount Point exists:
-                f'mkdir -p "{efs_mount_point}"',
-                ## Add the entry to fstab, so it mounts on boot:
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs _netdev,tls,iam 0 0" >> /etc/fstab',
+                f'mkdir -p "{s3_files_mount_point}"',
+                ## Add the entry to fstab, so it mounts s3's root on boot:
+                f'echo "{s3_file_system.attr_file_system_id}:/ {s3_files_mount_point} s3files _netdev,tls,iam 0 0" >> /etc/fstab',
                 ## Mount that specific entry:
-                f'mount {efs_mount_point}',
+                # f'mount {s3_files_mount_point}',
             )
             for mount_path in mount_paths:
+                print()
+                print("DEBUG HITTTTT<--------")
+                print(s3_files_mount_point)
+                print(mount_path)
+                print()
                 # Make sure each specific mount path exists INSIDE the EFS, now that it's mounted:
-                full_mount_path = f"{efs_mount_point}/{mount_path.lstrip('/')}"
+                # full_mount_path = f"{s3_files_mount_point}/{mount_path.lstrip('/')}"
+                full_mount_path = os.path.join(s3_files_mount_point, mount_path)
                 self.ec2_user_data.add_commands(
                     ### I tried everything possible to avoid the 777 here. The problem is:
                     #     - We need to support ANY container, and they have different UID:GID's.
@@ -99,6 +116,29 @@ class EcsAsg(NestedStack):
                     #     - This is only the *last* directory in the path, and not any files too.
                     f'mkdir -p -m 777 "{full_mount_path}"',
                 )
+
+            ### Give EC2 access to mount/write the file system:
+            # (No grant_* helper like EFS has - CfnFileSystem is L1-only, so do it by hand.)
+            self.ec2_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["s3files:ClientMount", "s3files:ClientWrite"],
+                    resources=[s3_file_system.attr_file_system_arn],
+                )
+            )
+            ### Lets reads bypass the file-system layer straight to S3 (S3 Files does this
+            ### automatically for large/uncached reads, but needs the permission to do it):
+            self.ec2_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["s3:GetObject", "s3:GetObjectVersion"],
+                    resources=[s3_bucket.arn_for_objects("*")],
+                )
+            )
+            self.ec2_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["s3:ListBucket"],
+                    resources=[s3_bucket.bucket_arn],
+                )
+            )
 
         ## Add ECS Agent Config Variables:
         # (Full list at: https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables)
@@ -114,7 +154,6 @@ class EcsAsg(NestedStack):
             ### Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
         )
-
 
         ## Contains the configuration information to launch an instance, and stores launch parameters
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
@@ -171,6 +210,7 @@ class EcsAsg(NestedStack):
             enable_managed_termination_protection=False,
             ## Let the instance exit by itself for 5 minutes. If it doesn't, hard-kill it.
             # If this is false, the instance will wait for 5 min before hard-killing always.
+            # A lot of containers will do a quick-save, when told to gracefully exit, and kill after.
             enable_managed_draining=True,
             ## We directly manage the ASG, that's how this architecture is designed.
             # And since we'll ever have 1 or 0 instances, we don't need this. Save on

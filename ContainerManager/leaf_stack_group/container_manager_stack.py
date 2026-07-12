@@ -119,7 +119,7 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
             sg_ec2_instance_traffic=self.sg_nested_stack.sg_ec2_instance_traffic,
-            efs_file_systems=self.volumes_nested_stack.efs_file_systems,
+            file_systems=self.volumes_nested_stack.file_systems,
         )
 
         ### All the info for the Watchdog Stuff

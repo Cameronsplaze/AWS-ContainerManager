@@ -6,15 +6,16 @@ This module contains the Volumes NestedStack class.
 import hashlib
 
 from aws_cdk import (
+    Aws,
     NestedStack,
     Duration,
     RemovalPolicy,
     aws_ec2 as ec2,
     aws_ecs as ecs,
-    aws_efs as efs,
     aws_iam as iam,
     aws_cloudwatch as cloudwatch,
-    aws_s3express as s3express,
+    aws_s3 as s3,
+    aws_s3files as s3files,
 )
 from constructs import Construct
 
@@ -32,81 +33,135 @@ class Volumes(NestedStack):
         vpc: ec2.Vpc,
         task_definition: ecs.Ec2TaskDefinition,
         container: ecs.ContainerDefinition,
-        volumes_config: list,
+        volumes_config: dict,
         sg_efs_traffic: ec2.SecurityGroup,
         **kwargs,
     ) -> None:
         super().__init__(scope, "VolumesNestedStack", **kwargs)
+        self.file_systems: list[dict] = []
 
-        self.efs_file_systems: dict = {}
-        traffic_out_metrics = {}
+        traffic_out_metrics: dict[str, cloudwatch.Metric] = {}
         ## Loop over each volume in the config:
         for volume_name, volume_info in volumes_config.items():
-            if volume_info["Type"] == "EFS":
-
+            if volume_info["Type"] == "S3":
                 volume_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE \
                                         if volume_info["KeepOnDelete"] else \
                                         RemovalPolicy.DESTROY
 
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_efs.FileSystem.html
-                efs_file_system = efs.FileSystem(
-                    self,
-                    f"Efs-{volume_name}",
-                    vpc=vpc,
-                    removal_policy=volume_removal_policy,
-                    security_group=sg_efs_traffic,
-                    allow_anonymous_access=False,
-                    enable_automatic_backups=volume_info["EnableBackups"],
-                    encrypted=True,
-                    ## No need to set, only in one AZ/Subnet already. If user increases that
-                    ## number, they probably *want* more EFS instances. There's no other reason to:
-                    # one_zone=True,
-                )
-                ## Lock down in-transit encryption:
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.PolicyStatement.html
-                efs_file_system.add_to_resource_policy(
-                    iam.PolicyStatement(
-                        effect=iam.Effect.DENY,
-                        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.AnyPrincipal.html
-                        principals=[iam.AnyPrincipal()],
-                        actions=["*"],
-                        conditions={
-                            "Bool": {"aws:SecureTransport": "false"},
-                        },
-                    )
-                )
 
-                ## Setup the paths to mount in the EC2:
-                self.efs_file_systems[efs_file_system] = []
-
-                ## (NOTE: There's a grant_root_access in EcsAsg.py ec2-role.
+                ## (NOTE: There's a grant_read_write in EcsAsg.py ec2-role.
                 #         I just didn't see a way to move it here without moving the role.)
 
-                ## EFS Traffic Out:
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-                traffic_out_metrics[f"efs_out_{volume_name}"] = cloudwatch.Metric(
-                    label="EFS Traffic Out",
-                    metric_name="DataReadIOBytes",
-                    namespace="AWS/EFS",
-                    dimensions_map={"FileSystemId": efs_file_system.file_system_id},
-                    period=Duration.minutes(1),
-                    statistic="Sum",
+                # ## EFS Traffic Out:
+                # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+                # traffic_out_metrics[f"efs_out_{volume_name}"] = cloudwatch.Metric(
+                #     label="EFS Traffic Out",
+                #     metric_name="DataReadIOBytes",
+                #     namespace="AWS/EFS",
+                #     dimensions_map={"FileSystemId": efs_file_system.file_system_id},
+                #     period=Duration.minutes(1),
+                #     statistic="Sum",
+                # )
+
+
+
+                ## Complete S3-Files Example from docs:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnAccessPoint.html
+
+                ## S3 Files needs a *general purpose* bucket, but it's cheapest anyways.
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.Bucket.html
+                s3_bucket = s3.Bucket(
+                    self,
+                    f"S3FilesBucket-{volume_name}",
+                    ## DO NOT SET `bucket_name`, names must be unique GLOBALLY, and multiple people wanna play Minecraft.
+                    # bucket_name="DO NOT SET ME!!"
+                    removal_policy=volume_removal_policy,
+                    auto_delete_objects=not volume_info["KeepOnDelete"],
+                    enforce_ssl=True,
+                    ## Versioning is required - S3 Files relies on object versions for consistency.
+                    versioned=True,
+                    lifecycle_rules=[
+                        ## Cap how many OLD versions of each file to keep:
+                        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html
+                        s3.LifecycleRule(
+                            enabled=True,
+                            noncurrent_versions_to_retain=3,
+                            noncurrent_version_expiration=Duration.days(30),
+                        ),
+                    ],
                 )
 
-                ### Create mounts and attach them into the CONTAINER:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Role.html
+                s3_files_role = iam.Role(
+                    self,
+                    f"S3FilesRole-{volume_name}",
+                    assumed_by=iam.ServicePrincipal("elasticfilesystem.amazonaws.com"),
+                )
+                s3_files_role.add_to_policy(
+                    iam.PolicyStatement(
+                        actions=["s3:ListBucket*"],
+                        resources=[s3_bucket.bucket_arn],
+                    )
+                )
+                s3_files_role.add_to_policy(
+                    iam.PolicyStatement(
+                        actions=["s3:AbortMultipartUpload", "s3:DeleteObject", "s3:GetObject*", "s3:List*", "s3:PutObject*"],
+                        resources=[s3_bucket.arn_for_objects("*")],
+                    )
+                )
+                # EventBridge permissions: S3 Files creates rules prefixed "DO-NOT-DELETE-S3-Files"
+                # to detect S3 object changes and trigger data synchronization.
+                s3_files_role.add_to_policy(
+                    iam.PolicyStatement(
+                        actions=[
+                            "events:DeleteRule", "events:DisableRule", "events:EnableRule",
+                            "events:PutRule", "events:PutTargets", "events:RemoveTargets",
+                        ],
+                        resources=[f"arn:{Aws.PARTITION}:events:*:*:rule/DO-NOT-DELETE-S3-Files*"],
+                        conditions={"StringEquals": {"events:ManagedBy": "elasticfilesystem.amazonaws.com"}},
+                    )
+                )
+                s3_files_role.add_to_policy(
+                    iam.PolicyStatement(
+                        actions=["events:DescribeRule", "events:ListRuleNamesByTarget", "events:ListRules", "events:ListTargetsByRule"],
+                        resources=[f"arn:{Aws.PARTITION}:events:*:*:rule/*"],
+                    )
+                )
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.html
+                s3_files_fs = s3files.CfnFileSystem(
+                    self,
+                    f"S3FilesFs-{volume_name}",
+                    bucket=s3_bucket.bucket_arn,
+                    role_arn=s3_files_role.role_arn,
+                )
+
+                ## One mount target per subnet/AZ, reusing the same NFS security group
+                ## EFS already relies on (S3 Files mounts over NFS 4.1/4.2 too):
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnMountTarget.html
+                ## (This VPC is public-subnet-only - nat_gateways=0 in base_stack/main.py -
+                ## so there are no private_subnets to iterate; use public_subnets instead.)
+                for i, subnet in enumerate(vpc.public_subnets):
+                    s3files.CfnMountTarget(
+                        self,
+                        f"S3FilesMountTarget-{volume_name}-{i}",
+                        file_system_id=s3_files_fs.attr_file_system_id,
+                        subnet_id=subnet.subnet_id,
+                        security_groups=[sg_efs_traffic.security_group_id],
+                    )
+
+                ### Create mounts between the CONTAINER and HOST (ec2):
                 for volume_path_info in volume_info["Paths"]:
                     volume_path = volume_path_info["Path"]
-                    self.efs_file_systems[efs_file_system].append(volume_path)
                     ## Create a UNIQUE name, using the path (Removing '.' and '/' too):
                     #   (Will be something like: `Efs-<Id>-<hash>`. Can't use path directly: names got too long, and prefix are all similar.)
-                    volume_name = efs_file_system.node.id + "-" + hashlib.md5(volume_path.encode()).hexdigest()[:8]
+                    volume_name = s3_files_fs.node.id + "-" + hashlib.md5(volume_path.encode()).hexdigest()[:8]
 
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
                     task_definition.add_volume(
                         name=volume_name,
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Host.html
                         host=ecs.Host(
-                            source_path="/mnt/efs/" + efs_file_system.node.id + volume_path,
+                            source_path="/mnt/s3files/" + s3_files_fs.node.id + volume_path,
                         ),
                     )
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html#addwbrmountwbrpointsmountpoints
@@ -118,41 +173,12 @@ class Volumes(NestedStack):
                         )
                     )
 
-            elif volume_info["Type"] == "S3":
-                metric_filter_id = "EntireBucket"
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3express.CfnDirectoryBucket.html
-                s3_bucket = s3express.CfnDirectoryBucket(
-                    self,
-                    f"S3-{volume_name}",
-                    # https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-dataredundancy
-                    data_redundancy="SingleAvailabilityZone",
-                    # TODO: FIX ME!!!! <-------------------------------------------------------------------------------------
-                    # location_name=vpc.availability_zones[0], # GIVES THE NAME, NOT ID! ("us-west-2a")
-                    location_name="usw2-az1", # aws ec2 describe-availability-zones --region us-west-2 --query "AvailabilityZones[*].{Name:ZoneName,Id:ZoneId}"
-                    ## Request metrics are opt-in: CloudWatch won't publish them until a
-                    # metrics filter exists. An id-only filter (no prefix/access-point)
-                    # matches every request in the bucket:
-                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3express.CfnDirectoryBucket.MetricsConfigurationProperty.html
-                    metrics_configurations=[
-                        s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
-                            id=metric_filter_id,
-                        ),
-                    ],
-                )
-
-                ## S3 Traffic Out ("Bytes Downloaded" == traffic INTO the EC2 host):
-                # https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html#s3-request-cloudwatch-metrics
-                traffic_out_metrics[f"s3_out_{volume_name}"] = cloudwatch.Metric(
-                    label="S3 Traffic Out",
-                    metric_name="BytesDownloaded",
-                    namespace="AWS/S3",
-                    dimensions_map={
-                        "BucketName": s3_bucket.ref,
-                        "FilterId": metric_filter_id,
-                    },
-                    period=Duration.minutes(1),
-                    statistic="Sum",
-                )
+                self.file_systems.append({
+                    "Type": "S3",
+                    "Bucket": s3_bucket,
+                    "FileSystem": s3_files_fs,
+                    "Paths": [path_info["Path"] for path_info in volume_info["Paths"]],
+                })
 
 
         ## Get total traffic out:
