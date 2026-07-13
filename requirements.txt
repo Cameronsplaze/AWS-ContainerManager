@@ -1,7 +1,7 @@
-aws-cdk-lib==2.260.0
-boto3==1.43.36
+aws-cdk-lib==2.261.0
+boto3==1.43.46
 cdk-nag==3.0.1
 constructs>=10.6.0,<11.0.0
-GitPython==3.1.50
+GitPython==3.1.51
 pyaml-env==1.2.2
 schema==0.7.8
