@@ -52,19 +52,6 @@ class Volumes(NestedStack):
                 ## (NOTE: There's a grant_read_write in EcsAsg.py ec2-role.
                 #         I just didn't see a way to move it here without moving the role.)
 
-                # ## EFS Traffic Out:
-                # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-                # traffic_out_metrics[f"efs_out_{volume_name}"] = cloudwatch.Metric(
-                #     label="EFS Traffic Out",
-                #     metric_name="DataReadIOBytes",
-                #     namespace="AWS/EFS",
-                #     dimensions_map={"FileSystemId": efs_file_system.file_system_id},
-                #     period=Duration.minutes(1),
-                #     statistic="Sum",
-                # )
-
-
-
                 ## Complete S3-Files Example from docs:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnAccessPoint.html
 
@@ -135,11 +122,20 @@ class Volumes(NestedStack):
                     role_arn=s3_files_role.role_arn,
                 )
 
-                ## One mount target per subnet/AZ, reusing the same NFS security group
-                ## EFS already relies on (S3 Files mounts over NFS 4.1/4.2 too):
+                ## EFS Traffic Out:
+                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+                # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-monitoring-cloudwatch.html
+                traffic_out_metrics[f"efs_out_{volume_name}"] = cloudwatch.Metric(
+                    label="S3 Files Traffic Out",
+                    metric_name="DataReadBytes",
+                    namespace="AWS/S3/Files",
+                    dimensions_map={"FileSystemId": s3_files_fs.attr_file_system_id},
+                    period=Duration.minutes(1),
+                    statistic="Sum",
+                )
+
+                ## One mount target per subnet/AZ. Both EFS and S3 Files need the same ports:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnMountTarget.html
-                ## (This VPC is public-subnet-only - nat_gateways=0 in base_stack/main.py -
-                ## so there are no private_subnets to iterate; use public_subnets instead.)
                 for i, subnet in enumerate(vpc.public_subnets):
                     s3files.CfnMountTarget(
                         self,
@@ -180,13 +176,12 @@ class Volumes(NestedStack):
                     "Paths": [path_info["Path"] for path_info in volume_info["Paths"]],
                 })
 
-
         ## Get total traffic out:
-        total_bytes_out = '+'.join(traffic_out_metrics.keys()) if traffic_out_metrics else "0"
+        total_bytes_out = '+'.join(traffic_out_metrics.keys()) if traffic_out_metrics else "TIME_SERIES(0)"
         # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.bytes_out_per_second = cloudwatch.MathExpression(
-            label="(EFS) Bytes OUT per Second",
+            label="(S3) Bytes OUT per Second",
             # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
             # Had to add together manually, "METRICS()" wasn't behaving, and grabbing other values it shouldn't,
             expression=f"({total_bytes_out})/60",

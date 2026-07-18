@@ -94,18 +94,13 @@ class EcsAsg(NestedStack):
             # https://docs.aws.amazon.com/efs/latest/ug/mount-helper-setting.html
             self.ec2_user_data.add_commands(
                 # Make sure the EFS Mount Point exists:
-                f'mkdir -p "{s3_files_mount_point}"',
+                f'mkdir --parents "{s3_files_mount_point}"',
                 ## Add the entry to fstab, so it mounts s3's root on boot:
                 f'echo "{s3_file_system.attr_file_system_id}:/ {s3_files_mount_point} s3files _netdev,tls,iam 0 0" >> /etc/fstab',
                 ## Mount that specific entry:
-                # f'mount {s3_files_mount_point}',
+                f'mount {s3_files_mount_point}',
             )
             for mount_path in mount_paths:
-                print()
-                print("DEBUG HITTTTT<--------")
-                print(s3_files_mount_point)
-                print(mount_path)
-                print()
                 # Make sure each specific mount path exists INSIDE the EFS, now that it's mounted:
                 # full_mount_path = f"{s3_files_mount_point}/{mount_path.lstrip('/')}"
                 full_mount_path = os.path.join(s3_files_mount_point, mount_path)
@@ -114,19 +109,21 @@ class EcsAsg(NestedStack):
                     #     - We need to support ANY container, and they have different UID:GID's.
                     #     - Some container's don't support overriding UID:GID's.
                     #     - This is only the *last* directory in the path, and not any files too.
-                    f'mkdir -p -m 777 "{full_mount_path}"',
+                    f'mkdir --parents --mode=777 "{full_mount_path}"',
                 )
 
             ### Give EC2 access to mount/write the file system:
             # (No grant_* helper like EFS has - CfnFileSystem is L1-only, so do it by hand.)
+            # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonS3FilesClientFullAccess.html
             self.ec2_role.add_to_policy(
                 iam.PolicyStatement(
-                    actions=["s3files:ClientMount", "s3files:ClientWrite"],
+                    # Added s3files:ClientRootAccess, missing from docs. Required to write to root dir.
+                    actions=["s3files:ClientMount", "s3files:ClientWrite", "s3files:ClientRootAccess"],
                     resources=[s3_file_system.attr_file_system_arn],
                 )
             )
             ### Lets reads bypass the file-system layer straight to S3 (S3 Files does this
-            ### automatically for large/uncached reads, but needs the permission to do it):
+            #   automatically for large/uncached reads, but needs the permission to do it):
             self.ec2_role.add_to_policy(
                 iam.PolicyStatement(
                     actions=["s3:GetObject", "s3:GetObjectVersion"],
