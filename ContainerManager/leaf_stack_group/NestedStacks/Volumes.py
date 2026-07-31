@@ -2,11 +2,9 @@
 """
 This module contains the Volumes NestedStack class.
 """
-
 import hashlib
 
 from aws_cdk import (
-    Aws,
     NestedStack,
     Duration,
     RemovalPolicy,
@@ -57,6 +55,7 @@ class Volumes(NestedStack):
 
                 ## S3 Files needs a *general purpose* bucket, but it's cheapest anyways.
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.Bucket.html
+                FILTER_ID = "S3FilesFilter"
                 s3_bucket = s3.Bucket(
                     self,
                     f"S3FilesBucket-{volume_name}",
@@ -65,16 +64,22 @@ class Volumes(NestedStack):
                     removal_policy=volume_removal_policy,
                     auto_delete_objects=not volume_info["KeepOnDelete"],
                     enforce_ssl=True,
-                    ## Versioning is required - S3 Files relies on object versions for consistency.
-                    versioned=True,
+                    versioned=True, # Required - S3 Files relies on object versions for consistency.
                     lifecycle_rules=[
                         ## Cap how many OLD versions of each file to keep:
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html
                         s3.LifecycleRule(
                             enabled=True,
+                            # TODO: Do we need number of versions?? I'd like "keep any changes in X time"
+                            # TODO 2: Is there any reason for multiple s3 buckets now?? Think Valheim that has 2. Maybe one with versioning off, but s3 is SO cheap anyways...
                             noncurrent_versions_to_retain=3,
                             noncurrent_version_expiration=Duration.days(30),
                         ),
+                    ],
+                    metrics=[
+                        ## Opt into the paid metrics:
+                        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.BucketMetrics.html
+                        s3.BucketMetrics(id=FILTER_ID),
                     ],
                 )
 
@@ -96,7 +101,7 @@ class Volumes(NestedStack):
                         resources=[s3_bucket.arn_for_objects("*")],
                     )
                 )
-                # EventBridge permissions: S3 Files creates rules prefixed "DO-NOT-DELETE-S3-Files"
+                ## EventBridge permissions: S3 Files creates rules prefixed "DO-NOT-DELETE-S3-Files"
                 # to detect S3 object changes and trigger data synchronization.
                 s3_files_role.add_to_policy(
                     iam.PolicyStatement(
@@ -104,14 +109,14 @@ class Volumes(NestedStack):
                             "events:DeleteRule", "events:DisableRule", "events:EnableRule",
                             "events:PutRule", "events:PutTargets", "events:RemoveTargets",
                         ],
-                        resources=[f"arn:{Aws.PARTITION}:events:*:*:rule/DO-NOT-DELETE-S3-Files*"],
+                        resources=["arn:aws:events:*:*:rule/DO-NOT-DELETE-S3-Files*"],
                         conditions={"StringEquals": {"events:ManagedBy": "elasticfilesystem.amazonaws.com"}},
                     )
                 )
                 s3_files_role.add_to_policy(
                     iam.PolicyStatement(
                         actions=["events:DescribeRule", "events:ListRuleNamesByTarget", "events:ListRules", "events:ListTargetsByRule"],
-                        resources=[f"arn:{Aws.PARTITION}:events:*:*:rule/*"],
+                        resources=["arn:aws:events:*:*:rule/*"],
                     )
                 )
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.html
@@ -120,13 +125,49 @@ class Volumes(NestedStack):
                     f"S3FilesFs-{volume_name}",
                     bucket=s3_bucket.bucket_arn,
                     role_arn=s3_files_role.role_arn,
+                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.SynchronizationConfigurationProperty.html
+                    synchronization_configuration=s3files.CfnFileSystem.SynchronizationConfigurationProperty(
+                        expiration_data_rules=[
+                            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.ExpirationDataRuleProperty.html
+                            s3files.CfnFileSystem.ExpirationDataRuleProperty(
+                                # As small as possible, to avoid costs but still have the fast file cache.
+                                days_after_last_access=1,
+                            ),
+                        ],
+                        import_data_rules=[
+                            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.ImportDataRuleProperty.html
+                            s3files.CfnFileSystem.ImportDataRuleProperty(
+                                prefix="",
+                                ###### TODO: REDO THIS!!!
+                                ### The max they allow. We either want EVERYTHING to go through EFS, or not use it. Otherwise
+                                #    the metrics are wrong and the ec2 instance won't spin down (S3 file won't be subtracted from
+                                #    ec2-in traffic, and count towards user's in traffic then). We can't grab BOTH S3 and EFS traffic,
+                                #    because you'll be double-counting EFS traffic when it read-writes it to/from S3.
+                                size_less_than=52673613135872,
+                                ### If it's a media server, you shouldn't be using S3 Files anyways. Use S3 Directly instead.
+                                #    Because of that, we'll want to load the whole application at once.
+                                trigger="ON_DIRECTORY_FIRST_ACCESS",
+                            ),
+                        ],
+                    ),
                 )
 
-                ## EFS Traffic Out:
+                ## S3 Files (S3 + EFS) Traffic Out:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
                 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-monitoring-cloudwatch.html
+                traffic_out_metrics[f"s3_out_{volume_name}"] = cloudwatch.Metric(
+                    label=f"S3 Traffic Out ({volume_name})",
+                    metric_name="BytesDownloaded",
+                    namespace="AWS/S3",
+                    dimensions_map={
+                        "BucketName": s3_bucket.bucket_name,
+                        "FilterId": FILTER_ID,
+                    },
+                    period=Duration.minutes(1),
+                    statistic="Sum",
+                )
                 traffic_out_metrics[f"efs_out_{volume_name}"] = cloudwatch.Metric(
-                    label="S3 Files Traffic Out",
+                    label=f"EFS Traffic Out ({volume_name})",
                     metric_name="DataReadBytes",
                     namespace="AWS/S3/Files",
                     dimensions_map={"FileSystemId": s3_files_fs.attr_file_system_id},
@@ -157,7 +198,8 @@ class Volumes(NestedStack):
                         name=volume_name,
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Host.html
                         host=ecs.Host(
-                            source_path="/mnt/s3files/" + s3_files_fs.node.id + volume_path,
+                            # os.path.join and pathlib don't let you combine absolute paths (for some god-forsaken reason), so no benefit:
+                            source_path=f"/mnt/s3files/{s3_files_fs.node.id}/{volume_path.lstrip('/')}",
                         ),
                     )
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.ContainerDefinition.html#addwbrmountwbrpointsmountpoints
@@ -181,7 +223,7 @@ class Volumes(NestedStack):
         # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.bytes_out_per_second = cloudwatch.MathExpression(
-            label="(S3) Bytes OUT per Second",
+            label="(Volumes) Bytes OUT per Second",
             # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
             # Had to add together manually, "METRICS()" wasn't behaving, and grabbing other values it shouldn't,
             expression=f"({total_bytes_out})/60",

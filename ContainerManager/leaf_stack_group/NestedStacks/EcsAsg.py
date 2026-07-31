@@ -2,8 +2,6 @@
 """
 This module contains the EcsAsg NestedStack class.
 """
-import os
-
 from aws_cdk import (
     NestedStack,
     # Validations,
@@ -53,17 +51,32 @@ class EcsAsg(NestedStack):
             vpc=vpc,
         )
 
-        ## Permissions for inside the instance/host of the container:
-        self.ec2_role = iam.Role(
+        ## Permissions for inside the ec2-instance/host of the container:
+        self.ec2_permissions_role = iam.Role(
             self,
-            "Ec2ExecutionRole",
+            "Ec2PermissionsRole",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             description="The instance's permissions (HOST of the container)",
         )
 
         ## Let the instance register itself to a ecs cluster:
-        # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
-        self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
+        # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#security-iam-awsmanpol-AmazonEC2ContainerServiceforEC2Role
+        self.ec2_permissions_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
+
+        ## CloudWatch Metric Permissions - S3 Files:
+        self.ec2_permissions_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                # AWS Doesn't support locking down by dimensions :(
+                conditions={
+                    "StringEquals": {
+                        # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-monitoring-cloudwatch.html
+                        "cloudwatch:namespace": ["AWS/S3/Files", "efs-utils/S3Files"],
+                    },
+                },
+            )
+        )
 
         ### For Running Commands on container when it starts up:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
@@ -80,11 +93,10 @@ class EcsAsg(NestedStack):
             mount_paths: list[str] = file_system_info["Paths"]
 
             ### Give EC2 access to the bucket:
-            s3_bucket.grant_read_write(self.ec2_role)
+            s3_bucket.grant_read_write(self.ec2_permissions_role)
 
             # Mount on host, each has to be unique. (/mnt/s3files/S3FilesFs-<ID>)
-            # s3_files_mount_point = f"{s3_files_root_host}/{s3_file_system.node.id}"
-            s3_files_mount_point = os.path.join(s3_files_root_host, s3_file_system.node.id)
+            s3_files_mount_point = f"{s3_files_root_host}/{s3_file_system.node.id}"
 
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
             #      (You can also mount efs directly by removing the access-point flag)
@@ -101,9 +113,9 @@ class EcsAsg(NestedStack):
                 f'mount {s3_files_mount_point}',
             )
             for mount_path in mount_paths:
-                # Make sure each specific mount path exists INSIDE the EFS, now that it's mounted:
-                # full_mount_path = f"{s3_files_mount_point}/{mount_path.lstrip('/')}"
-                full_mount_path = os.path.join(s3_files_mount_point, mount_path)
+                # Make sure each specific mount path exists INSIDE S3, now that it's mounted:
+                # - os.path.join and pathlib don't let you combine absolute paths (for some god-forsaken reason), so no benefit:
+                full_mount_path = f"{s3_files_mount_point}/{mount_path.lstrip('/')}"
                 self.ec2_user_data.add_commands(
                     ### I tried everything possible to avoid the 777 here. The problem is:
                     #     - We need to support ANY container, and they have different UID:GID's.
@@ -115,7 +127,7 @@ class EcsAsg(NestedStack):
             ### Give EC2 access to mount/write the file system:
             # (No grant_* helper like EFS has - CfnFileSystem is L1-only, so do it by hand.)
             # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonS3FilesClientFullAccess.html
-            self.ec2_role.add_to_policy(
+            self.ec2_permissions_role.add_to_policy(
                 iam.PolicyStatement(
                     # Added s3files:ClientRootAccess, missing from docs. Required to write to root dir.
                     actions=["s3files:ClientMount", "s3files:ClientWrite", "s3files:ClientRootAccess"],
@@ -124,13 +136,13 @@ class EcsAsg(NestedStack):
             )
             ### Lets reads bypass the file-system layer straight to S3 (S3 Files does this
             #   automatically for large/uncached reads, but needs the permission to do it):
-            self.ec2_role.add_to_policy(
+            self.ec2_permissions_role.add_to_policy(
                 iam.PolicyStatement(
                     actions=["s3:GetObject", "s3:GetObjectVersion"],
                     resources=[s3_bucket.arn_for_objects("*")],
                 )
             )
-            self.ec2_role.add_to_policy(
+            self.ec2_permissions_role.add_to_policy(
                 iam.PolicyStatement(
                     actions=["s3:ListBucket"],
                     resources=[s3_bucket.bucket_arn],
@@ -164,7 +176,7 @@ class EcsAsg(NestedStack):
             # Lets Specific traffic to/from the instance:
             security_group=sg_ec2_instance_traffic,
             user_data=self.ec2_user_data,
-            role=self.ec2_role,
+            role=self.ec2_permissions_role,
             key_pair=ssh_key_pair,
             ## Console recommends to enable IMDSv2:
             http_tokens=ec2.LaunchTemplateHttpTokens.REQUIRED,
@@ -203,7 +215,7 @@ class EcsAsg(NestedStack):
             "AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
             ## To let me delete the stack!!:
-            # Although this doesn't do anything now, since we switched to Daemon mode.
+            # Although this might not do anything now, since we switched to Daemon mode.
             enable_managed_termination_protection=False,
             ## Let the instance exit by itself for 5 minutes. If it doesn't, hard-kill it.
             # If this is false, the instance will wait for 5 min before hard-killing always.

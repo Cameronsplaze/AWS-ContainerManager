@@ -38,8 +38,8 @@ class Container(NestedStack):
         self.task_definition = ecs.Ec2TaskDefinition(
             self,
             "TaskDefinition",
-            # execution_role= ecs **agent** permissions (Permissions to pull images from ECR, BUT will automatically create one if not specified)
-            # task_role= permissions for *inside* the container
+            # execution_role= ecs **agent** permissions (i.e pull from a private ECR. Only used to SETUP a task.)
+            # task_role= permissions for inside the *container* itself.
             ## HOST Netorking Mode:
             # - The security "drawback" doesn't affect us: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-host-modes.html
             # - It's the fastest performing mode: https://docs.docker.com/engine/network/drivers/host/
