@@ -117,7 +117,7 @@ flowchart TD
                 lambda-break-crash-loop[Lambda: Break Crash Loop]
                 alarm-break-crash-loop[Alarm: Break Crash Loop]
 
-                metric-traffic-in --" Bytes/Second "--> alarm-container-activity
+                metric-traffic-in --" KiB/Minute "--> alarm-container-activity
                 metric-traffic-dns --" DNS Query Hit "--> alarm-container-activity
                 alarm-container-activity --" If No Traffic "--> scale-down-asg-action
                 metric-traffic-in --" If ANY traffic for VERY long time "--> alarm-instance-up

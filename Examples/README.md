@@ -163,13 +163,13 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ### `Watchdog.Threshold`
 
-- (`int`, **Required**): Bytes per Second. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
+- (`int`, **Required**): Kilobytes per Minute. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
 
-   **To find this number**: just set it to `20` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. This is low, so it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
+   **To find this number**: just set it to `1` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. Since you set a low value, it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
 
    If you're having problems with the container spinning down too quickly, you'll have to lower this number. If it's staying up too long, you'll have to raise it.
 
-   I couldn't make this have a default, because it's too different for each game. If I default it to 20, there's a risk of people not reading docs, and having a instance left up 24/7.
+   I couldn't make this have a default, because it's way too different for each game. If I default it to 20, there's a risk of people not reading docs, and having an instance left up 24/7.
 
 ### `Watchdog.MinutesWithoutConnections`
 
@@ -177,8 +177,8 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
    ```yaml
    Watchdog:
-     # If you don't get more than 900 bytes per second for 10 minutes, shut down:
-     Threshold: 900
+     # If you don't get more than 220 KiB per minute into the container for 10 minutes, shut down:
+     Threshold: 220
      MinutesWithoutConnections: 10
    ```
 

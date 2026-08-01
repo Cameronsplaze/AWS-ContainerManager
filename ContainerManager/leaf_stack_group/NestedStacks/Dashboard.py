@@ -12,9 +12,13 @@ from constructs import Construct
 
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 ## Import the other Nested Stacks:
-from . import Container, Volumes, EcsAsg, Watchdog, AsgStateChangeHook
+from .Container import Container
+from .Volumes import Volumes
+from .EcsAsg import EcsAsg
+from .Watchdog import Watchdog
+from .AsgStateChangeHook import AsgStateChangeHook
 
-TRAFFIC_IN_LABEL = "Traffic In (Bytes/Sec)"
+TRAFFIC_IN_LABEL = "Traffic (KiB / min)"
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
@@ -59,6 +63,10 @@ class Dashboard(NestedStack):
         )
 
         ## EC2 Service Metrics:
+        # TODO: Switch back to a tiny container reserve, and use metric math to get the container usage??
+        #        - There's like 4 different metrics for this, one of them might make it easy:
+        #          https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-enhanced-observability-metrics-ECS.html
+
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrcpuwbrutilizationprops
         metric_cpu_utilization = ecs_asg_nested_stack.ec2_service.metric_cpu_utilization(unit=cloudwatch.Unit.PERCENT, statistic="Average")
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.Ec2Service.html#metricwbrmemorywbrutilizationprops
@@ -94,7 +102,7 @@ class Dashboard(NestedStack):
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 ## Only shows units when graph has data. This changes that:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
-                right_y_axis=cloudwatch.YAxisProps(label=metric_asg_lambda_invocation_count.unit.value.title(), show_units=False),
+                right_y_axis=cloudwatch.YAxisProps(label=metric_asg_lambda_invocation_count.unit.value.title(), show_units=False), # type: ignore[union-attr]
             ),
 
             ### Show the number of instances, to see when it starts/stops:
@@ -144,9 +152,11 @@ class Dashboard(NestedStack):
                 height=6,
                 width=12,
                 right=[
-                    watchdog_nested_stack.bytes_in_per_second,
+                    # watchdog_nested_stack.kb_in_per_minute,
+                    # volumes_nested_stack.kb_out_per_min,
                     watchdog_nested_stack.traffic_dns_metric,
-                    volumes_nested_stack.bytes_out_per_second,
+                    ecs_asg_nested_stack.container_traffic_in,
+                    # *volumes_nested_stack.traffic_out_metrics.values(),
                 ],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
@@ -202,7 +212,7 @@ class Dashboard(NestedStack):
                     f"(ECS) Container Utilization - [{main_config['Ec2']['InstanceType']}]",
                     f"[vCPU's: {main_config['Ec2']['VCpuInfo']['DefaultVCpus']}]",
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.CfnTaskDefinition.ContainerDefinitionProperty.html#memoryreservation
-                    f"[Memory: {container_nested_stack.container.render_container_definition().memory_reservation / 1024} GB]"
+                    f"[Memory: {container_nested_stack.container.render_container_definition().memory_reservation / 1024} GB]" # type: ignore[union-attr]
                 ]),
                 # Only show up to an hour ago:
                 height=6,
@@ -214,7 +224,7 @@ class Dashboard(NestedStack):
                 statistic="Maximum",
                 ## Only shows units when graph has data. This changes that:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
-                right_y_axis=cloudwatch.YAxisProps(label=metric_cpu_utilization.unit.value.title(), show_units=False),
+                right_y_axis=cloudwatch.YAxisProps(label=metric_cpu_utilization.unit.value.title(), show_units=False), # type: ignore[union-attr]
             ),
 
         ]

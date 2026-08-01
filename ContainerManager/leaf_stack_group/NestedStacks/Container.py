@@ -43,7 +43,9 @@ class Container(NestedStack):
             ## HOST Netorking Mode:
             # - The security "drawback" doesn't affect us: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-host-modes.html
             # - It's the fastest performing mode: https://docs.docker.com/engine/network/drivers/host/
-            network_mode=ecs.NetworkMode.HOST,
+            # network_mode=ecs.NetworkMode.HOST,
+            # TODO: Just in case this doesn't work out...
+            network_mode=ecs.NetworkMode.BRIDGE,
         )
 
         ## Logs for the container:

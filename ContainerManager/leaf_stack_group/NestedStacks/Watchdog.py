@@ -32,7 +32,8 @@ class Watchdog(NestedStack):
         container_id: str,
         watchdog_config: dict,
         auto_scaling_group: autoscaling.AutoScalingGroup,
-        metric_volume_bytes_out_per_second: cloudwatch.MathExpression,
+        # metric_volume_kb_out_per_min: cloudwatch.MathExpression,
+        metric_container_traffic_in: cloudwatch.MathExpression,
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
         ecs_cluster: ecs.Cluster,
@@ -79,32 +80,31 @@ class Watchdog(NestedStack):
             unit=self.metric_unit,
         )
 
-        ## ASG Traffic In:
-        # Originally Added 'Out' too, but it was too noisy. You only care about
-        # people connecting to container, or container downloading anyways.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        traffic_in_metric = cloudwatch.Metric(
-            label="Network In",
-            metric_name="NetworkIn",
-            namespace="AWS/EC2",
-            dimensions_map={"AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name},
-            period=Duration.minutes(1),
-            statistic="Sum",
-        )
+        # ## ASG Traffic In:
+        # # Originally Added 'Out' too, but it was too noisy. You only care about
+        # # people connecting to container, or container downloading anyways.
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        # traffic_in_metric = cloudwatch.Metric(
+        #     label="Network In",
+        #     metric_name="NetworkIn",
+        #     namespace="AWS/EC2",
+        #     dimensions_map={"AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name},
+        #     period=Duration.minutes(1),
+        #     statistic="Sum",
+        # )
 
-        ## Get traffic INTO the container
-        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        # BUT the DIFF_TIME function can cause divide by 0, and errors on first metric. Just grab period instead:
-        self.bytes_in_per_second = cloudwatch.MathExpression(
-            label="(Container) Bytes IN per Second",
-            # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
-            expression="b_in/PERIOD(b_in)",
-            using_metrics={
-                "b_in": traffic_in_metric,
-            },
-            period=Duration.minutes(1),
-        )
+        # ## Get traffic INTO the container
+        # # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
+        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        # self.kb_in_per_minute = cloudwatch.MathExpression(
+        #     label="(Container) KiB IN per Minute",
+        #     # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
+        #     expression="ec2_traffic_in/1024",
+        #     using_metrics={
+        #         "ec2_traffic_in": traffic_in_metric,
+        #     },
+        #     period=Duration.minutes(1),
+        # )
 
         ## Combine metrics here before creating the alarm:
         # Docs: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
@@ -115,11 +115,16 @@ class Watchdog(NestedStack):
             # Only push data if positive. Also don't push anything otherwise: This happens when efs
             # is accessed at the end of one poll, and it's traffic_in is in the next poll. Garbage
             # anyways, so ignore it. (If you need to add it back, put '0' as a third augment to IF)
-            expression="IF(traffic_in - volumes_out > 0, traffic_in - volumes_out) + dns_hit",
+            
+            # TODO: Checking if this is still necessary:
+            # expression="traffic_in - volumes_out + dns_hit",
+            expression="traffic_in + dns_hit",
+            # expression="IF(traffic_in - volumes_out > 0, traffic_in - volumes_out) + dns_hit",
             using_metrics={
                 # Traffic in (to container) minus volumes out (of efs), to get traffic only from clients:
-                "traffic_in": self.bytes_in_per_second,
-                "volumes_out": metric_volume_bytes_out_per_second,
+                # "traffic_in": self.kb_in_per_minute,
+                "traffic_in": metric_container_traffic_in,
+                # "volumes_out": metric_volume_kb_out_per_min,
                 "dns_hit": self.traffic_dns_metric,
             },
             period=Duration.minutes(1),
@@ -151,7 +156,7 @@ class Watchdog(NestedStack):
         ## Instance Up too-long Logic ##
         ################################
 
-        ## Use the `traffic_in_metric` from above. If it has data, the instance is up:
+        ## Use the `metric_container_traffic_in` from above. If it has data, the instance is up:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.instance_is_up = cloudwatch.MathExpression(
             # Doing N/A or 1, so alarms are blank if no instance/data:
@@ -159,9 +164,9 @@ class Watchdog(NestedStack):
             label="Instance is Up (Bool)",
             expression="network_in >= 0",
             using_metrics={
-                "network_in": traffic_in_metric,
+                "network_in": metric_container_traffic_in,
             },
-            period=traffic_in_metric.period,
+            period=metric_container_traffic_in.period,
         )
 
         ## Trigger if the instance is up too long:

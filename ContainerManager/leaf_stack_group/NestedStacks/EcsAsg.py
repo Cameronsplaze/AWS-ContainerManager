@@ -3,6 +3,7 @@
 This module contains the EcsAsg NestedStack class.
 """
 from aws_cdk import (
+    Duration,
     NestedStack,
     # Validations,
     # Acknowledgment,
@@ -13,6 +14,7 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_s3files as s3files,
     aws_autoscaling as autoscaling,
+    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
@@ -49,6 +51,9 @@ class EcsAsg(NestedStack):
             "EcsCluster",
             cluster_name=f"{leaf_construct_id}-ecs-cluster",
             vpc=vpc,
+            # TODO: Test out BRIDGE network mode again. You might get traffic just to the container with this.
+            # container_insights_v2=ecs.ContainerInsights.DISABLED,
+            container_insights_v2=ecs.ContainerInsights.ENHANCED,
         )
 
         ## Permissions for inside the ec2-instance/host of the container:
@@ -249,6 +254,31 @@ class EcsAsg(NestedStack):
             # circuit_breaker={
             #     "rollback": False # Don't keep trying to restart the container if it fails
             # },
+        )
+
+        ## Network Traffic In
+        # Requires Ecs Enhanced Metrics. Should be network traffic WITHOUT volumes too!
+        # https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-enhanced-observability-metrics-ECS.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_in = cloudwatch.Metric(
+            label="Network In - Container (Bytes/Sec)",
+            namespace="ECS/ContainerInsights",
+            metric_name="NetworkRxBytes",
+            dimensions_map={
+                "ClusterName": self.ecs_cluster.cluster_name,
+                "ServiceName": self.ec2_service.service_name,
+            },
+            period=Duration.minutes(1),
+            statistic="Sum",
+        )
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        self.container_traffic_in = cloudwatch.MathExpression(
+            label="Network In - Container (KiB/Min)",
+            expression="container_traffic_in * 60 / 1024",
+            using_metrics={
+                "container_traffic_in": traffic_in,
+            },
+            period=Duration.minutes(1),
         )
 
         #####################
