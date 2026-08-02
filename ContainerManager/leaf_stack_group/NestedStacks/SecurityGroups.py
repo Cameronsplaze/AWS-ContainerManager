@@ -25,6 +25,7 @@ class SecurityGroups(NestedStack):
         vpc: ec2.Vpc,
         container_id: str,
         container_ports_config: list,
+        ssh_cidr_allowed: list,
         **kwargs,
     ) -> None:
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
@@ -41,13 +42,14 @@ class SecurityGroups(NestedStack):
         )
         # Create a name of `<StackName>/sg-ec2-instance-traffic` to find it easier:
         Tags.of(self.sg_ec2_instance_traffic).add("Name", f"{leaf_construct_id}/sg-ec2-instance-traffic")
-        ## Allow SSH traffic:
-        self.sg_ec2_instance_traffic.connections.allow_from(
-            ec2.Peer.any_ipv4(),
-            # Same as TCP 22:
-            ec2.Port.SSH,
-            description="Allow SSH traffic IN",
-        )
+        ## Allow SSH traffic, from just the configured CIDR ranges:
+        for cidr in ssh_cidr_allowed:
+            self.sg_ec2_instance_traffic.connections.allow_from(
+                ec2.Peer.ipv4(cidr),
+                # Same as TCP 22:
+                ec2.Port.SSH,
+                description=f"Allow SSH traffic IN - from {cidr}",
+            )
 
         ## Security Group for EFS instance's traffic:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.SecurityGroup.html

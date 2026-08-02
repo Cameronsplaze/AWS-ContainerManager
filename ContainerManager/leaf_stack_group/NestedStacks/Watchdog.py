@@ -80,51 +80,15 @@ class Watchdog(NestedStack):
             unit=self.metric_unit,
         )
 
-        # ## ASG Traffic In:
-        # # Originally Added 'Out' too, but it was too noisy. You only care about
-        # # people connecting to container, or container downloading anyways.
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        # traffic_in_metric = cloudwatch.Metric(
-        #     label="Network In",
-        #     metric_name="NetworkIn",
-        #     namespace="AWS/EC2",
-        #     dimensions_map={"AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name},
-        #     period=Duration.minutes(1),
-        #     statistic="Sum",
-        # )
-
-        # ## Get traffic INTO the container
-        # # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
-        # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        # self.kb_in_per_minute = cloudwatch.MathExpression(
-        #     label="(Container) KiB IN per Minute",
-        #     # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
-        #     expression="ec2_traffic_in/1024",
-        #     using_metrics={
-        #         "ec2_traffic_in": traffic_in_metric,
-        #     },
-        #     period=Duration.minutes(1),
-        # )
-
         ## Combine metrics here before creating the alarm:
         # Docs: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         # Info: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.watchdog_traffic_metric = cloudwatch.MathExpression(
             label="Watchdog Container Traffic",
-            # Only push data if positive. Also don't push anything otherwise: This happens when efs
-            # is accessed at the end of one poll, and it's traffic_in is in the next poll. Garbage
-            # anyways, so ignore it. (If you need to add it back, put '0' as a third augment to IF)
-            
-            # TODO: Checking if this is still necessary:
-            # expression="traffic_in - volumes_out + dns_hit",
             expression="traffic_in + dns_hit",
-            # expression="IF(traffic_in - volumes_out > 0, traffic_in - volumes_out) + dns_hit",
             using_metrics={
-                # Traffic in (to container) minus volumes out (of efs), to get traffic only from clients:
-                # "traffic_in": self.kb_in_per_minute,
                 "traffic_in": metric_container_traffic_in,
-                # "volumes_out": metric_volume_kb_out_per_min,
                 "dns_hit": self.traffic_dns_metric,
             },
             period=Duration.minutes(1),

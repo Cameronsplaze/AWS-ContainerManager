@@ -40,11 +40,15 @@ class Container(NestedStack):
             "TaskDefinition",
             # execution_role= ecs **agent** permissions (i.e pull from a private ECR. Only used to SETUP a task.)
             # task_role= permissions for inside the *container* itself.
-            ## HOST Netorking Mode:
+
+            ### Networking Mode:
+            ## Pro HOST:
             # - The security "drawback" doesn't affect us: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-host-modes.html
             # - It's the fastest performing mode: https://docs.docker.com/engine/network/drivers/host/
-            # network_mode=ecs.NetworkMode.HOST,
-            # TODO: Just in case this doesn't work out...
+            ## Pro BRIDGE:
+            # - You get access to ECS's Network Metric, instead of trying to calculating EcsIn - VolumesOut = UserTraffic.
+            # - (Minor, but not as important metrics too. Replace them if you switch this back)
+            # Trust me, bridge *easily* wins...
             network_mode=ecs.NetworkMode.BRIDGE,
         )
 
@@ -70,10 +74,10 @@ class Container(NestedStack):
             essential=True,
             ## Hard limit. Will get killed if it exceeds this.
             # memory_limit_mib=999999999,
-            ## The "Soft limit". However since there'll only ever be this one task, it can grow as much as it wants.
-            # Reserve 2GB for the host. Use the SOFT LIMIT, so it won't get killed if it maxes out.
-            #   (Tried 1GB, but palworld couldn't place on the instance from time to time).
-            memory_reservation_mib=ec2_config['MemoryInfo']['SizeInMiB'] - 2*1024,
+            ## The "Soft limit". This is the only task, so it can pass this and fill the whole ec2.
+            memory_reservation_mib=2*1024,
+            ## GPU:
+            gpu_count=container_config["GpuInfo"]["Gpus"] if ec2_config["GpuExists"] else 0,
             ## Add environment variables into the container here:
             environment=container_config["Environment"],
             ## Logging, straight from:

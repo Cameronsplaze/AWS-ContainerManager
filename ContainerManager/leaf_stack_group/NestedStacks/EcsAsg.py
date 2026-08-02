@@ -51,8 +51,7 @@ class EcsAsg(NestedStack):
             "EcsCluster",
             cluster_name=f"{leaf_construct_id}-ecs-cluster",
             vpc=vpc,
-            # TODO: Test out BRIDGE network mode again. You might get traffic just to the container with this.
-            # container_insights_v2=ecs.ContainerInsights.DISABLED,
+            # There are some VERY nice metrics we use because of this:
             container_insights_v2=ecs.ContainerInsights.ENHANCED,
         )
 
@@ -167,6 +166,9 @@ class EcsAsg(NestedStack):
             'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
             ### Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
+            ### Enable optional GPU support if it exists on the instance:
+            f'echo "ECS_ENABLE_GPU_SUPPORT={str(ec2_config["GpuExists"]).lower()}" >> /etc/ecs/ecs.config',
+            f'echo "ECS_CLUSTER={self.ecs_cluster.cluster_name}" >> /etc/ecs/ecs.config',
         )
 
         ## Contains the configuration information to launch an instance, and stores launch parameters
@@ -177,7 +179,9 @@ class EcsAsg(NestedStack):
             instance_type=ec2.InstanceType(ec2_config["InstanceType"]),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
-            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(), # DON'T set hardware type here, not sure if it switches to ARM automatically.
+            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(
+                ecs.AmiHardwareType.GPU if ec2_config["GpuExists"] else ecs.AmiHardwareType.STANDARD,
+            ),
             # Lets Specific traffic to/from the instance:
             security_group=sg_ec2_instance_traffic,
             user_data=self.ec2_user_data,

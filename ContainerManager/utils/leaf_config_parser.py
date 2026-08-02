@@ -3,6 +3,7 @@ Leaf Config Parser
 
 The docs for schema is at: https://github.com/keleshev/schema
 """
+import ipaddress
 from functools import cache
 
 from schema import Schema, And, Or, Use, Optional
@@ -50,14 +51,30 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
     """ Leaf config schema for the leaf stack. """
     return Schema({
         "Ec2": And(
-            {"InstanceType": Use(str.lower)},
+            {
+                "InstanceType": Use(str.lower),
+                # List of CIDR's allowed to SSH into the instance
+                # TODO: Doc this. Including setting it to an empty list to disable.
+                Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
+                    Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
+                ],
+            },
             ## Cast the InstanceType to the boto3 response with ALL it's info:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_types.html#EC2.Client.describe_instance_types
+            # (Keep "SshCidrAllowed" around too, it doesn't come from this boto3 call):
             Use(lambda info: get_ec2_client().describe_instance_types(
-                InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0],
+                InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0] | {
+                    "SshCidrAllowed": info["SshCidrAllowed"],
+                },
             ),
             # Make sure we have at LEAST 2 GB for Host, and 1 GB for guest:
             lambda instance_info: instance_info["MemoryInfo"]["SizeInMiB"] >= 3*1024, # # 3 GB
+            # Combine any other keys into the Ec2 Config:
+            Use(lambda instance_info: instance_info | {
+                # Add a "GpuExists" flag, so downstream code doesn't need to re-check "GpuInfo" itself:
+                "GpuExists": bool("GpuInfo" in instance_info and instance_info["GpuInfo"]["Gpus"] > 0),
+                #
+            }),
         ),
         "Container": {
             "Image": Use(str.lower),

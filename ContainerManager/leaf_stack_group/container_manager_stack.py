@@ -84,6 +84,7 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
             container_id=container_id,
             container_ports_config=config["Container"]["Ports"],
+            ssh_cidr_allowed=config["Ec2"]["SshCidrAllowed"],
         )
 
         ### All the info for the Container Stuff

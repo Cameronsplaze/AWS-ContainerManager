@@ -149,55 +149,12 @@ class Volumes(NestedStack):
                                 # Make everything go through EFS by default. Media servers
                                 # can lower this in their config.
                                 ## TODO: Deploy the containers, and check what the largest file so far is.
-                                size_less_than=1024 * 1024 * 1024 * 1024, # 1TB
+                                size_less_than=10 * 1024 * 1024 * 1024, # 10GB
                                 trigger="ON_DIRECTORY_FIRST_ACCESS",
                             ),
                         ],
                     ),
                 )
-
-                # ## S3 Files (S3 + EFS) Traffic Out:
-                # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-                # # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-monitoring-cloudwatch.html
-                # s3_bytes_per_min = cloudwatch.Metric(
-                #     # label=f"S3 Traffic Out ({volume_name})",
-                #     metric_name="BytesDownloaded",
-                #     namespace="AWS/S3",
-                #     dimensions_map={
-                #         "BucketName": s3_bucket.bucket_name,
-                #         "FilterId": FILTER_ID,
-                #     },
-                #     period=Duration.minutes(1),
-                #     statistic="Sum",
-                # )
-                # efs_bytes_per_min = cloudwatch.Metric(
-                #     # label=f"EFS Traffic Out ({volume_name})",
-                #     metric_name="DataReadBytes",
-                #     namespace="AWS/S3/Files",
-                #     dimensions_map={"FileSystemId": s3_files_fs.attr_file_system_id},
-                #     period=Duration.minutes(1),
-                #     statistic="Sum",
-                # )
-
-                # ## Switch bytes to KiB, so it's easier for users to work with:
-                # # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-                # self.traffic_out_metrics[f"s3_out_kb_{volume_name}"] = cloudwatch.MathExpression(
-                #     label=f"S3 Traffic Out ({volume_name})",
-                #     # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
-                #     expression="s3_traffic_out/1024",
-                #     using_metrics={
-                #         "s3_traffic_out": s3_bytes_per_min,
-                #     },
-                #     period=Duration.minutes(1),
-                # )
-                # self.traffic_out_metrics[f"efs_out_kb_{volume_name}"] = cloudwatch.MathExpression(
-                #     label=f"EFS Traffic Out ({volume_name})",
-                #     expression="efs_traffic_out/1024",
-                #     using_metrics={
-                #         "efs_traffic_out": efs_bytes_per_min,
-                #     },
-                #     period=Duration.minutes(1),
-                # )
 
                 ## One mount target per subnet/AZ. Both EFS and S3 Files need the same ports:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnMountTarget.html
