@@ -41,6 +41,9 @@ class Volumes(NestedStack):
         self.traffic_out_metrics: dict[str, cloudwatch.MathExpression] = {}
         ## Loop over each volume in the config:
         for volume_name, volume_info in volumes_config.items():
+            # TODO: Update docs for switching from EFS to S3. Since
+            #       it's the only one, maybe switch to `volume_info["Type"] != "S3": raise`?
+            #       although if we remove the list, is there any point in "Type"???
             if volume_info["Type"] == "S3":
                 volume_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE \
                                         if volume_info["KeepOnDelete"] else \
@@ -65,6 +68,14 @@ class Volumes(NestedStack):
                     auto_delete_objects=not volume_info["KeepOnDelete"],
                     enforce_ssl=True,
                     versioned=True, # Required - S3 Files relies on object versions for consistency.
+                    # TODO: LifecycleRule supports a Prefix. What we can do is if you have `EnableBackups: False`, set
+                    #       Duration.days(1) for that prefix, AND add a max count of versions to save.
+                    #        - Is this enough to only have one bucket? That'd limit costs if that's the goal.
+                    #          Need to look into S3 versions too, looks like EACH change will copy the ENTIRE file...
+                    #        - We might have those settings be the default anyways, and have a lambda create a zip
+                    #          once a day? Keep it in the bucket's root, so the task can't acces/delete it. Unless
+                    #          the lambda can instead create a special version, that sticks around longer than the EFS's?
+                    #        - https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html#tagfilters
                     lifecycle_rules=[
                         ## Cap how many OLD versions of each file to keep:
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html
@@ -72,6 +83,7 @@ class Volumes(NestedStack):
                             # noncurrent_versions_to_retain=3, # DON'T USE THIS! We want to keep ALL versions if they're new.
                             enabled=True,
                             # TODO: Is there any reason for multiple s3 buckets now?? Think Valheim that has 2. Maybe one with versioning off, but s3 is SO cheap anyways...
+                            #             - UPDATE DOCS if you change this, to not support a list.
                             # TODO: Make this a variable
                             noncurrent_version_expiration=Duration.days(30),
                             transitions=[

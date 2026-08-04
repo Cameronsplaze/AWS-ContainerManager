@@ -42,4 +42,4 @@ jobs:
 
       ## Run Pytest:
       - name: Run Pytest
-        run: make test
+        run: tox

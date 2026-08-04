@@ -60,7 +60,7 @@ Container:
 
 Volumes:
   # Data:
-  #   Type: EFS # EFS or (eventually) S3. EFS is the default.
+  #   Type: S3 # Only S3 is supported, and it's the default.
   #   EnableBackups: True
   #   KeepOnDelete: True
   #   Paths:

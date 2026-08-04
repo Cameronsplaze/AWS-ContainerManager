@@ -144,10 +144,6 @@ lint: lint-python lint-markdown
 ## Misc Commands ##
 ###################
 
-.PHONY: test
-test:
-	python3 -m tox --conf tests/tox.ini --root ./ run
-
 .PHONY: aws-whoami
 aws-whoami:
 	# Make sure you're in the right account

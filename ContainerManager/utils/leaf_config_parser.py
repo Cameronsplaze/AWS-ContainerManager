@@ -106,9 +106,9 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             # The ID can be anything:
             str: {
                 # Contents of each volume config:
-                Optional("Type", default="EFS"): And(
+                Optional("Type", default="S3"): And(
                     Use(str.upper),
-                    Or("EFS", "S3"),
+                    Or("S3"), # Only S3 for now, no advantage for vanilla EFS, with S3 Files released.
                 ),
                 Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
                 Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,

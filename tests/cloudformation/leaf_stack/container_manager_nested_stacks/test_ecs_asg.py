@@ -13,6 +13,21 @@ class TestEcsAsg():
         ec2_policy_properties = {
             "PolicyDocument": {
                 "Statement": [
+                    ## Let the instance publish the S3 Files metrics, and ONLY those:
+                    # (AWS doesn't support locking this down any further than the namespace)
+                    {
+                        "Action": "cloudwatch:PutMetricData",
+                        "Condition": {
+                            "StringEquals": {
+                                "cloudwatch:namespace": [
+                                    "AWS/S3/Files",
+                                    "efs-utils/S3Files"
+                                ]
+                            }
+                        },
+                        "Effect": "Allow",
+                        "Resource": "*"
+                    },
                     {
                         "Action": [
                             "ecs:DeregisterContainerInstance",

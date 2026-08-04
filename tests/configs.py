@@ -250,6 +250,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
             # have to specify each volume by name here:
             #  (plus it's probably better to make sure the keys exist anyways)
             "Default": {
+                "Type": "S3",
                 "Paths": [
                     {"Path": "/data-default", "ReadOnly": False},
                 ],
@@ -257,6 +258,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
                 "KeepOnDelete": True,
             },
             "AllTrue": {
+                "Type": "S3",
                 "Paths": [
                     {"Path": "/data-all-true", "ReadOnly": True},
                 ],
@@ -264,6 +266,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
                 "KeepOnDelete": True,
             },
             "AllFalse": {
+                "Type": "S3",
                 "Paths": [
                     {"Path": "/data-all-false", "ReadOnly": False},
                 ],
@@ -271,6 +274,7 @@ LEAF_VOLUMES = LEAF_MINIMAL.copy(
                 "KeepOnDelete": False,
             },
             "MultiplePaths": {
+                "Type": "S3",
                 "Paths": [
                     {"Path": "/data-1", "ReadOnly": False},
                     {"Path": "/config-2", "ReadOnly": False},

@@ -17,10 +17,10 @@ This CDK project spins up the container when someone connects, then spins it bac
 ### First Time Setup - This Project
 
 - Make sure `python3` and `npm` are installed in your system.
-- Setup a python environment with:
+- Setup a [development environment with tox](https://tox.wiki/en/latest/reference/cli.html#tox-devenv-(d)):
 
   ```bash
-  python3 -m venv .venv
+  tox devenv --recreate .venv # -r/--recreate: Optional, useful if you need it.
   source .venv/bin/activate
   ```
 
@@ -329,6 +329,10 @@ For setting up cdk into your AWS Account. See the [AWS QuickStart](#first-time-s
 ```bash
 make cdk-bootstrap
 ```
+
+## Unit Tests with Tox
+
+See [./tests/README.md](./tests/README.md) for details on how to run unit tests with [tox](https://tox.wiki/en/).
 
 ## Automatic Deployments with GitHub Actions
 
