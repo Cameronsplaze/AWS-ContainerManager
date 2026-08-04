@@ -228,7 +228,8 @@ class Dashboard(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         memory_utilization_percent = cloudwatch.MathExpression(
             label=f"Memory Utilization [{main_config['Ec2']['MemoryInfo']['SizeInMiB'] / 1024} GB]",
-            expression=f"memory_utilization * {memory_task_limit} / {main_config['Ec2']['MemoryInfo']['SizeInMiB']}",
+            # Subtract 1GB in the expression, because what the host uses doesn't appear in the metric anyways.
+            expression=f"memory_utilization * {memory_task_limit} / ({main_config['Ec2']['MemoryInfo']['SizeInMiB']} - 1024)",
             using_metrics={
                 "memory_utilization": memory_task_percent,
             },
