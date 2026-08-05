@@ -173,10 +173,7 @@ update-npm-cdk:
 .PHONY: update-python
 update-python:
 	echo "Updating Python Stuff..."
-	python3 -m pip install --upgrade \
-		pip \
-		-r requirements.txt \
-		-r requirements-dev.txt
+	tox devenv .tox/py
 	echo ""
 
 .PHONY: update

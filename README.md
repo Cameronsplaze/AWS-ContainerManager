@@ -16,19 +16,19 @@ This CDK project spins up the container when someone connects, then spins it bac
 
 ### First Time Setup - This Project
 
-- Make sure `python3` and `npm` are installed in your system.
+- Make sure `python3`, `npm`, and [tox](https://tox.wiki/en/latest/installation.html) are installed in your system. (`tox` has to be outside the venv, since it's what creates it).
 - Setup a [development environment with tox](https://tox.wiki/en/latest/reference/cli.html#tox-devenv-(d)):
 
   ```bash
-  tox devenv --recreate .venv # -r/--recreate: Optional, useful if you need it.
-  source .venv/bin/activate
+  make update # Will install dependencies the first time.
+  source .tox/py/bin/activate
   ```
 
 - Update/Install everything with `make update`.
   - Note: If it complains about NPM not being ran with root, follow [this stackoverflow guide](https://stackoverflow.com/a/55274930) to let non-sudo work. (I couldn't get the `~/.profile` line working with vscode, so I added it to `~/.bashrc` instead).
 
 > [!NOTE]
-> Now that you have it setup, you'll only have to do `source .venv/bin/activate` on new shells from here on out. (And `make update` once in a while to get the latest packages).
+> Now that you have it setup, you'll only have to do `source .tox/py/bin/activate` on new shells from here on out. (And `make update` after pulling to get the latest packages).
 
 ### Deploying the App (Manually)
 
@@ -37,10 +37,9 @@ There's two commands: one for the 'base' stack, and the 'leaf_stack_group'. You 
 First setup your Environment Variables used for deploying, and just delete any sections you're not using:
 
 ```bash
-source .venv/bin/activate
+source .tox/py/bin/activate
 cp vars.env.example vars.env
 code vars.env # Or any text editor...
-source vars.env # The Makefile will also do this on each command.
 ```
 
 - **For more Advanced Customization while Deploying**: see [(cdk) Synth / Deploy / Destroy](#cdk-synth--deploy--destroy) below.

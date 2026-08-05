@@ -76,6 +76,7 @@ class Volumes(NestedStack):
                     #          once a day? Keep it in the bucket's root, so the task can't acces/delete it. Unless
                     #          the lambda can instead create a special version, that sticks around longer than the EFS's?
                     #        - https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html#tagfilters
+                    #        - Can use the ASG spin down, to trigger when to create a backup.
                     lifecycle_rules=[
                         ## Cap how many OLD versions of each file to keep:
                         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html
