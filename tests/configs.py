@@ -18,7 +18,7 @@ from ContainerManager.utils.config_loader import load_base_config, load_leaf_con
 class ConfigInfo:
     label: str
     config_input: dict
-    expected_output: dict | None
+    expected_output: dict
     loader: callable
 
     def create_config(self):
@@ -209,79 +209,89 @@ LEAF_CONTAINER_ENVIRONMENT = LEAF_MINIMAL.copy(
     },
 )
 
-LEAF_VOLUMES = LEAF_MINIMAL.copy(
-    label="LeafVolumes",
+# 1: To check defaults:
+LEAF_VOLUME_DEFAULT = LEAF_MINIMAL.copy(
+    label="LeafVolumeDefault",
     config_input=LEAF_MINIMAL.config_input | {
-        "Volumes": {
-            # 1: To check defaults:
-            "Default": {
-                "Paths": [
-                    {"Path": "/data-default"},
-                ],
-            },
-            # 2: To check all True:
-            "AllTrue": {
-                "Paths": [
-                    {"Path": "/data-all-true", "ReadOnly": True},
-                ],
-                "EnableBackups": True,
-                "KeepOnDelete": True,
-            },
-            # 3: To check all False:
-            "AllFalse": {
-                "Paths": [
-                    {"Path": "/data-all-false", "ReadOnly": False},
-                ],
-                "EnableBackups": False,
-                "KeepOnDelete": False,
-            },
-            # 4: To check multiple paths:
-            "MultiplePaths": {
-                "Paths": [
-                    {"Path": "/data-1"},
-                    {"Path": "/config-2"},
-                ],
-            },
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-default"},
+            ],
         },
     },
     expected_output=LEAF_MINIMAL.expected_output | {
-        "Volumes": {
-            ## The `flatten_keys` function can't handle wildcard dict keys, so we
-            # have to specify each volume by name here:
-            #  (plus it's probably better to make sure the keys exist anyways)
-            "Default": {
-                "Type": "S3",
-                "Paths": [
-                    {"Path": "/data-default", "ReadOnly": False},
-                ],
-                "EnableBackups": True,
-                "KeepOnDelete": True,
-            },
-            "AllTrue": {
-                "Type": "S3",
-                "Paths": [
-                    {"Path": "/data-all-true", "ReadOnly": True},
-                ],
-                "EnableBackups": True,
-                "KeepOnDelete": True,
-            },
-            "AllFalse": {
-                "Type": "S3",
-                "Paths": [
-                    {"Path": "/data-all-false", "ReadOnly": False},
-                ],
-                "EnableBackups": False,
-                "KeepOnDelete": False,
-            },
-            "MultiplePaths": {
-                "Type": "S3",
-                "Paths": [
-                    {"Path": "/data-1", "ReadOnly": False},
-                    {"Path": "/config-2", "ReadOnly": False},
-                ],
-                "EnableBackups": True,
-                "KeepOnDelete": True,
-            },
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-default", "ReadOnly": False},
+            ],
+            "EnableBackups": True,
+            "KeepOnDelete": True,
+        },
+    },
+)
+# 2: To check all True:
+LEAF_VOLUME_ALL_TRUE = LEAF_MINIMAL.copy(
+    label="LeafVolumeAllTrue",
+    config_input=LEAF_MINIMAL.config_input | {
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-all-true", "ReadOnly": True},
+            ],
+            "EnableBackups": True,
+            "KeepOnDelete": True,
+        },
+    },
+    expected_output=LEAF_MINIMAL.expected_output | {
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-all-true", "ReadOnly": True},
+            ],
+            "EnableBackups": True,
+            "KeepOnDelete": True,
+        },
+    },
+)
+# 3: To check all False:
+LEAF_VOLUME_ALL_FALSE = LEAF_MINIMAL.copy(
+    label="LeafVolumeAllFalse",
+    config_input=LEAF_MINIMAL.config_input | {
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-all-false", "ReadOnly": False},
+            ],
+            "EnableBackups": False,
+            "KeepOnDelete": False,
+        },
+    },
+    expected_output=LEAF_MINIMAL.expected_output | {
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-all-false", "ReadOnly": False},
+            ],
+            "EnableBackups": False,
+            "KeepOnDelete": False,
+        },
+    },
+)
+# 4: To check multiple paths:
+LEAF_VOLUME_MULTIPLE_PATHS = LEAF_MINIMAL.copy(
+    label="LeafVolumeMultiplePaths",
+    config_input=LEAF_MINIMAL.config_input | {
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-1"},
+                {"Path": "/config-2"},
+            ],
+        },
+    },
+    expected_output=LEAF_MINIMAL.expected_output | {
+        "Volume": {
+            "Paths": [
+                {"Path": "/data-1", "ReadOnly": False},
+                {"Path": "/config-2", "ReadOnly": False},
+            ],
+            "EnableBackups": True,
+            "KeepOnDelete": True,
         },
     },
 )
@@ -310,14 +320,20 @@ for file_path in glob.glob("./Examples/*.yaml") + glob.glob("./Examples/*.yml"):
 CONFIGS_MINIMAL = [BASE_MINIMAL, LEAF_MINIMAL]
 # Configs based on real files:
 CONFIGS_LOADED = [BASE_CONFIG_LOADED] + LEAF_CONFIGS_LOADED
+# Configs for testing Volume logic:
+LEAF_VOLUMES = [
+    LEAF_VOLUME_DEFAULT,
+    LEAF_VOLUME_ALL_TRUE,
+    LEAF_VOLUME_ALL_FALSE,
+    LEAF_VOLUME_MULTIPLE_PATHS,
+]
 # All valid configs:
-CONFIGS_VALID = CONFIGS_MINIMAL + CONFIGS_LOADED + [
+CONFIGS_VALID = CONFIGS_MINIMAL + CONFIGS_LOADED + LEAF_VOLUMES + [
     BASE_VPC_MAXAZS,
     BASE_ALERT_SUBSCRIPTION,
     BASE_ALERT_SUBSCRIPTION_NONE,
     LEAF_CONTAINER_PORTS,
     LEAF_CONTAINER_ENVIRONMENT,
-    LEAF_VOLUMES,
 ]
 # All invalid configs:
 CONFIGS_INVALID = []
