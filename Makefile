@@ -54,7 +54,7 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
 		--context maturity="$(maturity)" \
-		--context container-id="$(container-id)" \
+		--context container-id="$(container-id)"
 	echo "Finished at: `date +'%-I:%M%P (%Ss)'`"
 
 # Edit the base stack:
