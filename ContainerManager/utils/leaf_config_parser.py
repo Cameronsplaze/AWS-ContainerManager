@@ -102,22 +102,14 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 {},
             ),
         },
-        Optional("Volumes", default={}): {
-            # The ID can be anything:
-            str: {
-                # Contents of each volume config:
-                Optional("Type", default="S3"): And(
-                    Use(str.upper),
-                    Or("S3"), # Only S3 for now, no advantage for vanilla EFS, with S3 Files released.
-                ),
-                Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
-                Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
-                # List of Path Configs to save:
-                "Paths": [{
-                    "Path": str,
-                    Optional("ReadOnly", default=False): bool,
-                }],
-            },
+        Optional("Volume", default={}): {
+            Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
+            Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
+            # List of Path Configs to save:
+            "Paths": [{
+                "Path": str,
+                Optional("ReadOnly", default=False): bool,
+            }],
         },
         "Watchdog": {
             "Threshold": int,

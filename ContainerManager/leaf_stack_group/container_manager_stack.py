@@ -104,7 +104,8 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
-            volumes_config=config["Volumes"],
+            volume_config=config["Volume"],
+            volume_backup_vault=base_stack.backup_vault,
             sg_efs_traffic=self.sg_nested_stack.sg_efs_traffic,
         )
 

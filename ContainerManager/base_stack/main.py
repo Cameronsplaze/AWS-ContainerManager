@@ -6,14 +6,14 @@ This module contains the BaseStackMain class.
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    Tags,
-    CfnOutput,
+    RemovalPolicy,
     Validations,
     Acknowledgment,
     aws_ec2 as ec2,
     aws_sns as sns,
     aws_iam as iam,
     aws_route53 as route53,
+    aws_backup as backup,
 )
 
 # from .utils.get_param import get_param
@@ -111,11 +111,15 @@ class BaseStack(Stack):
             zone_name=self.domain_name,
         )
 
-        # ####################
-        # ### Output Stuff ###
-        # ####################
-        # CfnOutput(self, "SshKeyPairId", value=f"/ec2/keypair/{self.ssh_key_pair.key_pair_id}")
-        # CfnOutput(self, "HostedZoneId", value=config["Domain"]["HostedZoneId"])
+        #########################
+        ### Shared AWS Backup ###
+        #########################
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_backup.BackupVault.html
+        self.backup_vault = backup.BackupVault(
+            self,
+            "BackupVault",
+            removal_policy=RemovalPolicy.DESTROY,
+        )
 
         #####################
         ### cdk_nag stuff ###
