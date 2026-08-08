@@ -41,20 +41,60 @@ def get_backup_client():
     """ Used for starting the backup job """
     return boto3.client('backup')
 
+@cache
+def get_s3_client():
+    """ Used for clearing out old object versions before the backup """
+    return boto3.client('s3')
+
+
+def purge_noncurrent_versions(bucket_name: str) -> None:
+    """
+    Permanently delete every noncurrent version and delete-marker in the bucket.
+    They'll get stored in the backup snapshot otherwise, and cost pointless money.
+    """
+    s3_client = get_s3_client()
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListObjectVersions.html
+    for page in s3_client.get_paginator("list_object_versions").paginate(Bucket=bucket_name):
+        ## ONLY delete IsLatest=False. Deleting the newest DeleteMarker would *un*-delete the
+        # file, and deleting the newest Version would eat the save we're about to back up.
+        # Both lists mix latest and noncurrent entries, so they filter the exact same way.
+        old_versions = [
+            {"Key": obj["Key"], "VersionId": obj["VersionId"]}
+            for obj in page.get("Versions", []) + page.get("DeleteMarkers", [])
+            if not obj["IsLatest"]
+        ]
+        if not old_versions:
+            continue
+        ## A page holds at most 1000 entries and delete_objects takes at most 1000, so they
+        # line up 1:1 and there's nothing extra to batch. DELETE requests are free.
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_objects.html
+        response = s3_client.delete_objects(
+            Bucket=bucket_name,
+            # Quiet: only report what FAILED. We don't care about listing the successes.
+            Delete={"Objects": old_versions, "Quiet": True},
+        )
+        ## delete_objects reports per-object failures inside a 200, it does NOT raise:
+        errors = response.get("Errors", [])
+        if errors:
+            print(json.dumps({"DeleteObjectsErrors": errors}, default=str))
+
 
 def lambda_handler(event: dict, context: dict) -> None:
     """ Main function of the lambda. """
     env = get_env_vars()
     print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
 
-    ## TODO: Delete the old S3 Versions before starting a backup
-    ##      - Hook into the S3 Files PendingExports metric, to make sure S3 is up to date first.
+    ## TODO: Hook into the S3 Files PendingExports metric, to make sure S3 is up to date first.
+    ##      (We spin down on "instance-terminate", which fires BEFORE the container's last
+    ##       writes have exported, so right now the snapshot can miss the end of a session.)
+
+    purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])
 
     ## Snapshot the bucket. There's no BackupPlan on purpose: a plan only exists to run
     # backups on a *schedule*, and we want one restore point per play session instead.
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/start_backup_job.html
     backup_client = get_backup_client()
-    response = backup_client.start_backup_job(
+    backup_client.start_backup_job(
         BackupVaultName=env.BACKUP_VAULT_NAME,
         ResourceArn=env.BUCKET_ARN,
         IamRoleArn=env.BACKUP_ROLE_ARN,
