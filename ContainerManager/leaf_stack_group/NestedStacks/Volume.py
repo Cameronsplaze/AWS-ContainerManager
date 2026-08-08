@@ -248,7 +248,7 @@ class Volume(NestedStack):
                 code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/trigger_aws_backup/"),
                 handler="main.lambda_handler",
                 runtime=aws_lambda.Runtime.PYTHON_3_12,
-                timeout=Duration.seconds(30),
+                timeout=Duration.minutes(15),
                 log_group=self.log_group_trigger_aws_backup,
                 environment={
                     "BACKUP_VAULT_NAME": volume_backup_vault.backup_vault_name,
@@ -277,5 +277,22 @@ class Volume(NestedStack):
                     actions=["iam:PassRole"],
                     resources=[backup_role.role_arn],
                     conditions={"StringEquals": {"iam:PassedToService": "backup.amazonaws.com"}},
+                )
+            )
+            ## Let it find the old object versions to clear out before snapshotting:
+            self.lambda_trigger_aws_backup.add_to_role_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["s3:ListBucketVersions"],
+                    resources=[s3_bucket.bucket_arn],
+                )
+            )
+            self.lambda_trigger_aws_backup.add_to_role_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    ## NOT "s3:DeleteObject". That'd let it add delete markers to files that are
+                    # still live. This only ever removes versions that are already noncurrent.
+                    actions=["s3:DeleteObjectVersion"],
+                    resources=[s3_bucket.arn_for_objects("*")],
                 )
             )
