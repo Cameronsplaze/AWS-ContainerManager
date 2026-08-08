@@ -117,7 +117,7 @@ class BaseStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_backup.BackupVault.html
         self.backup_vault = backup.BackupVault(
             self,
-            "BackupVault",
+            f"{construct_id}-BackupVault",
             removal_policy=RemovalPolicy.DESTROY,
         )
 

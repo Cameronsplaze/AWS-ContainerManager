@@ -47,6 +47,9 @@ def lambda_handler(event: dict, context: dict) -> None:
     env = get_env_vars()
     print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
 
+    ## TODO: Delete the old S3 Versions before starting a backup
+    ##      - Hook into the S3 Files PendingExports metric, to make sure S3 is up to date first.
+
     ## Snapshot the bucket. There's no BackupPlan on purpose: a plan only exists to run
     # backups on a *schedule*, and we want one restore point per play session instead.
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/start_backup_job.html

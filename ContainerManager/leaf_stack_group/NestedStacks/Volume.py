@@ -79,11 +79,9 @@ class Volume(NestedStack):
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.LifecycleRule.html
                 s3.LifecycleRule(
                     enabled=True,
-                    ## DON'T use S3 Versioning as the backup system. It creates a copy of the ENTIRE file with each change.
-                    #    Even S3 Files grouping the changes per minute, it still balloons in size.
-                    # TODO: Test these variables, and look at them in the console...
-                    noncurrent_version_expiration=Duration.days(0),
-                    noncurrent_versions_to_retain=0,
+                    ## DON'T use S3 Versioning as the main backup system. It creates a copy of the ENTIRE file with each change.
+                    #    Even though S3 Files groups the changes per minute, it still balloons in size.
+                    noncurrent_version_expiration=Duration.days(1),
                     expired_object_delete_marker=True,
                     # NOTE: The AWS Backup scan will move everything out of cheaper tiers. It's fine for Game Servers where
                     #     everything is read on start anyways, but DO NOT enable backups for Media Servers, where you won't

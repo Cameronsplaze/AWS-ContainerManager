@@ -93,8 +93,7 @@ class TestS3Volumes():
                         ## Old versions are pure cost here (S3 stores a full copy of the
                         # file per change), so sweep them as fast as AWS lets us:
                         "NoncurrentVersionExpiration": {
-                            "NewerNoncurrentVersions": 0,
-                            "NoncurrentDays": 0,
+                            "NoncurrentDays": 1,
                         },
                         # Otherwise each leftover marker bills as a 128KiB object:
                         "ExpiredObjectDeleteMarker": True,
