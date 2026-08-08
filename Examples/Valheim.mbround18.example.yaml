@@ -34,24 +34,19 @@ Container:
     AUTO_BACKUP: 0          # False: We do that ourselves
     SCHEDULED_RESTART: 0    # False: Turns off when idle. We do that ourselves
 
-Volumes:
-  # Holds the save info
-  Config:
-    Paths:
-      - Path: /home/steam/.config/unity3d/IronGate/Valheim
-  # Holds server download file
-  Download:
-    EnableBackups: False
-    KeepOnDelete: False
-    Paths:
-      - Path: /home/steam/valheim
-      ## Other persistent paths. Also stop SteamCLI from thinking it's out of space on disk:
-      # https://github.com/mbround18/valheim-docker/discussions/1268#discussioncomment-14805708
-      - Path: /home/steam/backups
-      - Path: /home/steam/Steam
-      - Path: /home/steam/.steam
-      - Path: /home/steam/.local/share/Steam
-      - Path: /home/steam/steamcmd
+Volume:
+  Paths:
+    # Holds the save info
+    - Path: /home/steam/.config/unity3d/IronGate/Valheim
+    # Holds server download file
+    - Path: /home/steam/valheim
+    ## Other persistent paths. Also stop SteamCLI from thinking it's out of space on disk:
+    # https://github.com/mbround18/valheim-docker/discussions/1268#discussioncomment-14805708
+    - Path: /home/steam/backups
+    - Path: /home/steam/Steam
+    - Path: /home/steam/.steam
+    - Path: /home/steam/.local/share/Steam
+    - Path: /home/steam/steamcmd
 
 ## Config options for how to monitor for players:
 ##   (Currently the default anyways...) 

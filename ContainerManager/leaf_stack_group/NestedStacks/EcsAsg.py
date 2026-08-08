@@ -89,9 +89,6 @@ class EcsAsg(NestedStack):
         s3_files_root_host = "/mnt/s3files"
 
         for file_system_info in file_systems:
-            if file_system_info["Type"] != "S3":
-                raise ValueError(f"Unsupported file system type: {file_system_info['Type']}")
-
             s3_bucket: s3.Bucket = file_system_info["Bucket"]
             s3_file_system: s3files.CfnFileSystem = file_system_info["FileSystem"]
             mount_paths: list[str] = file_system_info["Paths"]
@@ -261,7 +258,7 @@ class EcsAsg(NestedStack):
         )
 
         ## Network Traffic In
-        # Requires Ecs Enhanced Metrics. Should be network traffic WITHOUT volumes too!
+        # Requires Ecs Enhanced Metrics. Should be network traffic WITHOUT the Volume too!
         # https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-enhanced-observability-metrics-ECS.html
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
         traffic_in = cloudwatch.Metric(

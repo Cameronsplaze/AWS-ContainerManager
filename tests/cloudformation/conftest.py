@@ -100,7 +100,7 @@ class CdkApp():
         # And it's nested stacks:
         self.container_manager_sg_template = Template.from_stack(self.container_manager_stack.sg_nested_stack)
         self.container_manager_container_template = Template.from_stack(self.container_manager_stack.container_nested_stack)
-        self.container_manager_volumes_template = Template.from_stack(self.container_manager_stack.volumes_nested_stack)
+        self.container_manager_volume_template = Template.from_stack(self.container_manager_stack.volume_nested_stack)
         self.container_manager_ecs_asg_template = Template.from_stack(self.container_manager_stack.ecs_asg_nested_stack)
         self.container_manager_watchdog_template = Template.from_stack(self.container_manager_stack.watchdog_nested_stack)
         self.container_manager_asg_state_change_hook_template = Template.from_stack(self.container_manager_stack.asg_state_change_hook_nested_stack)

@@ -11,7 +11,8 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
-    aws_cloudwatch as cloudwatch,
+    aws_lambda,
+    aws_logs as logs,
     aws_s3 as s3,
     aws_s3files as s3files,
     aws_backup as backup,
@@ -22,28 +23,32 @@ from constructs import Construct
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
-class Volumes(NestedStack):
+class Volume(NestedStack):
     """
     This sets up the persistent storage for the ECS container.
     """
     def __init__(
         self,
         scope: Construct,
+        container: ecs.ContainerDefinition,
         vpc: ec2.Vpc,
         task_definition: ecs.Ec2TaskDefinition,
-        container: ecs.ContainerDefinition,
         volume_config: dict,
         volume_backup_vault: backup.BackupVault,
         sg_efs_traffic: ec2.SecurityGroup,
         **kwargs,
     ) -> None:
-        super().__init__(scope, "VolumesNestedStack", **kwargs)
+        super().__init__(scope, "VolumeNestedStack", **kwargs)
         self.file_systems: list[dict] = []
+        ## AsgStateChangeHook hooks this up to the spin-down event, IF backups are enabled:
+        self.lambda_trigger_aws_backup: aws_lambda.Function | None = None
 
-        self.traffic_out_metrics: dict[str, cloudwatch.MathExpression] = {}
         # TODO: Major doc update on volumes. No point in multiple anymore, and removed "Type".
 
-        # TODO: Clean up the AWS Backups stuff.
+        ## No "Volume" in the config == no storage at all. Declare anything
+        #   other stacks use above this.
+        if not volume_config:
+            return
 
         volume_removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE \
                                 if volume_config["KeepOnDelete"] else \
@@ -76,8 +81,9 @@ class Volumes(NestedStack):
                     enabled=True,
                     ## DON'T use S3 Versioning as the backup system. It creates a copy of the ENTIRE file with each change.
                     #    Even S3 Files grouping the changes per minute, it still balloons in size.
-                    # noncurrent_version_expiration=Duration.days(30),
-                    noncurrent_versions_to_retain=1,
+                    # TODO: Test these variables, and look at them in the console...
+                    noncurrent_version_expiration=Duration.days(0),
+                    noncurrent_versions_to_retain=0,
                     expired_object_delete_marker=True,
                     # NOTE: The AWS Backup scan will move everything out of cheaper tiers. It's fine for Game Servers where
                     #     everything is read on start anyways, but DO NOT enable backups for Media Servers, where you won't
@@ -157,6 +163,7 @@ class Volumes(NestedStack):
                         # Make everything go through EFS by default. Media servers
                         # can lower this in their config.
                         ## TODO: Deploy the containers, and check what the largest file so far is.
+                        # There might be a "good default" that works for both media/games. Error on the side of games, storage is cheap.
                         size_less_than=10 * 1024 * 1024 * 1024, # 10GB
                         trigger="ON_DIRECTORY_FIRST_ACCESS",
                     ),
@@ -180,6 +187,7 @@ class Volumes(NestedStack):
             volume_path = volume_path_info["Path"]
             ## Create a UNIQUE name, using the path (Removing '.' and '/' too):
             #   (Will be something like: `Efs-<Id>-<hash>`. Can't use path directly: names got too long, and prefix are all similar.)
+            #   If you used the element index, then adding/removing a path would cause a replacement.
             volume_name = s3_files_fs.node.id + "-" + hashlib.md5(volume_path.encode()).hexdigest()[:8]
 
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.TaskDefinition.html#aws_cdk.aws_ecs.TaskDefinition.add_volume
@@ -201,7 +209,6 @@ class Volumes(NestedStack):
             )
 
         self.file_systems.append({
-            "Type": "S3",
             "Bucket": s3_bucket,
             "FileSystem": s3_files_fs,
             "Paths": [path_info["Path"] for path_info in volume_config["Paths"]],
@@ -211,54 +218,66 @@ class Volumes(NestedStack):
         ## AWS Backups ##
         #################
         if volume_config["EnableBackups"]:
-            ## Cold storage backups must be in cold storage for at LEAST 90 days. If users want them
-            # that long, default to cold as long as possible since it's cheaper:
-            # https://docs.aws.amazon.com/aws-backup/latest/devguide/plan-options-and-configuration.html
-            # TODO: Make this a variable.
-            backup_num_days = 30
-            days_to_cold = Duration.days(backup_num_days-90) if backup_num_days > 90 else None
-
+            ## The role AWS Backup itself assumes to read the bucket (NOT the lambda's role):
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_iam.Role.html
             backup_role = iam.Role(
                 self,
                 "BackupRole",
                 assumed_by=iam.ServicePrincipal("backup.amazonaws.com"),
+                description=f"Role AWS Backup assumes to snapshot the {container.container_name} bucket.",
             )
-            # backup_role.add_managed_policy(
-            #     # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSBackupServiceRolePolicyForBackup.html
-            #     iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSBackupServiceRolePolicyForBackup")
-            # )
             backup_role.add_managed_policy(
                 # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSBackupServiceRolePolicyForS3Backup.html
                 iam.ManagedPolicy.from_aws_managed_policy_name("AWSBackupServiceRolePolicyForS3Backup")
             )
-            
-            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_backup.BackupPlan.html
-            backup_plan = backup.BackupPlan(
+
+            ## Log group for the lambda function:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.LogGroup.html
+            self.log_group_trigger_aws_backup = logs.LogGroup(
                 self,
-                "BackupPlan",
-                backup_vault=volume_backup_vault,
+                "LogGroupTriggerAwsBackup",
+                retention=logs.RetentionDays.ONE_WEEK,
+                removal_policy=RemovalPolicy.DESTROY,
+                log_group_name=f"/aws/lambda/{container.container_name}-trigger-aws-backup",
             )
-            backup_plan.add_rule(
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_backup.BackupPlanRuleProps.html
-                backup.BackupPlanRule(
-                    backup_vault=volume_backup_vault,
-                    delete_after=Duration.days(backup_num_days),
-                    move_to_cold_storage_after=days_to_cold,
-                    # DO NOT enable this!! It has the same downsides as S3 Versioning (a change to a file
-                    #  copies the entire file), AND is 2x more expensive.
-                    enable_continuous_backup=False,
-                    # # An impossible cron, so this only runs when we trigger it manually:
-                    # schedule_expression=events.Schedule.cron(
-                    #     minute="0", hour="0", day="31", month="2", year="1970",
-                    # )
+
+            ## Lambda that actually kicks off the snapshot:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
+            self.lambda_trigger_aws_backup = aws_lambda.Function(
+                self,
+                "TriggerAwsBackup",
+                description=f"{container.container_name}-Trigger-AWS-Backup: Snapshots the volume's bucket when the container spins down.",
+                code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/trigger_aws_backup/"),
+                handler="main.lambda_handler",
+                runtime=aws_lambda.Runtime.PYTHON_3_12,
+                timeout=Duration.seconds(30),
+                log_group=self.log_group_trigger_aws_backup,
+                environment={
+                    "BACKUP_VAULT_NAME": volume_backup_vault.backup_vault_name,
+                    "BUCKET_ARN": s3_bucket.bucket_arn,
+                    "BACKUP_ROLE_ARN": backup_role.role_arn,
+                    # TODO: Make this a variable.
+                    "DELETE_AFTER_DAYS": str(30),
+                },
+            )
+            ### Lambda Permissions:
+            # Give it write to it's own log group:
+            self.log_group_trigger_aws_backup.grant_write(self.lambda_trigger_aws_backup)
+            # Let it start jobs in the shared vault:
+            self.lambda_trigger_aws_backup.add_to_role_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["backup:StartBackupJob"],
+                    resources=[volume_backup_vault.backup_vault_arn],
                 )
             )
-            backup_plan.add_selection(
-                "BackupSelection",
-                resources=[
-                    # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_backup.BackupResource.html
-                    backup.BackupResource.from_arn(s3_bucket.bucket_arn),
-                ],
-                role=backup_role,
+            ## `start_backup_job` hands `backup_role` over to AWS Backup, so it needs PassRole on it:
+            # https://docs.aws.amazon.com/aws-backup/latest/devguide/security-considerations.html
+            self.lambda_trigger_aws_backup.add_to_role_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["iam:PassRole"],
+                    resources=[backup_role.role_arn],
+                    conditions={"StringEquals": {"iam:PassedToService": "backup.amazonaws.com"}},
+                )
             )

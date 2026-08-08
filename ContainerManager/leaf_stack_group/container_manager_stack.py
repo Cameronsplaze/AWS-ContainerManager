@@ -32,7 +32,7 @@ class ContainerManagerStack(Stack):
         if "NestedStackResource" in element.node.id:
             match = re.search(r'([a-zA-Z0-9]+)\.NestedStackResource', element.node.id)
             if match:
-                # Returns "VolumesNestedStack" instead of "VolumesNestedStackVolumesNestedStackResource..."
+                # Returns "VolumeNestedStack" instead of "VolumeNestedStackVolumeNestedStackResource..."
                 return match.group(1)
             # Fail fast. If the logical_id ever changes on a existing stack, you replace everything and might loose data.
             raise RuntimeError(f"Could not find 'NestedStackResource' in {element.node.id}. Did a CDK update finally fix NestedStack names?")
@@ -97,8 +97,8 @@ class ContainerManagerStack(Stack):
             container_config=config["Container"],
         )
 
-        ### All the info for Volumes Stuff
-        self.volumes_nested_stack = NestedStacks.Volumes(
+        ### All the info for Volume Stuff
+        self.volume_nested_stack = NestedStacks.Volume(
             self,
             description=f"Volume Logic for {construct_id}",
             vpc=base_stack.vpc,
@@ -121,7 +121,7 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
             sg_ec2_instance_traffic=self.sg_nested_stack.sg_ec2_instance_traffic,
-            file_systems=self.volumes_nested_stack.file_systems,
+            file_systems=self.volume_nested_stack.file_systems,
         )
 
         ### All the info for the Watchdog Stuff
@@ -132,7 +132,7 @@ class ContainerManagerStack(Stack):
             container_id=container_id,
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            # metric_volume_kb_out_per_min=self.volumes_nested_stack.kb_out_per_min,
+            # metric_volume_kb_out_per_min=self.volume_nested_stack.kb_out_per_min,
             metric_container_traffic_in=self.ecs_asg_nested_stack.container_traffic_in,
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
@@ -148,6 +148,7 @@ class ContainerManagerStack(Stack):
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
+            lambda_trigger_aws_backup=self.volume_nested_stack.lambda_trigger_aws_backup,
         )
 
         ######################
@@ -163,7 +164,7 @@ class ContainerManagerStack(Stack):
 
                 domain_stack=domain_stack,
                 container_nested_stack=self.container_nested_stack,
-                volumes_nested_stack=self.volumes_nested_stack,
+                volume_nested_stack=self.volume_nested_stack,
                 ecs_asg_nested_stack=self.ecs_asg_nested_stack,
                 watchdog_nested_stack=self.watchdog_nested_stack,
                 asg_state_change_hook_nested_stack=self.asg_state_change_hook_nested_stack,

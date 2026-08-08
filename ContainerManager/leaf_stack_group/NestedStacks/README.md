@@ -12,7 +12,7 @@ Factored this out to avoid circular imports. This NestedStack contains the secur
 
 This creates the EC2 Task Definition and Container Definition for the stack.
 
-### Volumes
+### Volume
 
 We switched to [AWS S3 Files](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files.html#s3-files-what-is) for our persistent storage, which is basically a vanilla S3 bucket with a EFS cache in front of it. This gives us a cheap bucket for storage and a solid console to work from, along side fast read-writes of the EFS. *This still works with BIG files*, because they naturally [bypass the EFS cache](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-performance.html#s3-files-performance-how) and go straight to the container.
 

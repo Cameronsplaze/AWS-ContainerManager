@@ -38,10 +38,9 @@ Container:
     # 15 pals is too low...
     BASE_CAMP_WORKER_MAX_NUM: 20
 
-Volumes:
-  Palworld:
-    Paths:
-      - Path: /palworld
+Volume:
+  Paths:
+    - Path: /palworld
 
 Watchdog:
   Threshold: 5750

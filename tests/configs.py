@@ -146,7 +146,8 @@ LEAF_MINIMAL = ConfigInfo(
             'IntervalMinutes': Duration,
             'ShowContainerLogTimestamp': bool,
         },
-        'Volumes': {},
+        # Not declared in `config_input`, and an empty Volume means no storage at all:
+        'Volume': {},
         'AlertSubscription': {},
     },
 )
@@ -200,7 +201,7 @@ LEAF_CONTAINER_ENVIRONMENT = LEAF_MINIMAL.copy(
         "Container": LEAF_MINIMAL.expected_output["Container"] | {
             "Environment": {
                 # Environment variables are always strings
-                "STRING_VAR": "TRUE",
+                "STRING_VAR": "TRUE", # Make it a string if you want literal.
                 "BOOL_VAR": "true", # Bools cast to all-lower.
                 "INT_VAR": "12345",
                 "FLOAT_VAR": "12.345",

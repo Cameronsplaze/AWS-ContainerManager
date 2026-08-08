@@ -92,10 +92,10 @@ flowchart TD
             lambda-asg-StateChange --" Updates DNS Record "--> sub-hosted-zone
             lambda-asg-StateChange --" (AWS Daemon) Updates Task Count "--> Ec2Service
 
-            subgraph Volumes.py
+            subgraph Volume.py
                 persistent-volume[Persistent Volume]
             end
-            class Volumes.py purple
+            class Volume.py purple
             Ec2Instance --" Mounts "--> persistent-volume
 
             subgraph Container.py

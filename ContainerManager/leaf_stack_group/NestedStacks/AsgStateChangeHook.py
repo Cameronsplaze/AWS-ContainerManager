@@ -34,6 +34,7 @@ class AsgStateChangeHook(NestedStack):
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
+        lambda_trigger_aws_backup: aws_lambda.Function | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
@@ -166,6 +167,11 @@ class AsgStateChangeHook(NestedStack):
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message_down),
             ],
         )
+        ## If backup is enabled, snapshot the volume whenever we spin down:
+        if lambda_trigger_aws_backup:
+            self.rule_asg_state_change_trigger_down.add_target(
+                events_targets.LambdaFunction(lambda_trigger_aws_backup),
+            )
 
         #####################
         ### cdk_nag stuff ###

@@ -102,10 +102,10 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 {},
             ),
         },
+        ## No Volume declared == an empty dict == NO bucket at all:
         Optional("Volume", default={}): {
             Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
             Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
-            # List of Path Configs to save:
             "Paths": [{
                 "Path": str,
                 Optional("ReadOnly", default=False): bool,

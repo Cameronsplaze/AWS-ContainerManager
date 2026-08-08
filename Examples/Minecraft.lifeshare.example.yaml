@@ -41,14 +41,12 @@ Container:
     VERSION_FROM_MODRINTH_PROJECTS: True
 
 
-Volumes:
-  Data:
-    Type: S3 # Only S3 is supported, and it's the default.
-    EnableBackups: True
-    KeepOnDelete: True
-    Paths:
-      - Path: /data
-        ReadOnly: False
+Volume:
+  EnableBackups: True
+  KeepOnDelete: True
+  Paths:
+    - Path: /data
+      ReadOnly: False
 
 ## Config options for how to monitor for players:
 Watchdog:
