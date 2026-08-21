@@ -3,12 +3,21 @@
 This module contains the SecurityGroups NestedStack class.
 """
 
+import ipaddress
+
 from aws_cdk import (
     NestedStack,
     Tags,
     aws_ec2 as ec2,
 )
 from constructs import Construct
+
+
+def cidr_to_peer(cidr: str) -> ec2.IPeer:
+    """ `Peer.ipv4` throws on an IPv6 cidr, and vice-versa. """
+    if ipaddress.ip_network(cidr).version == 6:
+        return ec2.Peer.ipv6(cidr)
+    return ec2.Peer.ipv4(cidr)
 
 
 ### Nested Stack info:
@@ -45,7 +54,7 @@ class SecurityGroups(NestedStack):
         ## Allow SSH traffic, from just the configured CIDR ranges:
         for ssh_cidr in ec2_config["SshCidrAllowed"]:
             self.sg_ec2_instance_traffic.connections.allow_from(
-                ec2.Peer.ipv4(ssh_cidr),
+                cidr_to_peer(ssh_cidr),
                 # Same as TCP 22:
                 ec2.Port.SSH,
                 description=f"Allow SSH traffic IN - from {ssh_cidr}",
@@ -83,7 +92,7 @@ class SecurityGroups(NestedStack):
 
             for game_cidr in ec2_config["GameCidrAllowed"]:
                 self.sg_ec2_instance_traffic.connections.allow_from(
-                    ec2.Peer.ipv4(game_cidr),
+                    cidr_to_peer(game_cidr),
                     getattr(ec2.Port, protocol.lower())(port),
                     description=f"Game port: allow {protocol.lower()} traffic IN from {port} ({game_cidr})",
                 )

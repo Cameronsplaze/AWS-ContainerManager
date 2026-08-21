@@ -12,7 +12,7 @@ from dataclasses import dataclass, asdict
 
 import boto3
 
-from aws_lambda_powertools import Logger, Metrics
+from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import CloudWatchLogsEvent, event_source
 from aws_lambda_powertools.utilities.data_classes.cloud_watch_logs_event import CloudWatchLogsDecodedData
 from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -82,38 +82,15 @@ def is_client_allowed(client_subnets: list[str]) -> bool:
         for cidr in env.ALLOWED_CIDR_IPS
     )
 
-## Decompress CloudWatch Logs:
-# https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
-@event_source(data_class=CloudWatchLogsEvent)
-def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext):
-    """ Main function of the lambda. """
+def push_metric_connection() -> None:
+    """Push a metric to cloudwatch. This is used to keep the system from spinning down."""
+    ## YOU CANNOT USE POWERTOOLS METRICS HERE: It does not have any cross-region
+    #    support, since it uses EMF JSON, and not put_metric_data behind the scenes.
     env = get_env_vars()
-    decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
-    logger.info(
-        "Initial CloudWatch Event",
-        extra={
-            "decompressed_log": decompressed_log.raw_event,
-            "env_vars": asdict(env),
-            "context": context,
-        },
-    )
-
-    ## Fields Are:
-    # [version, timestamp, hosted_zone_id, domain_name, dns_record_type,
-    #   response_code, protocol, edge_location, dns_resolver_ip, client_subnet]
-    client_subnets = [x.message.split()[9] for x in decompressed_log.log_events]
-    if not is_client_allowed(client_subnets):
-        logger.warning(
-            "No client subnet overlaps ALLOWED_CIDR_IPS, NOT starting the system.",
-            extra={"client_subnets": client_subnets},
-        )
-        return
-
+    cloudwatch_client = get_cloudwatch_client()
     # Change the dimension map to the format boto3 cloudwatch wants:
     dimension_map = [{"Name": k, "Value": v} for k, v in env.METRIC_DIMENSIONS.items()]
-    # Pushing to this metric will stop the Watchdog alarm from spinning down the instance.
-    cloudwatch_client = get_cloudwatch_client()
-    cloudwatch_client.put_metric_data(
+    response =cloudwatch_client.put_metric_data(
         Namespace=env.METRIC_NAMESPACE,
         MetricData=[{
             'MetricName': env.METRIC_NAME,
@@ -122,11 +99,45 @@ def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext):
             'Value': env.METRIC_THRESHOLD,
         }],
     )
+    logger.debug("Pushed metric to cloudwatch.", extra={"response": response})
 
-    ## Spin up the instance. The instance-StateChange-hook will do the rest:
+def start_system() -> None:
+    """Spin up the system. The instance-StateChange-hook will do the rest."""
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html#AutoScaling.Client.update_auto_scaling_group
+    env = get_env_vars()
     asg_client = get_asg_client()
-    asg_client.update_auto_scaling_group(
+    response = asg_client.update_auto_scaling_group(
         AutoScalingGroupName=env.ASG_NAME,
         DesiredCapacity=1,
     )
+    logger.debug("Updated ASG desired capacity to 1.", extra={"response": response})
+
+## Decompress CloudWatch Logs:
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
+@event_source(data_class=CloudWatchLogsEvent)
+@logger.inject_lambda_context(clear_state=True, log_event=False)
+def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext): # pylint: disable=unused-argument
+    """ Main function of the lambda. """
+    try:
+        env = get_env_vars()
+        logger.append_keys(env_vars=asdict(env))
+
+        decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
+
+        ## Fields Are:
+        # [version, timestamp, hosted_zone_id, domain_name, dns_record_type,
+        #   response_code, protocol, edge_location, dns_resolver_ip, client_subnet]
+        client_subnets = [x.message.split()[9] for x in decompressed_log.log_events]
+        # Append to the rest of the messages this run:
+        logger.append_keys(client_subnets=client_subnets)
+        if not is_client_allowed(client_subnets):
+            logger.warning("No client subnet overlaps ALLOWED_CIDR_IPS, NOT starting the system.")
+            return
+
+        push_metric_connection()
+        start_system()
+    except Exception:
+        logger.exception("Failed to start the system.")  # Includes all the keys we've added
+        raise
+
+    logger.info("Started the system.")
