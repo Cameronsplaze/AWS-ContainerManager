@@ -15,14 +15,9 @@ Container:
     PLAYERS: 32 # Max allowed in Palworld
     PORT: 8211 # Default
     SERVER_PASSWORD: !ENV ${PALWORLD_PASSWORD}
-    RCON_ENABLED: False # Makes logs noisy, and might be extra network traffic keeping the container up
+    RCON_ENABLED: False # Makes logs noisy, and we don't need it for the project. Users can still enable it.
     MULTITHREADING: True # Not *exactly* sure what this does, but every bit of performance helps
     BACKUP_ENABLED: False # We have this with AWS already.
-    ### TODO: Pausing is promising, but needs more debugging. I think I have to set the ADMIN_PASSWORD or somehting?
-    # # Pause the server when not in use, so that the Watchdog can shut it down:
-    # ENABLE_PLAYER_LOGGING: True
-    # AUTO_PAUSE_ENABLED: True
-    # AUTO_PAUSE_TIMEOUT_EST: 60 # Seconds
     # Update when the server turns on, it isn't up 24/7:
     UPDATE_ON_BOOT: True
     AUTO_UPDATE_ENABLED: False
@@ -39,6 +34,7 @@ Container:
     BASE_CAMP_WORKER_MAX_NUM: 20
 
 Volume:
+  KeepBackupDays: 365
   Paths:
     - Path: /palworld
 

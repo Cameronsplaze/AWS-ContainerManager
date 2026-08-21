@@ -86,7 +86,7 @@ class Watchdog(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.watchdog_traffic_metric = cloudwatch.MathExpression(
             label="Watchdog Container Traffic",
-            expression="traffic_in + dns_hit",
+            expression="MAX([traffic_in, dns_hit])",
             using_metrics={
                 "traffic_in": metric_container_traffic_in,
                 "dns_hit": self.traffic_dns_metric,
@@ -106,7 +106,7 @@ class Watchdog(NestedStack):
             alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
             threshold=self.threshold,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
         )
         ## Call this if switching to ALARM:

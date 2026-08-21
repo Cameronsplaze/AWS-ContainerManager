@@ -84,7 +84,7 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
             container_id=container_id,
             container_ports_config=config["Container"]["Ports"],
-            ssh_cidr_allowed=config["Ec2"]["SshCidrAllowed"],
+            ec2_config=config["Ec2"],
         )
 
         ### All the info for the Container Stuff
@@ -107,6 +107,7 @@ class ContainerManagerStack(Stack):
             volume_config=config["Volume"],
             volume_backup_vault=base_stack.backup_vault,
             sg_efs_traffic=self.sg_nested_stack.sg_efs_traffic,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
         )
 
         ### All the info for the ECS and ASG Stuff

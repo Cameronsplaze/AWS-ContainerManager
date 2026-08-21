@@ -128,6 +128,7 @@ if file_path:
         domain_stack=domain_stack,
         container_manager_stack=container_manager_stack,
         container_id=container_id,
+        config=leaf_config,
     )
     for key, val in stack_tags.items():
         Tags.of(start_system_stack).add(key, val)

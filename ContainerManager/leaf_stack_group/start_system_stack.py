@@ -38,6 +38,7 @@ class StartSystemStack(Stack):
         domain_stack: DomainStack,
         container_manager_stack: ContainerManagerStack,
         container_id: str,
+        config: dict,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -85,6 +86,7 @@ class StartSystemStack(Stack):
             environment={
                 "ASG_NAME": container_manager_stack.ecs_asg_nested_stack.auto_scaling_group.auto_scaling_group_name,
                 "MANAGER_STACK_REGION": container_manager_stack.region,
+                "ALLOWED_CIDR_IPS": json.dumps(list(set(config["Ec2"]["GameCidrAllowed"] + config["Ec2"]["SshCidrAllowed"]))),
                 ## Metric info to let the system know someone is trying to connect, and don't spin down:
                 "METRIC_NAMESPACE": container_manager_stack.watchdog_nested_stack.metric_namespace,
                 "METRIC_NAME": container_manager_stack.watchdog_nested_stack.traffic_dns_metric.metric_name,
@@ -96,7 +98,6 @@ class StartSystemStack(Stack):
             },
         )
 
-
         ## Trigger the system when someone connects:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_logs.SubscriptionFilter.html
         # https://conermurphy.com/blog/route53-hosted-zone-lambda-dns-invocation-aws-cdk
@@ -105,10 +106,10 @@ class StartSystemStack(Stack):
             "SubscriptionFilter",
             log_group=domain_stack.route53_query_log_group,
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
-            # Spaces on either side, so it doesn't match the "_tcp" query that pairs with it:
+            # TODO: See if there's a way to put ec2_config.GameCidrAllowed/SshCidrAllowed in this, so it won't even spin up
+            #    Might have to do it in the lambda itself, based on it's event.
             filter_pattern=logs.FilterPattern.any_term(domain_stack.dns_log_query_filter),
         )
-
 
         ### Add Lambda's permissions, now that you can reference everything:
         # Let lambda write to it's log group:

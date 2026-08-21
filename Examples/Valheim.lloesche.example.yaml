@@ -41,6 +41,7 @@ Container:
 Volume:
   EnableBackups: False
   KeepOnDelete: False
+  KeepBackupDays: 365
   Paths:
     # Holds server config info
     - Path: /config

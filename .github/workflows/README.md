@@ -70,7 +70,10 @@ For each separate environment, you'll have to also set:
 In the "root" GitHub Variables (NOT the environment), you'll also want to update `DEPLOY_ENVIRONMENTS`. It's a **whitespace-separated** list of GH environment NAMES to deploy. (Both spaces, or newlines work)
 
 > [!NOTE]
-> ALL Vars/Secrets will become environment variables inside the action. You can hide server secrets while deploying this way, by declaring them in the environment. This lets ONLY that deployment config have access to that secret, and not echo it out. It then can be used in the config file yaml with the `!ENV ${VAR_NAME}` syntax.
+> ALL GitHub Vars/Secrets will become environment variables inside the action. (`secrets.VAR_1` and `vars.VAR_2` will become `$VAR_1` and `$VAR_2`). The difference is any `secrets.*` **WILL BE MASKED**, so use it for passwords!
+> Use this to setup config files dynamically, without having to `git commit` or anything.
+
+GitHub Secrets and Vars are scoped. Add them to the environment if you want only that specific deployment to have access to it. Add them to the "root" for ALL deployments (maybe like an email to notify on). They then can be used in the config file yaml with the `!ENV ${VAR_1}` syntax.
 
 ## Dependabot Auto-Updates
 

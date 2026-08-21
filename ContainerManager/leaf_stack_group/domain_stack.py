@@ -65,7 +65,6 @@ class DomainStack(Stack):
             comment=f"Hosted zone for {construct_id}: {self.sub_domain_name}",
         )
         self.sub_hosted_zone.apply_removal_policy(RemovalPolicy.DESTROY)
-        # self.route53_query_log_group.grant_write(iam.ArnPrincipal(self.sub_hosted_zone.hosted_zone_arn))
 
         ## Tie the two hosted zones together:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_route53.NsRecord.html
@@ -73,7 +72,7 @@ class DomainStack(Stack):
             self,
             "NsRecord",
             zone=base_stack.root_hosted_zone,
-            values=self.sub_hosted_zone.hosted_zone_name_servers,
+            values=self.sub_hosted_zone.hosted_zone_name_servers, # type: ignore[arg-type]
             record_name=self.sub_domain_name,
         )
         self.ns_record.apply_removal_policy(RemovalPolicy.DESTROY)

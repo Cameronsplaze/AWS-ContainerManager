@@ -25,7 +25,7 @@ class SecurityGroups(NestedStack):
         vpc: ec2.Vpc,
         container_id: str,
         container_ports_config: list,
-        ssh_cidr_allowed: list,
+        ec2_config: dict,
         **kwargs,
     ) -> None:
         super().__init__(scope, "SecurityGroupsNestedStack", **kwargs)
@@ -43,12 +43,12 @@ class SecurityGroups(NestedStack):
         # Create a name of `<StackName>/sg-ec2-instance-traffic` to find it easier:
         Tags.of(self.sg_ec2_instance_traffic).add("Name", f"{leaf_construct_id}/sg-ec2-instance-traffic")
         ## Allow SSH traffic, from just the configured CIDR ranges:
-        for cidr in ssh_cidr_allowed:
+        for ssh_cidr in ec2_config["SshCidrAllowed"]:
             self.sg_ec2_instance_traffic.connections.allow_from(
-                ec2.Peer.ipv4(cidr),
+                ec2.Peer.ipv4(ssh_cidr),
                 # Same as TCP 22:
                 ec2.Port.SSH,
-                description=f"Allow SSH traffic IN - from {cidr}",
+                description=f"Allow SSH traffic IN - from {ssh_cidr}",
             )
 
         ## Security Group for EFS instance's traffic:
@@ -81,8 +81,9 @@ class SecurityGroups(NestedStack):
             #   are the same.
             port = port_mapping.host_port
 
-            self.sg_ec2_instance_traffic.connections.allow_from(
-                ec2.Peer.any_ipv4(),
-                getattr(ec2.Port, protocol.lower())(port),
-                description=f"Game port: allow {protocol.lower()} traffic IN from {port}",
-            )
+            for game_cidr in ec2_config["GameCidrAllowed"]:
+                self.sg_ec2_instance_traffic.connections.allow_from(
+                    ec2.Peer.ipv4(game_cidr),
+                    getattr(ec2.Port, protocol.lower())(port),
+                    description=f"Game port: allow {protocol.lower()} traffic IN from {port} ({game_cidr})",
+                )

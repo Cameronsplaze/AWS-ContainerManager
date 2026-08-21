@@ -19,6 +19,7 @@ on:
 #     base-stack before the first finished and fail. This makes it wait until the first finishes.
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 concurrency:
+  # TODO: You can't deploy the leaf and base at the same time either. This needs to be  locked more...
   group: "cdk-leaf"
   cancel-in-progress: false
 

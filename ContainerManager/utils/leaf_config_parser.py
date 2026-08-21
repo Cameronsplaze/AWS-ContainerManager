@@ -54,9 +54,18 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             {
                 "InstanceType": Use(str.lower),
                 # List of CIDR's allowed to SSH into the instance
-                # TODO: Doc this. Including setting it to an empty list to disable.
+                # TODO: Doc this. Including setting it to an empty list to disable. (Or /32 for single IP)
                 # TODO: And test this...
                 Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
+                    Use(lambda cidrs: [
+                        str(ipaddress.ip_network(cidr, strict=False))
+                        for cidr in cidrs
+                    ]),
+                ],
+                # List of CIDR's allowed to connect to the Container's Ports. (Game traffic, etc.)
+                # TODO: Doc this. Including setting it to an empty list to disable.
+                # TODO: And test this...
+                Optional("GameCidrAllowed", default=["0.0.0.0/0"]): [
                     Use(lambda cidrs: [
                         str(ipaddress.ip_network(cidr, strict=False))
                         for cidr in cidrs
@@ -69,6 +78,7 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             Use(lambda info: get_ec2_client().describe_instance_types(
                 InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0] | {
                     "SshCidrAllowed": info["SshCidrAllowed"],
+                    "GameCidrAllowed": info["GameCidrAllowed"],
                 },
             ),
             # Make sure we have at LEAST 2 GB for Host, and 1 GB for guest:
@@ -76,8 +86,7 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             # Combine any other keys into the Ec2 Config:
             Use(lambda instance_info: instance_info | {
                 # Add a "GpuExists" flag, so downstream code doesn't need to re-check "GpuInfo" itself:
-                "GpuExists": bool("GpuInfo" in instance_info and instance_info["GpuInfo"]["Gpus"] > 0),
-                #
+                "GpuExists": bool("GpuInfo" in instance_info and len(instance_info["GpuInfo"]["Gpus"]) > 0),
             }),
         ),
         "Container": {
@@ -99,9 +108,12 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             # Key: Optional, but defaults value to empty dict if not declared:
             # Value: Either a empty dict, or a dict of strings (that casts all values to string).
             #        Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
-            Optional("Environment", default={}): Or({Use(str): Use(
-                # All values must be strings. If it's a bool, also make it all-lowercase:
-                lambda val: str(val).lower() if isinstance(val, bool) else str(val))},
+            Optional("Environment", default={}): Or(
+                {
+                    # All values must be strings. If it's a bool, also make it all-lowercase:
+                    # TODO: With the json.loads, double-check the lower-case logic.
+                    Use(str): Use(lambda val: str(val).lower() if isinstance(val, bool) else str(val))
+                },
                 # You're allowed to set an empty dict here:
                 {},
             ),
@@ -110,9 +122,18 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
         Optional("Volume", default={}): {
             Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
             Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
+            Optional("KeepBackupDays", default=90): int,
             "Paths": [{
-                "Path": str,
+                "Path": And(
+                    str,
+                    # Must start with a /, flag if it doesn't:
+                    lambda path: path.startswith("/"),
+                    # Put a slash at the end if it doesn't have one:
+                    Use(lambda path: f"{path.rstrip('/')}/"),
+                ),
                 Optional("ReadOnly", default=False): bool,
+                # Default=None, don't override the default EFS cache.
+                Optional("EfsCacheFileMb", default=None): And(Use(int), lambda mb: mb >= 0),
             }],
         },
         "Watchdog": {

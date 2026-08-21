@@ -17,21 +17,26 @@ class EnvVars:
     # pylint: disable=invalid-name
     ASG_NAME: str
     MANAGER_STACK_REGION: str
+    ALLOWED_CIDR_IPS: list[str]
     # For not letting the system spin down if someone is trying to connect:
     METRIC_NAMESPACE: str
     METRIC_NAME: str
-    METRIC_THRESHOLD: str
+    METRIC_THRESHOLD: int
     METRIC_UNIT: str
-    METRIC_DIMENSIONS: str
+    METRIC_DIMENSIONS: dict[str, str]
     # pylint: enable=invalid-name
 
 @cache
+# TODO: Update the other functions with this, and make sure json.loads isn't called twice
+#          And change the types to be accurate above:
 def get_env_vars() -> EnvVars:
     """ Lazy-load and Validate the environment variables """
     # EnvVars will naturally error with ALL the missing env-vars on creation:
     return EnvVars(**{
-        # DON'T use getenv. We don't want the key to exist if it's missing.
-        k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
+        # json.loads will cast str to list/dict/str/whatever too:
+        k: json.loads(os.environ[k])
+        for k in EnvVars.__annotations__.keys()
+        if k in os.environ
     })
 
 ## Boto3 Clients:
@@ -53,14 +58,16 @@ def get_asg_client():
 def lambda_handler(event, context):
     """ Main function of the lambda. """
     env = get_env_vars()
+
+    # TODO HERE: Convert event to dict (log the human-readable version)
+
     print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
 
-    ### Let the metric know someone is trying to connect, to stop it
-    ### from alarming and spinning down the system:
-    ###   (Also if the system is in alarm, this resets it so it can spin down again)
-    dimensions_input = json.loads(env.METRIC_DIMENSIONS)
-    # Change it to the format boto3 cloudwatch wants:
-    dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]
+    # TODO HERE: Actually parse out the IP and compare it to the allowed list.
+
+    # Change the dimension map to the format boto3 cloudwatch wants:
+    dimension_map = [{"Name": k, "Value": v} for k, v in env.METRIC_DIMENSIONS.items()]
+    # Pushing to this metric will stop the Watchdog alarm from spinning down the instance.
     cloudwatch_client = get_cloudwatch_client()
     cloudwatch_client.put_metric_data(
         Namespace=env.METRIC_NAMESPACE,
@@ -68,8 +75,7 @@ def lambda_handler(event, context):
             'MetricName': env.METRIC_NAME,
             'Dimensions': dimension_map,
             'Unit': env.METRIC_UNIT,
-            # One greater than the threshold, to make sure the alarm doesn't error:
-            'Value': 1+int(env.METRIC_THRESHOLD),
+            'Value': env.METRIC_THRESHOLD,
         }],
     )
 

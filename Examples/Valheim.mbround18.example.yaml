@@ -35,6 +35,7 @@ Container:
     SCHEDULED_RESTART: 0    # False: Turns off when idle. We do that ourselves
 
 Volume:
+  KeepBackupDays: 365
   Paths:
     # Holds the save info
     - Path: /home/steam/.config/unity3d/IronGate/Valheim

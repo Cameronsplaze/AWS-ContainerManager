@@ -11,11 +11,14 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
+    aws_sns as sns,
     aws_lambda,
     aws_logs as logs,
     aws_s3 as s3,
     aws_s3files as s3files,
     aws_backup as backup,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cloudwatch_actions,
 )
 from constructs import Construct
 
@@ -36,6 +39,7 @@ class Volume(NestedStack):
         volume_config: dict,
         volume_backup_vault: backup.BackupVault,
         sg_efs_traffic: ec2.SecurityGroup,
+        base_stack_sns_topic: sns.Topic,
         **kwargs,
     ) -> None:
         super().__init__(scope, "VolumeNestedStack", **kwargs)
@@ -138,6 +142,21 @@ class Volume(NestedStack):
                 resources=["arn:aws:events:*:*:rule/*"],
             )
         )
+
+        # TODO: Document this variable!!! Media servers can set to 0 to disable.
+
+        ## Controls what files get pulled into the EFS cache.
+        # YOU ONLY GET 10 RULES TOTAL. Only create one if they override the default.
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.ImportDataRuleProperty.html
+        s3_files_path_overrides = [
+            s3files.CfnFileSystem.ImportDataRuleProperty(
+                prefix=path_info['Path'].lstrip('/'),
+                size_less_than=path_info["EfsCacheFileMb"] * 1024 * 1024,
+                trigger="ON_DIRECTORY_FIRST_ACCESS" if path_info["EfsCacheFileMb"] > 0 else "ON_FILE_ACCESS",
+            )
+            for path_info in volume_config["Paths"]
+            if path_info.get("EfsCacheFileMb") is not None
+        ]
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.html
         s3_files_fs = s3files.CfnFileSystem(
             self,
@@ -154,17 +173,16 @@ class Volume(NestedStack):
                     ),
                 ],
                 import_data_rules=[
+                    ## Default Rule:
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.ImportDataRuleProperty.html
                     s3files.CfnFileSystem.ImportDataRuleProperty(
                         prefix="",
-                        ###### TODO: Make this a variable!!
-                        # Make everything go through EFS by default. Media servers
-                        # can lower this in their config.
-                        ## TODO: Deploy the containers, and check what the largest file so far is.
-                        # There might be a "good default" that works for both media/games. Error on the side of games, storage is cheap.
-                        size_less_than=10 * 1024 * 1024 * 1024, # 10GB
+                        # TODO: Start all the current containers, and see if any files exist larger than this:
+                        size_less_than=64 * 1024 * 1024, # 64MiB
                         trigger="ON_DIRECTORY_FIRST_ACCESS",
                     ),
+                    ## Overrides:
+                    *s3_files_path_overrides,
                 ],
             ),
         )
@@ -250,12 +268,14 @@ class Volume(NestedStack):
                 runtime=aws_lambda.Runtime.PYTHON_3_12,
                 timeout=Duration.minutes(15),
                 log_group=self.log_group_trigger_aws_backup,
+                # vpc=DON'T put this inside the vpc. It doesn't talk to anything inside the vpc, and wouldn't have as much bandwidth.
                 environment={
                     "BACKUP_VAULT_NAME": volume_backup_vault.backup_vault_name,
                     "BUCKET_ARN": s3_bucket.bucket_arn,
                     "BACKUP_ROLE_ARN": backup_role.role_arn,
-                    # TODO: Make this a variable.
-                    "DELETE_AFTER_DAYS": str(30),
+                    "FILE_SYSTEM_ID": s3_files_fs.attr_file_system_id,
+                    # TODO: Document this Variable:
+                    "DELETE_AFTER_DAYS": str(volume_config["KeepBackupDays"]),
                 },
             )
             ### Lambda Permissions:
@@ -295,4 +315,32 @@ class Volume(NestedStack):
                     actions=["s3:DeleteObjectVersion"],
                     resources=[s3_bucket.arn_for_objects("*")],
                 )
+            )
+            self.lambda_trigger_aws_backup.add_to_role_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    # NOTE: GetMetricData supports NO resource-level permissions and NO
+                    #   condition keys, so the wildcard is the only option here.
+                    actions=["cloudwatch:GetMetricData"],
+                    resources=["*"],
+                )
+            )
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html#metricwbrerrorsprops
+            metric_aws_backup_errors = self.lambda_trigger_aws_backup.metric_errors(
+                period = Duration.minutes(1),
+            )
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
+            alarm_aws_backup_errors = metric_aws_backup_errors.create_alarm(
+                self,
+                "AlarmAwsBackup",
+                threshold=0,
+                comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+                evaluation_periods=1,
+                # Missing data means instance is off:
+                treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+            )
+            ## Moderator only, no need to tell leaf-stack:
+            # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
+            alarm_aws_backup_errors.add_alarm_action(
+                cloudwatch_actions.SnsAction(base_stack_sns_topic)
             )

@@ -4,12 +4,26 @@ Lambda code for snapshotting the volume's S3 bucket with AWS Backup,
 whenever the container spins down (aka someone just finished playing).
 """
 
+## TODO: Add this to the metric dashboard somewhere! (At least the execution errors...)
+## TODO: This failing should also trigger SNS emails n such. (Base stack only?)
+
 import os
 import json
+import time
+from datetime import datetime, timedelta, timezone
 from functools import cache
 from dataclasses import dataclass, asdict
 
 import boto3
+
+## How long to wait before the first check, to let S3 File metrics settle:
+#   60s to let the container write any last saves to EFS.
+#   60s after last write, to queue files for export.
+#   60s for those metrics to get to cloudwatch and be queryable.
+EXPORT_SETTLE_SEC = 180
+# How often to re-check after that:
+EXPORT_POLL_INTERVAL_SEC = 30
+
 
 # frozen=True: This should never be modified (change cdk inputs instead)
 @dataclass(frozen=True)
@@ -20,6 +34,8 @@ class EnvVars:
     # What to snapshot, and the role AWS Backup assumes to read it:
     BUCKET_ARN: str
     BACKUP_ROLE_ARN: str
+    # Who to ask if the bucket is done syncing yet:
+    FILE_SYSTEM_ID: str
     # How long to keep the snapshot around for:
     DELETE_AFTER_DAYS: str
     # pylint: enable=invalid-name
@@ -46,6 +62,61 @@ def get_s3_client():
     """ Used for clearing out old object versions before the backup """
     return boto3.client('s3')
 
+@cache
+def get_cloudwatch_client():
+    """ Used for checking if S3 Files is done exporting yet """
+    return boto3.client('cloudwatch')
+
+
+def get_pending_exports(file_system_id: str) -> float | None:
+    """
+    The newest value of the S3 Files 'PendingExports' metric,
+    or None if CloudWatch doesn't have data from the last period.
+    """
+    cloudwatch_client = get_cloudwatch_client()
+    now = datetime.now(timezone.utc)
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_metric_data.html
+    response = cloudwatch_client.get_metric_data(
+        MetricDataQueries=[{
+            "Id": "pending_exports",
+            "MetricStat": {
+                # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-monitoring-cloudwatch.html
+                "Metric": {
+                    "Namespace": "AWS/S3/Files",
+                    "MetricName": "PendingExports",
+                    "Dimensions": [{"Name": "FileSystemId", "Value": file_system_id}],
+                },
+                # S3 Files publishes this once a minute, and 'Sum' is the only valid stat:
+                "Period": 60,
+                "Stat": "Sum",
+            },
+        }],
+        StartTime=now - timedelta(seconds=60),
+        EndTime=now,
+        # Newest first, since Values[0] is the only one we care about:
+        ScanBy="TimestampDescending",
+    )
+    values = response["MetricDataResults"][0]["Values"]
+    return values[0] if values else None
+
+
+def wait_for_exports_to_finish(file_system_id: str) -> None:
+    """
+    Block until S3 Files has pushed every last write out to the bucket.
+    """
+    ## Nothing's even been queued for export yet on the first invoke:
+    time.sleep(EXPORT_SETTLE_SEC)
+
+    while True:
+        pending_exports = get_pending_exports(file_system_id)
+        print(json.dumps({"PendingExports": pending_exports, "FileSystemId": file_system_id}, default=str))
+        if pending_exports == 0:
+            return
+        time.sleep(EXPORT_POLL_INTERVAL_SEC)
+    # Just let this timeout if it goes over 15min. That likely means the container
+    # spun back up, OR we need to look closer at a bug we don't want to hide.
+    # (This triggers a base-stack notification/email on error anyways).
+
 
 def purge_noncurrent_versions(bucket_name: str) -> None:
     """
@@ -55,9 +126,6 @@ def purge_noncurrent_versions(bucket_name: str) -> None:
     s3_client = get_s3_client()
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListObjectVersions.html
     for page in s3_client.get_paginator("list_object_versions").paginate(Bucket=bucket_name):
-        ## ONLY delete IsLatest=False. Deleting the newest DeleteMarker would *un*-delete the
-        # file, and deleting the newest Version would eat the save we're about to back up.
-        # Both lists mix latest and noncurrent entries, so they filter the exact same way.
         old_versions = [
             {"Key": obj["Key"], "VersionId": obj["VersionId"]}
             for obj in page.get("Versions", []) + page.get("DeleteMarkers", [])
@@ -65,8 +133,7 @@ def purge_noncurrent_versions(bucket_name: str) -> None:
         ]
         if not old_versions:
             continue
-        ## A page holds at most 1000 entries and delete_objects takes at most 1000, so they
-        # line up 1:1 and there's nothing extra to batch. DELETE requests are free.
+        ## A page holds at most 1000 entries and delete_objects takes at most 1000
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_objects.html
         response = s3_client.delete_objects(
             Bucket=bucket_name,
@@ -84,14 +151,11 @@ def lambda_handler(event: dict, context: dict) -> None:
     env = get_env_vars()
     print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
 
-    ## TODO: Hook into the S3 Files PendingExports metric, to make sure S3 is up to date first.
-    ##      (We spin down on "instance-terminate", which fires BEFORE the container's last
-    ##       writes have exported, so right now the snapshot can miss the end of a session.)
-
+    ## Wait for S3 Files to finish syncing, then remove the old versions from the bucket.
+    wait_for_exports_to_finish(env.FILE_SYSTEM_ID)
     purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])
 
-    ## Snapshot the bucket. There's no BackupPlan on purpose: a plan only exists to run
-    # backups on a *schedule*, and we want one restore point per play session instead.
+    ## Trigger a job to Snapshot the bucket. No need to wait for it to finish:
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/start_backup_job.html
     backup_client = get_backup_client()
     backup_client.start_backup_job(
