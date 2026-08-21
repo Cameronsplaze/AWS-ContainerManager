@@ -55,21 +55,15 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 "InstanceType": Use(str.lower),
                 # List of CIDR's allowed to SSH into the instance
                 # TODO: Doc this. Including setting it to an empty list to disable. (Or /32 for single IP)
-                # TODO: And test this...
+                # TODO: And add tests for this...
                 Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
-                    Use(lambda cidrs: [
-                        str(ipaddress.ip_network(cidr, strict=False))
-                        for cidr in cidrs
-                    ]),
+                    Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
                 # List of CIDR's allowed to connect to the Container's Ports. (Game traffic, etc.)
                 # TODO: Doc this. Including setting it to an empty list to disable.
-                # TODO: And test this...
+                # TODO: And add tests for this...
                 Optional("GameCidrAllowed", default=["0.0.0.0/0"]): [
-                    Use(lambda cidrs: [
-                        str(ipaddress.ip_network(cidr, strict=False))
-                        for cidr in cidrs
-                    ]),
+                    Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
             },
             ## Cast the InstanceType to the boto3 response with ALL it's info:

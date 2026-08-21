@@ -9,6 +9,8 @@
 
 Ec2:
   InstanceType: m5.large # 2vCPUs, 8GB RAM
+  SshCidrAllowed:
+    - !ENV ${SSH_IP_CIDR}
 
 Container:
   # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/

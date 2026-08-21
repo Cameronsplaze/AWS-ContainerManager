@@ -601,8 +601,11 @@ missing-member-max-choices=1
 # Regex pattern to define which classes are considered mixins.
 mixin-class-rgx=.*[Mm]ixin
 
-# List of decorators that change the signature of a decorated function.
-signature-mutators=
+## List of decorators that change the signature of a decorated function.
+# - powertools' lambda_handler_decorator defers handler/event/context until runtime,
+#   so without this, every `@event_source(data_class=...)` is a false no-value-for-parameter.
+# NOTE: must be the path where it's DEFINED (...middleware_factory.factory...), not the re-export.
+signature-mutators=aws_lambda_powertools.middleware_factory.factory.lambda_handler_decorator
 
 
 [VARIABLES]

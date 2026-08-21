@@ -1,6 +1,8 @@
 
 Ec2:
   InstanceType: m5.large
+  SshCidrAllowed:
+    - !ENV ${SSH_IP_CIDR}
 
 Container:
   # Docs here: https://github.com/mbround18/valheim-docker

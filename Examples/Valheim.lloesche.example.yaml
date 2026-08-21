@@ -7,6 +7,8 @@
 # Until that issue is fixed, I recommend using Valheim.mbround18.example.yaml instead.
 Ec2:
   InstanceType: m5.large
+  SshCidrAllowed:
+    - !ENV ${SSH_IP_CIDR}
 
 Container:
   # Docs here: https://github.com/lloesche/valheim-server-docker

@@ -1,6 +1,8 @@
 
 Ec2:
   InstanceType: m5.2xlarge # 8vCPUs, 32GB RAM
+  SshCidrAllowed:
+    - !ENV ${SSH_IP_CIDR}
 
 Container:
   # Docs here: https://github.com/thijsvanloef/palworld-server-docker

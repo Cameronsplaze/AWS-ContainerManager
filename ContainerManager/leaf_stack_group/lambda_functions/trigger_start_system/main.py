@@ -11,6 +11,13 @@ from dataclasses import dataclass, asdict
 
 import boto3
 
+from aws_lambda_powertools import Logger, Metrics
+from aws_lambda_powertools.utilities.data_classes import CloudWatchLogsEvent, event_source
+from aws_lambda_powertools.utilities.data_classes.cloud_watch_logs_event import CloudWatchLogsDecodedData
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
+logger = Logger()
+
 # frozen=True: This should never be modified (change cdk inputs instead)
 @dataclass(frozen=True)
 class EnvVars:
@@ -55,14 +62,23 @@ def get_asg_client():
     env = get_env_vars()
     return boto3.client('autoscaling', region_name=env.MANAGER_STACK_REGION)
 
-
-def lambda_handler(event, context):
+## Decompress CloudWatch Logs:
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
+@event_source(data_class=CloudWatchLogsEvent)
+@logger.inject_lambda_context(log_event=True)
+def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext):
     """ Main function of the lambda. """
     env = get_env_vars()
+    decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
+
+    logger.info("Decompressed CloudWatch Logs", extra={"decompressed_log": decompressed_log.raw_event})
 
     # TODO HERE: Convert event to dict (log the human-readable version)
 
-    print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
+    # print(json.dumps({"Event": event, "Context": context, "Env": asdict(env), "CloudWatchLogs": decompressed_log}, default=str))
+
+    for log_event in decompressed_log.log_events:
+        log_message = log_event.message
 
     # TODO HERE: Actually parse out the IP and compare it to the allowed list.
 

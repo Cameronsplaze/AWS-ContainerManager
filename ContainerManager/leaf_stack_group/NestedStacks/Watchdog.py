@@ -207,7 +207,7 @@ class Watchdog(NestedStack):
             description=f"{container_id_alpha}-break-crash-loop: Triggered if container throws, to spins down ASG.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/spin_down_asg_on_error/"),
             handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
+            runtime=aws_lambda.Runtime.PYTHON_3_14,
             log_group=log_group_break_crash_loop,
             role=role_break_crash_loop,
             environment={

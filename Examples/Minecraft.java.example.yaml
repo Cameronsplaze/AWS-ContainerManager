@@ -1,6 +1,8 @@
 
 Ec2:
   InstanceType: m5.large # 2vCPUs, 8GB RAM
+  SshCidrAllowed:
+    - !ENV ${SSH_IP_CIDR}
 
 Container:
   # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/
@@ -61,7 +63,7 @@ Container:
 Volume:
   EnableBackups: True
   KeepOnDelete: True
-  KeepBackupDays: 365
+  KeepBackupDays: 720
   Paths:
     - Path: /data
       ReadOnly: False

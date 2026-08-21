@@ -10,9 +10,10 @@ whenever the container spins down (aka someone just finished playing).
 import os
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from typing import Any
 from functools import cache
 from dataclasses import dataclass, asdict
+from datetime import datetime, timedelta, timezone
 
 import boto3
 
@@ -37,17 +38,20 @@ class EnvVars:
     # Who to ask if the bucket is done syncing yet:
     FILE_SYSTEM_ID: str
     # How long to keep the snapshot around for:
-    DELETE_AFTER_DAYS: str
+    DELETE_AFTER_DAYS: int
     # pylint: enable=invalid-name
 
 @cache
 def get_env_vars() -> EnvVars:
     """ Lazy-load and Validate the environment variables """
+    env_vars: dict[str, Any] = {
+        # If it's supposed to be a string already, DON'T json.loads it:
+        k: os.environ[k] if var_type is str else json.loads(os.environ[k])
+        for k, var_type in EnvVars.__annotations__.items()
+        if k in os.environ
+    }
     # EnvVars will naturally error with ALL the missing env-vars on creation:
-    return EnvVars(**{
-        # DON'T use getenv. We don't want the key to exist if it's missing.
-        k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
-    })
+    return EnvVars(**env_vars)
 
 ## Boto3 Clients:
 # ALWAYS use @cache for clients. Even if they're always called, it helps
@@ -165,6 +169,6 @@ def lambda_handler(event: dict, context: dict) -> None:
         # https://docs.aws.amazon.com/aws-backup/latest/devguide/API_Lifecycle.html
         Lifecycle={
             ## DO NOT add 'MoveToColdStorageAfterDays', not supported for S3.
-            "DeleteAfterDays": int(env.DELETE_AFTER_DAYS),
+            "DeleteAfterDays": env.DELETE_AFTER_DAYS,
         },
     )

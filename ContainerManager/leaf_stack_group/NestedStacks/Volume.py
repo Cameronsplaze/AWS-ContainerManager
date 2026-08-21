@@ -265,7 +265,7 @@ class Volume(NestedStack):
                 description=f"{container.container_name}-Trigger-AWS-Backup: Snapshots the volume's bucket when the container spins down.",
                 code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/trigger_aws_backup/"),
                 handler="main.lambda_handler",
-                runtime=aws_lambda.Runtime.PYTHON_3_12,
+                runtime=aws_lambda.Runtime.PYTHON_3_14,
                 timeout=Duration.minutes(15),
                 log_group=self.log_group_trigger_aws_backup,
                 # vpc=DON'T put this inside the vpc. It doesn't talk to anything inside the vpc, and wouldn't have as much bandwidth.

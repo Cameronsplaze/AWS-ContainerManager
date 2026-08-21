@@ -1,4 +1,5 @@
 aws-cdk-lib==2.260.0
+aws_lambda_powertools==3.34.0
 boto3==1.43.36
 # cdk-nag==3.0.1
 constructs>=10.6.0,<11.0.0
