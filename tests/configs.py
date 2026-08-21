@@ -223,7 +223,7 @@ LEAF_VOLUME_DEFAULT = LEAF_MINIMAL.copy(
     expected_output=LEAF_MINIMAL.expected_output | {
         "Volume": {
             "Paths": [
-                {"Path": "/data-default", "ReadOnly": False},
+                {"Path": "/data-default/", "ReadOnly": False},
             ],
             "EnableBackups": True,
             "KeepOnDelete": True,
@@ -245,7 +245,7 @@ LEAF_VOLUME_ALL_TRUE = LEAF_MINIMAL.copy(
     expected_output=LEAF_MINIMAL.expected_output | {
         "Volume": {
             "Paths": [
-                {"Path": "/data-all-true", "ReadOnly": True},
+                {"Path": "/data-all-true/", "ReadOnly": True},
             ],
             "EnableBackups": True,
             "KeepOnDelete": True,
@@ -267,7 +267,7 @@ LEAF_VOLUME_ALL_FALSE = LEAF_MINIMAL.copy(
     expected_output=LEAF_MINIMAL.expected_output | {
         "Volume": {
             "Paths": [
-                {"Path": "/data-all-false", "ReadOnly": False},
+                {"Path": "/data-all-false/", "ReadOnly": False},
             ],
             "EnableBackups": False,
             "KeepOnDelete": False,
@@ -288,8 +288,8 @@ LEAF_VOLUME_MULTIPLE_PATHS = LEAF_MINIMAL.copy(
     expected_output=LEAF_MINIMAL.expected_output | {
         "Volume": {
             "Paths": [
-                {"Path": "/data-1", "ReadOnly": False},
-                {"Path": "/config-2", "ReadOnly": False},
+                {"Path": "/data-1/", "ReadOnly": False},
+                {"Path": "/config-2/", "ReadOnly": False},
             ],
             "EnableBackups": True,
             "KeepOnDelete": True,
