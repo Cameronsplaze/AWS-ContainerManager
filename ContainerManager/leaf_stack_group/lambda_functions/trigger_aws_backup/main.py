@@ -104,12 +104,12 @@ def wait_for_exports_to_finish(file_system_id: str) -> None:
     """
     Block until S3 Files has pushed every last write out to the bucket.
     """
-    ## Nothing's even been queued for export yet on the first invoke:
+    ## Give S3 Files time to start syncing, so you don't prematurely think it's done:
     time.sleep(EXPORT_SETTLE_SEC)
 
     while True:
         pending_exports = get_pending_exports(file_system_id)
-        print(json.dumps({"PendingExports": pending_exports, "FileSystemId": file_system_id}, default=str))
+        print(json.dumps({"PendingExports": pending_exports}, default=str))
         if pending_exports == 0:
             return
         time.sleep(EXPORT_POLL_INTERVAL_SEC)
