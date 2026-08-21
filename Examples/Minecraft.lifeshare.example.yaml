@@ -1,12 +1,4 @@
 
-## TODO: Look into moving this into a gist, and support downloading them in the pipeline?
-#     This would allow forks to have unique configs, and not worry about conflicts back to main.
-#     Also it would let forks have custom containers that I don't have as an example, AND let them be versioned.
-#     I can have extra servers (like the life server) be gists, so having 5 different Minecraft servers here isn't confusing to users.
-#     Looks like it'd just be allowing CONFIG_PATH to be a URL. If it is, mask it and download. The
-#     container-id being the environment works well for this too, since you won't have the context of the file name anyways.
-#              OR put the curl command in the makefile?? So it works on local deployments too.
-
 Ec2:
   InstanceType: m5.large # 2vCPUs, 8GB RAM
   SshCidrAllowed:
