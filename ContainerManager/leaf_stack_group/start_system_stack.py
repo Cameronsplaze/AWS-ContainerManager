@@ -25,6 +25,7 @@ from constructs import Construct
 
 from ContainerManager.leaf_stack_group.container_manager_stack import ContainerManagerStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
+from ContainerManager.leaf_stack_group.lambda_functions.lambda_powertools import PowertoolsFunction
 
 class StartSystemStack(Stack):
     """
@@ -71,27 +72,14 @@ class StartSystemStack(Stack):
             statements=[],
         )
 
-        ## Setup the Powertools Layer for the Lambda:
-        # https://docs.aws.amazon.com/powertools/python/latest/getting-started/install/#lambda-layer
-        # https://github.com/aws-powertools/powertools-lambda-python
-        python_version = aws_lambda.Runtime.PYTHON_3_14
-        python_version_alpha = python_version.name.replace('.','')  # pylint: disable=no-member
-        powertools_layer = aws_lambda.LayerVersion.from_layer_version_arn(
-            self, 
-            id="LambdaPowertoolsLayer",
-            layer_version_arn=f"arn:aws:lambda:{self.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-{python_version_alpha}-x86_64:27"
-        )
-
         ## Lambda that turns system on
+        # (PowertoolsFunction sets the runtime/handler, and adds the Powertools layer + env vars):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_start_system = aws_lambda.Function(
+        self.lambda_start_system = PowertoolsFunction(
             self,
             "StartSystem",
             description=f"{container_id_alpha}-lambda-start-system: Spin up ASG when someone connects.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/trigger_start_system/"),
-            handler="main.lambda_handler",
-            runtime=python_version,
-            layers=[powertools_layer],
             timeout=Duration.seconds(30),
             log_group=self.log_group_start_system,
             role=self.start_system_role,
@@ -107,8 +95,6 @@ class StartSystemStack(Stack):
                 #   letter capitalized too, which is what `.title()` does. Otherwise they'd be all caps).
                 "METRIC_UNIT": container_manager_stack.watchdog_nested_stack.metric_unit.value.title(),
                 "METRIC_DIMENSIONS": json.dumps(container_manager_stack.watchdog_nested_stack.metric_dimension_map),
-                ## Powertools Vars:
-                "POWERTOOLS_LOG_LEVEL": "DEBUG", # TODO: Make this INFO in prod
             },
         )
 
