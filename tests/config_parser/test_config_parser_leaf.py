@@ -25,12 +25,11 @@ class TestLeafConfigVolumes():
         # Check the paths for each volume:
         for input_path in volume_input["Paths"]:
             assert "Path" in input_path, "Each volume path must have a 'Path' key."
-            # Get the corresponding output path:
-            assert input_path["Path"] in output_paths_by_path, f"Volume path {input_path['Path']} not found in output."
-            output_path = output_paths_by_path[input_path["Path"]]
-
+            expected_path = f"{input_path['Path'].rstrip('/')}/"
+            assert expected_path in output_paths_by_path, f"Volume path {expected_path} not found in output."
+            output_path = output_paths_by_path[expected_path]
             # ReadOnly should default to False, AND always exist in the returned path:
-            assert input_path.get("ReadOnly", False) == output_path["ReadOnly"], f"Volume path {input_path['Path']} ReadOnly mismatch."
+            assert input_path.get("ReadOnly", False) == output_path["ReadOnly"], f"Volume path {expected_path} ReadOnly mismatch."
 
 
 
