@@ -20,6 +20,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from ContainerManager.leaf_stack_group.lambda_functions.lambda_powertools import PowertoolsFunction
+
 class Watchdog(NestedStack):
     """
     This sets up the logic for watching the container for
@@ -201,13 +203,11 @@ class Watchdog(NestedStack):
 
         ## Lambda function spin down ASG if container errors/throws:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_break_crash_loop = aws_lambda.Function(
+        self.lambda_break_crash_loop = PowertoolsFunction(
             self,
             "BreakCrashLoop",
             description=f"{container_id_alpha}-break-crash-loop: Triggered if container throws, to spins down ASG.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/spin_down_asg_on_error/"),
-            handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_14,
             log_group=log_group_break_crash_loop,
             role=role_break_crash_loop,
             environment={

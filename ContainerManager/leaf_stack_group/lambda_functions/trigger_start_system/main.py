@@ -5,6 +5,7 @@ Lambda code for starting the system when someone tries to connect.
 
 import os
 import json
+import ipaddress
 from typing import Any
 from functools import cache
 from dataclasses import dataclass, asdict
@@ -62,25 +63,51 @@ def get_asg_client():
     env = get_env_vars()
     return boto3.client('autoscaling', region_name=env.MANAGER_STACK_REGION)
 
+def is_client_allowed(client_subnets: list[str]) -> bool:
+    """If ANY of the client_subnets overlaps ANY of the ALLOWED_CIDR_IPS. 
+
+    THIS IS JUST A COST-SAVER (And lessen start-up email spam).
+    The real security is on the EC2 Security Group.
+        1) The client IP is optional (and "-" when not sent)
+        2) They only give the IP range, so there's 255 IP's *minimum* that could match.
+    """
+    env = get_env_vars()
+    # The resolver doesn't always send an ip (like cloudflare). Just spin up the instance
+    if "-" in client_subnets:
+        return True
+    # Check against the partial they send us:
+    return any(
+        ipaddress.ip_network(subnet).overlaps(ipaddress.ip_network(cidr))
+        for subnet in client_subnets
+        for cidr in env.ALLOWED_CIDR_IPS
+    )
+
 ## Decompress CloudWatch Logs:
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
 @event_source(data_class=CloudWatchLogsEvent)
-@logger.inject_lambda_context(log_event=True)
 def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext):
     """ Main function of the lambda. """
     env = get_env_vars()
     decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
+    logger.info(
+        "Initial CloudWatch Event",
+        extra={
+            "decompressed_log": decompressed_log.raw_event,
+            "env_vars": asdict(env),
+            "context": context,
+        },
+    )
 
-    logger.info("Decompressed CloudWatch Logs", extra={"decompressed_log": decompressed_log.raw_event})
-
-    # TODO HERE: Convert event to dict (log the human-readable version)
-
-    # print(json.dumps({"Event": event, "Context": context, "Env": asdict(env), "CloudWatchLogs": decompressed_log}, default=str))
-
-    for log_event in decompressed_log.log_events:
-        log_message = log_event.message
-
-    # TODO HERE: Actually parse out the IP and compare it to the allowed list.
+    ## Fields Are:
+    # [version, timestamp, hosted_zone_id, domain_name, dns_record_type,
+    #   response_code, protocol, edge_location, dns_resolver_ip, client_subnet]
+    client_subnets = [x.message.split()[9] for x in decompressed_log.log_events]
+    if not is_client_allowed(client_subnets):
+        logger.warning(
+            "No client subnet overlaps ALLOWED_CIDR_IPS, NOT starting the system.",
+            extra={"client_subnets": client_subnets},
+        )
+        return
 
     # Change the dimension map to the format boto3 cloudwatch wants:
     dimension_map = [{"Name": k, "Value": v} for k, v in env.METRIC_DIMENSIONS.items()]

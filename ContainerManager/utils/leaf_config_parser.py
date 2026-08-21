@@ -56,13 +56,13 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 # List of CIDR's allowed to SSH into the instance
                 # TODO: Doc this. Including setting it to an empty list to disable. (Or /32 for single IP)
                 # TODO: And add tests for this...
-                Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
+                Optional("SshCidrAllowed", default=["0.0.0.0/0", "::/0"]): [
                     Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
                 # List of CIDR's allowed to connect to the Container's Ports. (Game traffic, etc.)
                 # TODO: Doc this. Including setting it to an empty list to disable.
                 # TODO: And add tests for this...
-                Optional("GameCidrAllowed", default=["0.0.0.0/0"]): [
+                Optional("GameCidrAllowed", default=["0.0.0.0/0", "::/0"]): [
                     Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
             },

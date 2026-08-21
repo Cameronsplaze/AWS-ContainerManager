@@ -20,6 +20,7 @@ from aws_cdk import (
 from constructs import Construct
 
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
+from ContainerManager.leaf_stack_group.lambda_functions.lambda_powertools import PowertoolsFunction
 
 class AsgStateChangeHook(NestedStack):
     """
@@ -70,13 +71,11 @@ class AsgStateChangeHook(NestedStack):
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_asg_state_change_hook = aws_lambda.Function(
+        self.lambda_asg_state_change_hook = PowertoolsFunction(
             self,
             "AsgStateChangeHook",
             description=f"{container_id_alpha}-ASG-StateChange: Triggered by ec2 state changes. Updates DNS with the EC2 IP, or '{domain_stack.unavailable_ip}'.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/instance_StateChange_hook/"),
-            handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_14,
             timeout=Duration.seconds(30),
             log_group=self.log_group_asg_statechange_hook,
             role=self.asg_state_change_role,

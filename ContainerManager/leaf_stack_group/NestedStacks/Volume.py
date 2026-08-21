@@ -22,6 +22,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from ContainerManager.leaf_stack_group.lambda_functions.lambda_powertools import PowertoolsFunction
+
 
 
 ### Nested Stack info:
@@ -259,13 +261,11 @@ class Volume(NestedStack):
 
             ## Lambda that actually kicks off the snapshot:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-            self.lambda_trigger_aws_backup = aws_lambda.Function(
+            self.lambda_trigger_aws_backup = PowertoolsFunction(
                 self,
                 "TriggerAwsBackup",
                 description=f"{container.container_name}-Trigger-AWS-Backup: Snapshots the volume's bucket when the container spins down.",
                 code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/trigger_aws_backup/"),
-                handler="main.lambda_handler",
-                runtime=aws_lambda.Runtime.PYTHON_3_14,
                 timeout=Duration.minutes(15),
                 log_group=self.log_group_trigger_aws_backup,
                 # vpc=DON'T put this inside the vpc. It doesn't talk to anything inside the vpc, and wouldn't have as much bandwidth.
