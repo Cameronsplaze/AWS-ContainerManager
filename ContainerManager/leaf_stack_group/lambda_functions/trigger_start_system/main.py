@@ -5,6 +5,7 @@ Lambda code for starting the system when someone tries to connect.
 
 import os
 import json
+from typing import Any
 from functools import cache
 from dataclasses import dataclass, asdict
 
@@ -27,17 +28,17 @@ class EnvVars:
     # pylint: enable=invalid-name
 
 @cache
-# TODO: Update the other functions with this, and make sure json.loads isn't called twice
-#          And change the types to be accurate above:
+# TODO: Update the other functions with this
 def get_env_vars() -> EnvVars:
     """ Lazy-load and Validate the environment variables """
-    # EnvVars will naturally error with ALL the missing env-vars on creation:
-    return EnvVars(**{
-        # json.loads will cast str to list/dict/str/whatever too:
-        k: json.loads(os.environ[k])
-        for k in EnvVars.__annotations__.keys()
+    env_vars: dict[str, Any] = {
+        # If it's supposed to be a string already, DON'T json.loads it:
+        k: os.environ[k] if var_type is str else json.loads(os.environ[k])
+        for k, var_type in EnvVars.__annotations__.items()
         if k in os.environ
-    })
+    }
+    # EnvVars will naturally error with ALL the missing env-vars on creation:
+    return EnvVars(**env_vars)
 
 ## Boto3 Clients:
 # ALWAYS use @cache for clients. Even if they're always called, it helps
