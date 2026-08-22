@@ -66,7 +66,7 @@ def get_asg_client():
 def is_client_allowed(client_subnets: list[str]) -> bool:
     """If ANY of the client_subnets overlaps ANY of the ALLOWED_CIDR_IPS. 
 
-    THIS IS JUST A COST-SAVER (And lessen start-up email spam).
+    THIS IS JUST A COST-SAVER (And to lessen start-up email spam).
     The real security is on the EC2 Security Group.
         1) The client IP is optional (and "-" when not sent)
         2) They only give the IP range, so there's 255 IP's *minimum* that could match.
@@ -75,7 +75,7 @@ def is_client_allowed(client_subnets: list[str]) -> bool:
     # The resolver doesn't always send an ip (like cloudflare). Just spin up the instance
     if "-" in client_subnets:
         return True
-    # Check against the partial they send us:
+    # Check against the partial cidr they send us (they don't send the full IP).
     return any(
         ipaddress.ip_network(subnet).overlaps(ipaddress.ip_network(cidr))
         for subnet in client_subnets
