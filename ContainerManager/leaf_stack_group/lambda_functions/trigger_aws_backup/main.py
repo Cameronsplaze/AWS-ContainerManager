@@ -5,7 +5,6 @@ whenever the container spins down (aka someone just finished playing).
 """
 
 ## TODO: Add this to the metric dashboard somewhere! (At least the execution errors...)
-## TODO: This failing should also trigger SNS emails n such. (Base stack only?)
 
 import os
 import json
@@ -20,6 +19,7 @@ import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
+from aws_lambda_powertools.logging import correlation_paths
 
 logger = Logger()
 
@@ -27,7 +27,8 @@ logger = Logger()
 #   60s to let the container write any last saves to EFS.
 #   60s after last write, to queue files for export.
 #   60s for those metrics to get to cloudwatch and be queryable.
-EXPORT_SETTLE_SEC = 180
+#   60s to let our query reach 2min back, to avoid missing the last minute.
+EXPORT_SETTLE_SEC = 240
 # How often to re-check after that:
 EXPORT_POLL_INTERVAL_SEC = 30
 
@@ -83,6 +84,8 @@ def get_pending_exports(file_system_id: str) -> float | None:
     The newest value of the S3 Files 'PendingExports' metric,
     or None if CloudWatch doesn't have data from the last period.
     """
+    # YOU CAN'T USE POWERTOOLS METRICS: They're for uploading, and
+    #     this is just polling. :/
     cloudwatch_client = get_cloudwatch_client()
     now = datetime.now(timezone.utc)
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_metric_data.html
@@ -101,7 +104,7 @@ def get_pending_exports(file_system_id: str) -> float | None:
                 "Stat": "Sum",
             },
         }],
-        StartTime=now - timedelta(seconds=60),
+        StartTime=now - timedelta(seconds=120), # 2min back, in case the latest hasn't updated yet.
         EndTime=now,
         # Newest first, since Values[0] is the only one we care about:
         ScanBy="TimestampDescending",
@@ -173,15 +176,14 @@ def trigger_backup_job() -> None:
         },
     )
 
-
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#eventbridge
 @event_source(data_class=EventBridgeEvent)
-@logger.inject_lambda_context(clear_state=True, log_event=False)
+@logger.inject_lambda_context(clear_state=True, correlation_id_path=correlation_paths.EVENT_BRIDGE)
 def lambda_handler(event: EventBridgeEvent, context: LambdaContext) -> None: # pylint: disable=unused-argument
     """ Main function of the lambda. """
     try:
         env = get_env_vars()
-        logger.append_keys(env_vars=asdict(env))
+        logger.append_keys(env_vars=asdict(env), event=event.raw_event)
 
         wait_for_exports_to_finish(env.FILE_SYSTEM_ID)
         purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])

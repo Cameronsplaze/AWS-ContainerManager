@@ -114,13 +114,13 @@ def start_system() -> None:
 ## Decompress CloudWatch Logs:
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
 @event_source(data_class=CloudWatchLogsEvent)
-@logger.inject_lambda_context(clear_state=True, log_event=False)
+@logger.inject_lambda_context(clear_state=True)
 def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext): # pylint: disable=unused-argument
     """ Main function of the lambda. """
     try:
         env = get_env_vars()
         logger.append_keys(env_vars=asdict(env))
-
+        # The event is compressed, then base64'd. This makes it readable again:
         decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
 
         ## Fields Are:
