@@ -17,6 +17,12 @@ from datetime import datetime, timedelta, timezone
 
 import boto3
 
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent, event_source
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
+logger = Logger()
+
 ## How long to wait before the first check, to let S3 File metrics settle:
 #   60s to let the container write any last saves to EFS.
 #   60s after last write, to queue files for export.
@@ -113,9 +119,9 @@ def wait_for_exports_to_finish(file_system_id: str) -> None:
 
     while True:
         pending_exports = get_pending_exports(file_system_id)
-        print(json.dumps({"PendingExports": pending_exports}, default=str))
         if pending_exports == 0:
             return
+        logger.debug("Waiting for S3 Files to finish exporting...", extra={"PendingExports": pending_exports})
         time.sleep(EXPORT_POLL_INTERVAL_SEC)
     # Just let this timeout if it goes over 15min. That likely means the container
     # spun back up, OR we need to look closer at a bug we don't want to hide.
@@ -147,20 +153,14 @@ def purge_noncurrent_versions(bucket_name: str) -> None:
         ## delete_objects reports per-object failures inside a 200, it does NOT raise:
         errors = response.get("Errors", [])
         if errors:
-            print(json.dumps({"DeleteObjectsErrors": errors}, default=str))
+            logger.warning("Failed to delete some noncurrent versions.", extra={"DeleteObjectsErrors": errors})
+        logger.debug("Deleted noncurrent versions from bucket.", extra={"DeletedObjectsCount": len(old_versions), "Response": response})
 
 
-def lambda_handler(event: dict, context: dict) -> None:
-    """ Main function of the lambda. """
-    env = get_env_vars()
-    print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
-
-    ## Wait for S3 Files to finish syncing, then remove the old versions from the bucket.
-    wait_for_exports_to_finish(env.FILE_SYSTEM_ID)
-    purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])
-
-    ## Trigger a job to Snapshot the bucket. No need to wait for it to finish:
+def trigger_backup_job() -> None:
+    """ Trigger a backup job for the bucket. No need to wait for it to finish. """
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/start_backup_job.html
+    env = get_env_vars()
     backup_client = get_backup_client()
     backup_client.start_backup_job(
         BackupVaultName=env.BACKUP_VAULT_NAME,
@@ -172,3 +172,21 @@ def lambda_handler(event: dict, context: dict) -> None:
             "DeleteAfterDays": env.DELETE_AFTER_DAYS,
         },
     )
+
+
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#eventbridge
+@event_source(data_class=EventBridgeEvent)
+@logger.inject_lambda_context(clear_state=True, log_event=False)
+def lambda_handler(event: EventBridgeEvent, context: LambdaContext) -> None: # pylint: disable=unused-argument
+    """ Main function of the lambda. """
+    try:
+        env = get_env_vars()
+        logger.append_keys(env_vars=asdict(env))
+
+        wait_for_exports_to_finish(env.FILE_SYSTEM_ID)
+        purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])
+        trigger_backup_job()
+    except Exception:
+        logger.exception("Failed to create a backup job.")
+        raise
+    logger.info("Successfully created a backup job.")
