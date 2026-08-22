@@ -5,7 +5,6 @@ whenever the ASG state changes (instance starts or stops).
 """
 
 import os
-import sys
 import json
 from typing import Any
 from functools import cache
@@ -17,6 +16,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.logging import correlation_paths
+from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
 
 logger = Logger()
 
@@ -44,6 +44,17 @@ def get_env_vars() -> EnvVars:
     # EnvVars will naturally error with ALL the missing env-vars on creation:
     return EnvVars(**env_vars)
 
+## Log the Outcome of the Invocation
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/middleware_factory/
+@lambda_handler_decorator
+def log_lambda_outcome(handler, event, context):
+    """ Log the result, with the appended keys attached. """
+    try:
+        handler(event, context)
+        logger.info("Successfully managed the ec2 instance.")
+    except Exception:
+        logger.exception("Failed to manage the ec2 instance.")
+        raise
 
 ## Boto3 Clients:
 # ALWAYS use @cache for clients. Even if they're always called, it helps
@@ -114,33 +125,29 @@ def check_if_asg_instance_coming_up(asg_name: str) -> bool:
             return True
     return False
 
+@log_lambda_outcome()
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#eventbridge
 @event_source(data_class=EventBridgeEvent)
 @logger.inject_lambda_context(clear_state=True, correlation_id_path=correlation_paths.EVENT_BRIDGE)
 def lambda_handler(event: EventBridgeEvent, context: LambdaContext) -> None: # pylint: disable=unused-argument
     """ Main function of the lambda. """
-    try:
-        env = get_env_vars()
-        logger.append_keys(env_vars=asdict(env), event=event.raw_event)
+    env = get_env_vars()
+    logger.append_keys(env_vars=asdict(env), event=event.raw_event)
 
-        # If the ec2 instance just FINISHED coming up:
-        if event["detail-type"] == "EC2 Instance Launch Successful":
-            new_ip = get_public_ip(instance_id=event["detail"]["EC2InstanceId"])
-        # If the ec2 instance just STARTED to go down:
-        elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
-            # Safety Check - If another instance is spinning up, just quit:
-            if check_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"]):
-                return
-            # Now just update DNS like normal:
-            new_ip = env.UNAVAILABLE_IP
-        # If the EventBridge filter somehow changed (This should never happen):
-        else:
-            raise RuntimeError(f"Unknown event type: '{event['detail-type']}'. Did you mess with the EventBridge Rule??")
+    # If the ec2 instance just FINISHED coming up:
+    if event["detail-type"] == "EC2 Instance Launch Successful":
+        new_ip = get_public_ip(instance_id=event["detail"]["EC2InstanceId"])
+    # If the ec2 instance just STARTED to go down:
+    elif event["detail-type"] == "EC2 Instance-terminate Lifecycle Action":
+        # Safety Check - If another instance is spinning up, just quit:
+        if check_if_asg_instance_coming_up(asg_name=event["detail"]["AutoScalingGroupName"]):
+            return
+        # Now just update DNS like normal:
+        new_ip = env.UNAVAILABLE_IP
+    # If the EventBridge filter somehow changed (This should never happen):
+    else:
+        raise RuntimeError(f"Unknown event type: '{event['detail-type']}'. Did you mess with the EventBridge Rule??")
 
-        ### Update the DNS record with the new IP:
-        logger.append_keys(new_ip=new_ip)
-        update_dns_zone(new_ip)
-    except Exception:
-        logger.exception("Failed to manage the ec2 instance.")
-        raise
-    logger.info("Successfully managed the ec2 instance.")
+    ### Update the DNS record with the new IP:
+    logger.append_keys(new_ip=new_ip)
+    update_dns_zone(new_ip)

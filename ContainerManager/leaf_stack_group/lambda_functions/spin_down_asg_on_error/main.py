@@ -14,9 +14,10 @@ import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from aws_lambda_powertools.logging import correlation_paths
+from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
 
 logger = Logger()
+
 
 # frozen=True: This should never be modified (change cdk inputs instead)
 @dataclass(frozen=True)
@@ -38,6 +39,18 @@ def get_env_vars() -> EnvVars:
     # EnvVars will naturally error with ALL the missing env-vars on creation:
     return EnvVars(**env_vars)
 
+## Log the Outcome of the Invocation
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/middleware_factory/
+@lambda_handler_decorator
+def log_lambda_outcome(handler, event, context):
+    """ Log the result, with the appended keys attached. """
+    try:
+        handler(event, context)
+        logger.info("Successfully spun down the ASG.")
+    except Exception:
+        logger.exception("Failed to spin down the ASG.")
+        raise
+
 ## Boto3 Clients:
 # ALWAYS use @cache for clients. Even if they're always called, it helps
 # them not exist until moto is setup inside of the test suite.
@@ -46,25 +59,23 @@ def get_asg_client():
     """ ASG client """
     return boto3.client('autoscaling')
 
+
+@log_lambda_outcome()
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#eventbridge
 @event_source(data_class=EventBridgeEvent)
-@logger.inject_lambda_context(clear_state=True, correlation_id_path=correlation_paths.EVENT_BRIDGE)
+@logger.inject_lambda_context(clear_state=True)
 def lambda_handler(event: EventBridgeEvent, context: LambdaContext) -> None: # pylint: disable=unused-argument
     """ Main function of the lambda. """
-    try:
-        env = get_env_vars()
-        logger.append_keys(env_vars=asdict(env), event=event.raw_event)
+    env = get_env_vars()
+    logger.append_keys(env_vars=asdict(env), event=event.raw_event)
 
-        asg_client = get_asg_client()
+    asg_client = get_asg_client()
 
-        ## Spin down the instance. The instance-StateChange-hook will do the rest:
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html#AutoScaling.Client.update_auto_scaling_group
-        response = asg_client.update_auto_scaling_group(
-            AutoScalingGroupName=env.ASG_NAME,
-            DesiredCapacity=0,
-        )
-        logger.debug("ASG update response", extra={"response": response})
-    except Exception:
-        logger.exception("Failed to spin down the ASG.")
-        raise
+    ## Spin down the instance. The instance-StateChange-hook will do the rest:
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html#AutoScaling.Client.update_auto_scaling_group
+    response = asg_client.update_auto_scaling_group(
+        AutoScalingGroupName=env.ASG_NAME,
+        DesiredCapacity=0,
+    )
+    logger.debug("ASG update response", extra={"response": response})
     logger.info("Successfully spun down the ASG.")

@@ -16,6 +16,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import CloudWatchLogsEvent, event_source
 from aws_lambda_powertools.utilities.data_classes.cloud_watch_logs_event import CloudWatchLogsDecodedData
 from aws_lambda_powertools.utilities.typing import LambdaContext
+from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
 
 logger = Logger()
 
@@ -46,6 +47,18 @@ def get_env_vars() -> EnvVars:
     }
     # EnvVars will naturally error with ALL the missing env-vars on creation:
     return EnvVars(**env_vars)
+
+## Log the Outcome of the Invocation
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/middleware_factory/
+@lambda_handler_decorator
+def log_lambda_outcome(handler, event, context):
+    """ Log the result, with the appended keys attached. """
+    try:
+        handler(event, context)
+        logger.info("Successfully started the system.")
+    except Exception:
+        logger.exception("Failed to start the system.")
+        raise
 
 ## Boto3 Clients:
 # ALWAYS use @cache for clients. Even if they're always called, it helps
@@ -100,7 +113,7 @@ def push_metric_connection() -> None:
     )
     logger.debug("Pushed metric to cloudwatch.", extra={"response": response})
 
-def start_system() -> None:
+def spin_up_asg() -> None:
     """Spin up the system. The instance-StateChange-hook will do the rest."""
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html#AutoScaling.Client.update_auto_scaling_group
     env = get_env_vars()
@@ -111,31 +124,27 @@ def start_system() -> None:
     )
     logger.debug("Updated ASG desired capacity to 1.", extra={"response": response})
 
+@log_lambda_outcome()
 ## Decompress CloudWatch Logs:
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
 @event_source(data_class=CloudWatchLogsEvent)
 @logger.inject_lambda_context(clear_state=True)
 def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext): # pylint: disable=unused-argument
     """ Main function of the lambda. """
-    try:
-        env = get_env_vars()
-        logger.append_keys(env_vars=asdict(env))
-        # The event is compressed, then base64'd. This makes it readable again:
-        decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
+    env = get_env_vars()
+    logger.append_keys(env_vars=asdict(env))
+    # The event is compressed, then base64'd. This makes it readable again:
+    decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
 
-        ## Fields Are:
-        # [version, timestamp, hosted_zone_id, domain_name, dns_record_type,
-        #   response_code, protocol, edge_location, dns_resolver_ip, client_subnet]
-        client_subnets = [x.message.split()[9] for x in decompressed_log.log_events]
-        # Append to the rest of the messages this run:
-        logger.append_keys(client_subnets=client_subnets)
-        if not is_client_allowed(client_subnets):
-            logger.warning("No client subnet overlaps ALLOWED_CIDR_IPS, NOT starting the system.")
-            return
+    ## Fields Are:
+    # [version, timestamp, hosted_zone_id, domain_name, dns_record_type,
+    #   response_code, protocol, edge_location, dns_resolver_ip, client_subnet]
+    client_subnets = [x.message.split()[9] for x in decompressed_log.log_events]
+    # Append to the rest of the messages this run:
+    logger.append_keys(client_subnets=client_subnets)
+    if not is_client_allowed(client_subnets):
+        logger.warning("No client subnet overlaps ALLOWED_CIDR_IPS, NOT starting the system.")
+        return
 
-        push_metric_connection()
-        start_system()
-    except Exception:
-        logger.exception("Failed to start the system.")  # Includes all the keys we've added
-        raise
-    logger.info("Started the system.")
+    push_metric_connection()
+    spin_up_asg()

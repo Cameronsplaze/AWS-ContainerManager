@@ -36,6 +36,7 @@ class Volume(NestedStack):
         self,
         scope: Construct,
         container: ecs.ContainerDefinition,
+        container_id: str,
         vpc: ec2.Vpc,
         task_definition: ecs.Ec2TaskDefinition,
         volume_config: dict,
@@ -330,9 +331,11 @@ class Volume(NestedStack):
                 period = Duration.minutes(1),
             )
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html
-            alarm_aws_backup_errors = metric_aws_backup_errors.create_alarm(
+            self.alarm_aws_backup_errors = metric_aws_backup_errors.create_alarm(
                 self,
                 "AlarmAwsBackup",
+                alarm_name=f"Backup Failed - [{container_id}]",
+                alarm_description="Trigger if the AWS Backup lambda fails to start a backup job.",
                 threshold=0,
                 comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
                 evaluation_periods=1,
@@ -341,6 +344,6 @@ class Volume(NestedStack):
             )
             ## Moderator only, no need to tell leaf-stack:
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Alarm.html#addwbralarmwbractionactions
-            alarm_aws_backup_errors.add_alarm_action(
+            self.alarm_aws_backup_errors.add_alarm_action(
                 cloudwatch_actions.SnsAction(base_stack_sns_topic)
             )

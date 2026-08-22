@@ -4,8 +4,6 @@ Lambda code for snapshotting the volume's S3 bucket with AWS Backup,
 whenever the container spins down (aka someone just finished playing).
 """
 
-## TODO: Add this to the metric dashboard somewhere! (At least the execution errors...)
-
 import os
 import json
 import time
@@ -20,14 +18,15 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.logging import correlation_paths
+from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
 
 logger = Logger()
 
 ## How long to wait before the first check, to let S3 File metrics settle:
 #   60s to let the container write any last saves to EFS.
-#   60s after last write, to queue files for export.
+#   60s after last write, for S3 Files to queue files for export.
 #   60s for those metrics to get to cloudwatch and be queryable.
-#   60s to let our query reach 2min back, to avoid missing the last minute.
+#   60s so our 2min period doesn't reach too far back and prematurely "pass".
 EXPORT_SETTLE_SEC = 240
 # How often to re-check after that:
 EXPORT_POLL_INTERVAL_SEC = 30
@@ -78,6 +77,17 @@ def get_cloudwatch_client():
     """ Used for checking if S3 Files is done exporting yet """
     return boto3.client('cloudwatch')
 
+## Log the Outcome of the Invocation
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/middleware_factory/
+@lambda_handler_decorator
+def log_lambda_outcome(handler, event, context):
+    """ Log the result, with the appended keys attached. """
+    try:
+        handler(event, context)
+        logger.info("Successfully created a backup job.")
+    except Exception:
+        logger.exception("Failed to create a backup job.")
+        raise
 
 def get_pending_exports(file_system_id: str) -> float | None:
     """
@@ -157,7 +167,8 @@ def purge_noncurrent_versions(bucket_name: str) -> None:
         errors = response.get("Errors", [])
         if errors:
             logger.warning("Failed to delete some noncurrent versions.", extra={"DeleteObjectsErrors": errors})
-        logger.debug("Deleted noncurrent versions from bucket.", extra={"DeletedObjectsCount": len(old_versions), "Response": response})
+        logger.append_keys(deleted_objects_count=len(old_versions))
+        logger.debug("Deleted noncurrent versions from bucket.", extra={"Response": response})
 
 
 def trigger_backup_job() -> None:
@@ -176,19 +187,15 @@ def trigger_backup_job() -> None:
         },
     )
 
+@log_lambda_outcome()
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#eventbridge
 @event_source(data_class=EventBridgeEvent)
 @logger.inject_lambda_context(clear_state=True, correlation_id_path=correlation_paths.EVENT_BRIDGE)
 def lambda_handler(event: EventBridgeEvent, context: LambdaContext) -> None: # pylint: disable=unused-argument
     """ Main function of the lambda. """
-    try:
-        env = get_env_vars()
-        logger.append_keys(env_vars=asdict(env), event=event.raw_event)
+    env = get_env_vars()
+    logger.append_keys(env_vars=asdict(env), event=event.raw_event)
 
-        wait_for_exports_to_finish(env.FILE_SYSTEM_ID)
-        purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])
-        trigger_backup_job()
-    except Exception:
-        logger.exception("Failed to create a backup job.")
-        raise
-    logger.info("Successfully created a backup job.")
+    wait_for_exports_to_finish(env.FILE_SYSTEM_ID)
+    purge_noncurrent_versions(env.BUCKET_ARN.split(":")[-1])
+    trigger_backup_job()

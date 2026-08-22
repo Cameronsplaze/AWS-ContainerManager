@@ -274,8 +274,8 @@ class EcsAsg(NestedStack):
         )
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.container_traffic_in = cloudwatch.MathExpression(
-            label="Network In - Container (KiB/Min)",
-            expression="container_traffic_in * 60 / 1024",
+            label="Network In - Container",
+            expression="container_traffic_in * 60 / 1024", # KiB/min
             using_metrics={
                 "container_traffic_in": traffic_in,
             },

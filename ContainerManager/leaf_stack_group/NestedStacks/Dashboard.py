@@ -2,6 +2,7 @@
 """
 This module contains the Dashboard NestedStack class.
 """
+from typing import Any, Callable
 
 from aws_cdk import (
     NestedStack,
@@ -19,6 +20,17 @@ from .Watchdog import Watchdog
 from .AsgStateChangeHook import AsgStateChangeHook
 
 TRAFFIC_IN_LABEL = "Traffic (KiB / min)"
+
+
+def count_metric(metric_fn: Callable[..., cloudwatch.Metric]) -> cloudwatch.Metric:
+    """ Every count metric on this dashboard uses the same shape. """
+    return metric_fn(
+        unit=cloudwatch.Unit.COUNT,
+        statistic="Maximum",
+        period=Duration.minutes(1),
+        label=f"{metric_fn.__name__.removeprefix('metric_').title()} {metric_fn.__self__.node.id}", # type: ignore[attr-defined]
+    )
+
 
 ### Nested Stack info:
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.NestedStack.html
@@ -53,16 +65,6 @@ class Dashboard(NestedStack):
         dashboard_config = main_config["Dashboard"]
 
         ############
-        ### Metrics used in the Widgets below:
-
-        ## ASG State Change Invocation Count:
-        metric_asg_lambda_invocation_count = asg_state_change_hook_nested_stack.lambda_asg_state_change_hook.metric_invocations(
-            unit=cloudwatch.Unit.COUNT,
-            statistic="Maximum",
-            period=Duration.minutes(1),
-        )
-
-        ############
         ### Widgets Here. The order here is how they'll appear in the dashboard.
         dashboard_widgets: list[cloudwatch.IWidget] = []
 
@@ -83,21 +85,34 @@ class Dashboard(NestedStack):
             )
         )
 
-        
+
+        invocation_metrics = [
+            count_metric(asg_state_change_hook_nested_stack.lambda_asg_state_change_hook.metric_invocations),
+            count_metric(watchdog_nested_stack.lambda_break_crash_loop.metric_invocations),
+        ]
+        if volume_nested_stack.lambda_trigger_aws_backup is not None:
+            invocation_metrics.append(count_metric(volume_nested_stack.lambda_trigger_aws_backup.metric_invocations))
+        error_metrics = [
+            count_metric(asg_state_change_hook_nested_stack.lambda_asg_state_change_hook.metric_errors),
+            count_metric(watchdog_nested_stack.lambda_break_crash_loop.metric_errors),
+        ]
+        if volume_nested_stack.lambda_trigger_aws_backup is not None:
+            error_metrics.append(count_metric(volume_nested_stack.lambda_trigger_aws_backup.metric_errors))
         ## Lambda Invocation count for after AWS State Changes
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
         dashboard_widgets.append(
             cloudwatch.GraphWidget(
-                # TODO: Change this to show BOTH invocations and errors, AND add in the backup lambda (at least)
-                title="(Lambda) ASG State Change Invocations",
+                title="Lambda Invocations",
                 # Only show up to an hour ago:
                 height=6,
                 width=12,
-                right=[metric_asg_lambda_invocation_count],
+                left=invocation_metrics,
+                right=error_metrics,
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 ## Only shows units when graph has data. This changes that:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
-                right_y_axis=cloudwatch.YAxisProps(label=metric_asg_lambda_invocation_count.unit.value.title(), show_units=False), # type: ignore[union-attr]
+                left_y_axis=cloudwatch.YAxisProps(label="Success Count", show_units=False),
+                right_y_axis=cloudwatch.YAxisProps(label="Error Count", show_units=False),
             )
         )
 
@@ -123,7 +138,6 @@ class Dashboard(NestedStack):
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
         dashboard_widgets.append(
             cloudwatch.AlarmStatusWidget(
-                # TODO: Add the Backup Fail Alarm here.
                 title=f"Alarm Summary [{domain_stack.sub_domain_name}]",
                 width=4,
                 height=6,
@@ -133,6 +147,7 @@ class Dashboard(NestedStack):
                     watchdog_nested_stack.alarm_asg_instance_left_up,
                     watchdog_nested_stack.alarm_container_activity,
                     watchdog_nested_stack.alarm_break_crash_loop_count,
+                    volume_nested_stack.alarm_aws_backup_errors,
                 ],
             )
         )
@@ -155,12 +170,11 @@ class Dashboard(NestedStack):
                 title="(ASG) All Network Traffic",
                 height=6,
                 width=12,
-                right=[
-                    # watchdog_nested_stack.kb_in_per_minute,
-                    # volume_nested_stack.kb_out_per_min,
-                    watchdog_nested_stack.traffic_dns_metric,
+                left=[
                     ecs_asg_nested_stack.container_traffic_in,
-                    # *volume_nested_stack.traffic_out_metrics.values(),
+                ],
+                right=[
+                    watchdog_nested_stack.traffic_dns_metric,
                 ],
                 legend_position=cloudwatch.LegendPosition.RIGHT,
                 period=Duration.minutes(1),
@@ -168,7 +182,8 @@ class Dashboard(NestedStack):
                 ## Left and Right Y-Axis:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
                 # Because of the MetricMath in the graph, units are unknown anyways:
-                right_y_axis=cloudwatch.YAxisProps(label=TRAFFIC_IN_LABEL, show_units=False),
+                left_y_axis=cloudwatch.YAxisProps(label=TRAFFIC_IN_LABEL, show_units=False),
+                right_y_axis=cloudwatch.YAxisProps(label="DNS Query Hit", show_units=False),
             )
         )
 
@@ -267,7 +282,7 @@ class Dashboard(NestedStack):
                 # Only show up to an hour ago:
                 height=6,
                 width=12,
-                right=[
+                left=[
                     cpu_utilization_percent,
                     memory_utilization_percent,
                     gpu_utilization_metric,
@@ -279,7 +294,7 @@ class Dashboard(NestedStack):
                 statistic="Maximum",
                 ## Only shows units when graph has data. This changes that:
                 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.YAxisProps.html
-                right_y_axis=cloudwatch.YAxisProps(label="Percent", show_units=False), # type: ignore
+                left_y_axis=cloudwatch.YAxisProps(label="Percent", show_units=False), # type: ignore
             )
         )
 

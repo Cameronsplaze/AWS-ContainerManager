@@ -106,8 +106,6 @@ class StartSystemStack(Stack):
             "SubscriptionFilter",
             log_group=domain_stack.route53_query_log_group,
             destination=logs_destinations.LambdaDestination(self.lambda_start_system),
-            # TODO: See if there's a way to put ec2_config.GameCidrAllowed/SshCidrAllowed in this, so it won't even spin up
-            #    Might have to do it in the lambda itself, based on it's event.
             filter_pattern=logs.FilterPattern.any_term(domain_stack.dns_log_query_filter),
         )
 
