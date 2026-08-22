@@ -62,7 +62,6 @@ Container:
 
 Volume:
   EnableBackups: True
-  KeepOnDelete: True
   KeepBackupDays: 720
   Paths:
     - Path: /data

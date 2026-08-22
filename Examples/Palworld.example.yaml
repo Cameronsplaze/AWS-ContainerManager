@@ -11,20 +11,16 @@ Container:
     - UDP: 8211
     - UDP: 27015
   Environment:
-    # Yes this is Palworld, the server-name is a inside joke
-    SERVER_NAME: Christian Minecraft Server
+    SERVER_NAME: !ENV ${PALWORLD_SERVER_NAME}
     SERVER_DESCRIPTION: "Pokemon but with guns"
     PLAYERS: 32 # Max allowed in Palworld
-    PORT: 8211 # Default
     SERVER_PASSWORD: !ENV ${PALWORLD_PASSWORD}
+    ADMIN_PASSWORD: !ENV ${PALWORLD_ADMIN_PASSWORD}
     RCON_ENABLED: False # Makes logs noisy, and we don't need it for the project. Users can still enable it.
-    MULTITHREADING: True # Not *exactly* sure what this does, but every bit of performance helps
     BACKUP_ENABLED: False # We have this with AWS already.
-    # Update when the server turns on, it isn't up 24/7:
+    # Update ONLY when the server turns on, it isn't up 24/7:
     UPDATE_ON_BOOT: True
     AUTO_UPDATE_ENABLED: False
-    AUTO_REBOOT_ENABLED: True
-    AUTO_REBOOT_EVEN_IF_PLAYERS_ONLINE: True
     ### From https://palworld-server-docker.loef.dev/getting-started/configuration/game-settings
     # They assume servers are up 24/7 when setting these numbers. Tone down a bit since our's isn't:
     PAL_EGG_DEFAULT_HATCHING_TIME: 1.000000
@@ -41,7 +37,7 @@ Volume:
     - Path: /palworld
 
 Watchdog:
-  Threshold: 5750
+  Threshold: 60
   InstanceLeftUp:
     DurationHours: 8
     ShouldStop: True

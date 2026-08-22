@@ -85,7 +85,8 @@ class Dashboard(NestedStack):
             )
         )
 
-
+        ## Lambda Invocation count for after AWS State Changes
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
         invocation_metrics = [
             count_metric(asg_state_change_hook_nested_stack.lambda_asg_state_change_hook.metric_invocations),
             count_metric(watchdog_nested_stack.lambda_break_crash_loop.metric_invocations),
@@ -98,8 +99,6 @@ class Dashboard(NestedStack):
         ]
         if volume_nested_stack.lambda_trigger_aws_backup is not None:
             error_metrics.append(count_metric(volume_nested_stack.lambda_trigger_aws_backup.metric_errors))
-        ## Lambda Invocation count for after AWS State Changes
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.GraphWidget.html
         dashboard_widgets.append(
             cloudwatch.GraphWidget(
                 title="Lambda Invocations",
@@ -136,6 +135,13 @@ class Dashboard(NestedStack):
 
         ## Brief summary of all the alarms, and lets you jump to them directly:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.AlarmStatusWidget.html
+        alarms = [
+            watchdog_nested_stack.alarm_asg_instance_left_up,
+            watchdog_nested_stack.alarm_container_activity,
+            watchdog_nested_stack.alarm_break_crash_loop_count,
+        ]
+        if volume_nested_stack.alarm_aws_backup_errors is not None:
+            alarms.append(volume_nested_stack.alarm_aws_backup_errors)
         dashboard_widgets.append(
             cloudwatch.AlarmStatusWidget(
                 title=f"Alarm Summary [{domain_stack.sub_domain_name}]",
@@ -143,12 +149,7 @@ class Dashboard(NestedStack):
                 height=6,
                 # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_cloudwatch/AlarmStatusWidgetSortBy.html#aws_cdk.aws_cloudwatch.AlarmStatusWidgetSortBy
                 sort_by=cloudwatch.AlarmStatusWidgetSortBy.STATE_UPDATED_TIMESTAMP,
-                alarms=[
-                    watchdog_nested_stack.alarm_asg_instance_left_up,
-                    watchdog_nested_stack.alarm_container_activity,
-                    watchdog_nested_stack.alarm_break_crash_loop_count,
-                    volume_nested_stack.alarm_aws_backup_errors,
-                ],
+                alarms=alarms,
             )
         )
 

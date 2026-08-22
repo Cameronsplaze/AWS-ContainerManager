@@ -116,7 +116,10 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
         Optional("Volume", default={}): {
             Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
             Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
-            Optional("KeepBackupDays", default=90): int,
+            Optional("KeepBackupDays", default=90): And( int, Use(
+                # Bump it down in the dev stack to save money:
+                lambda days: days if maturity == Maturity.PROD else 7),
+            ),
             "Paths": [{
                 "Path": And(
                     str,
@@ -127,7 +130,7 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 ),
                 Optional("ReadOnly", default=False): bool,
                 # Default=None, don't override the default EFS cache.
-                Optional("EfsCacheFileMb", default=None): And(Use(int), lambda mb: mb >= 0),
+                Optional("EfsCacheFileMb", default=None): And(int, lambda mb: mb >= 0),
             }],
         },
         "Watchdog": {

@@ -49,8 +49,11 @@ class Volume(NestedStack):
         self.file_systems: list[dict] = []
         ## AsgStateChangeHook hooks this up to the spin-down event, IF backups are enabled:
         self.lambda_trigger_aws_backup: aws_lambda.Function | None = None
+        self.alarm_aws_backup_errors: cloudwatch.Alarm | None = None
 
         # TODO: Major doc update on volumes. No point in multiple anymore, and removed "Type".
+        # TODO: Make sure there's a test for no volume config. I'll always have one for prod, so I won't see bugs.
+        #         (Just comment out one of the self.* above to check.)
 
         ## No "Volume" in the config == no storage at all. Declare anything
         #   other stacks use above this.
@@ -155,6 +158,7 @@ class Volume(NestedStack):
             s3files.CfnFileSystem.ImportDataRuleProperty(
                 prefix=path_info['Path'].lstrip('/'),
                 size_less_than=path_info["EfsCacheFileMb"] * 1024 * 1024,
+                # Example Configurations: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-synchronization-customizing.html
                 trigger="ON_DIRECTORY_FIRST_ACCESS" if path_info["EfsCacheFileMb"] > 0 else "ON_FILE_ACCESS",
             )
             for path_info in volume_config["Paths"]
@@ -180,8 +184,7 @@ class Volume(NestedStack):
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.ImportDataRuleProperty.html
                     s3files.CfnFileSystem.ImportDataRuleProperty(
                         prefix="",
-                        # TODO: Start all the current containers, and see if any files exist larger than this:
-                        size_less_than=64 * 1024 * 1024, # 64MiB
+                        size_less_than=256 * 1024 * 1024, # 256 MiB
                         trigger="ON_DIRECTORY_FIRST_ACCESS",
                     ),
                     ## Overrides:
