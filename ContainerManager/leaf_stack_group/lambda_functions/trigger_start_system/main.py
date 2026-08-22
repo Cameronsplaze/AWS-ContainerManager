@@ -36,7 +36,6 @@ class EnvVars:
     # pylint: enable=invalid-name
 
 @cache
-# TODO: Update the other functions with this
 def get_env_vars() -> EnvVars:
     """ Lazy-load and Validate the environment variables """
     env_vars: dict[str, Any] = {
@@ -139,5 +138,4 @@ def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext): # pylint
     except Exception:
         logger.exception("Failed to start the system.")  # Includes all the keys we've added
         raise
-
     logger.info("Started the system.")
