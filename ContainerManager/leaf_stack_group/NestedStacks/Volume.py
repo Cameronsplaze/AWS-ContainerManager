@@ -178,7 +178,8 @@ class Volume(NestedStack):
                     # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3files.CfnFileSystem.ImportDataRuleProperty.html
                     s3files.CfnFileSystem.ImportDataRuleProperty(
                         prefix="",
-                        size_less_than=256 * 1024 * 1024, # 256 MiB
+                        # This is the VOLUME_CONFIG, so the default.
+                        size_less_than=volume_config["DefaultEfsCacheFileMb"] * 1024 * 1024, # 256 MiB
                         trigger="ON_DIRECTORY_FIRST_ACCESS",
                     ),
                     ## Overrides:

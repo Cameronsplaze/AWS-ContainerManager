@@ -34,9 +34,7 @@ flowchart LR
 
 This creates the Ecs Cluster/Service, AutoScaling Group, and EC2 Launch Template for the ASG. This is basically the stack for managing the single EC2 instance itself. (ASG is used to simplify management, instead of juggling EC2 directly). It also needs the Efs component to mount it TO the instance itself. (It's also mounted to the container already). The reason is if it's mounted to the instance, you can use SFTP and other tools to access the data directly. No need to duplicate the data to S3 and pay extra costs for storage.
 
-- For mounting, the tasks themselves use access points for security, and keeping the data uid:gid owned by ec2-user. We mount the EFS itself directly to the host, so even if access points get renamed, you can access *everything* stored inside the EFS.
-
-**Volume Mount into Instance**: The EFS gets mounted into the instance here, because DataSync duplicates all the data, and this avoids us having to pay x2 for storage. You can use the Ec2 instance that's already running, to SSH in and access/modify/copy the files directly.
+**Volume Mount into Instance**: The S3 Files EFS gets mounted into the instance here. You can use the Ec2 instance that's already running, to SSH in and access/modify/copy the files directly.
 
 **ECS: Ec2 vs Fargate**: (Went with Ec2). Fargate's `awsvpc` takes a couple extra seconds, because it has to attach a ENI card. With using fargate, you have no access to the underlying `ecs.config` file either. Plus Ec2 is cheaper when you're using 100% of the container, you only save money with fargate when it can balloon the CPU/RAM usage. Since our instance is only up when it's actively being used, we're always at/near that %100.
 
@@ -48,7 +46,7 @@ There are three alarms that trigger the scaling down of the ASG:
 
 #### Alarm: Container Activity
 
-This is the component for checking if anyone is connected to the container. It uses the "ec2 traffic IN" metric for this. We ignore OUT because it's too noisy, and the container could just be sending telemetry out. IN will only detect someone trying to talk to the container, or it downloading updates, which is what we want to know. Once it detects no one is on for *X* many times, it scales down the ASG. For more info/customization, see [Watchdog.Threshold](../../../Examples/README.md#watchdogthreshold).
+This monitors the traffic INTO the container, to detect if it's in use. It also combines it with DNS, so a DNS hit can reset how long we're waiting to spin down. For more info/customization, see [Watchdog.Threshold](../../../Examples/README.md#watchdogthreshold).
 
 #### Alarm: Instance Left Up
 

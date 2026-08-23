@@ -108,7 +108,7 @@ More info on volumes in the [volume config](./Examples/README.md#volume).
 > [!NOTE]
 > There likely won't be enough traffic from JUST ssh to stop the container from spinning down. Just connect to the container with whatever client it needs (Minecraft, Valheim, etc) to keep it up.
 
-The files are mounted to `/mnt/efs/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP/SSH/etc.
+The files are mounted to `/mnt/s3files/<Volumes>` on the HOST of the container, to give easy access to modify them with SFTP/SSH/etc.
 
 To connect to the container:
 
@@ -148,7 +148,7 @@ To connect to the container:
       And now you can use [docker](https://docs.docker.com/reference/cli/docker/container/exec/) commands if you need to jump into the container! Or view the files with
 
       ```bash
-      ls -halt /mnt/efs
+      ls -halt /mnt/s3files
       ```
 
     - (Windows Users) Use `FileZilla` to add/backup files:
@@ -158,16 +158,16 @@ To connect to the container:
     - (Linux Users) Use `scp` to add/backup files:
       - For example, if backing up:
 
-        The `/mnt/efs/.` gets all folders *INSIDE* efs, not the efs folder itself. (including hidden files). This'll also create `<MyBackupDir>` for you.
+        The `/mnt/s3files/.` gets all folders *INSIDE* efs, not the efs folder itself. (including hidden files). This'll also create `<MyBackupDir>` for you.
 
         ```bash
-        scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/. ~/Documents/<MyBackupDir>
+        scp -r <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/s3files/. ~/Documents/<MyBackupDir>
         ```
 
       - For example, if adding files to EFS:
 
         ```bash
-        scp -r Documents/<MyBackupDir> <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/efs/.
+        scp -r Documents/<MyBackupDir> <CONTAINER_ID>.<DOMAIN_NAME>:/mnt/s3files/.
         ```
 
         Then restart the container:
@@ -179,13 +179,6 @@ To connect to the container:
         # Restart the container:
         docker restart <CONTAINER_ID> # Or just stop it, and it'll start automatically.
         ```
-
-### Moving files from Old EFS to New
-
-If you have an existing EFS left over from deleting a stack, there's no way to tell the new stack to "just use it". You have to transfer the files over.
-
-- **Using SFTP**: The easiest, but most expensive since the files leave AWS, then come back in. Follow the [ssh guide](#ssh-into-the-host) to setup a SFTP application.
-- **Using DataSync**: Probably the cheapest, but I haven't figured it out yet. If you do this a-lot, it's worth looking into.
 
 ---
 
@@ -215,7 +208,8 @@ The point of the base stack, is exactly to combine resources to save costs. You 
 ### Leaf Stack Costs
 
 - The [EC2 Costs](https://aws.amazon.com/ec2/pricing/on-demand/) aren't included because they're the highest factor. You're only charged while people are actively online, but the bigger instances are also more pricey.
-- The [EFS Costs](https://aws.amazon.com/efs/pricing/) are `$0.30/GB/month`.
+- The [S3 Costs](https://aws.amazon.com/s3/pricing/) are `$0.023/GB/month`.
+- The [EFS Costs](https://aws.amazon.com/efs/pricing/) are `$0.30/GB/month` (Only used for 24hrs after container starts up).
 - The [Backup](https://aws.amazon.com/backup/pricing/) costs are `$0.05/GB/month`.
 - The Hosted Zone that holds the DNS info is `$0.50/month` (or `$6/year`).
 

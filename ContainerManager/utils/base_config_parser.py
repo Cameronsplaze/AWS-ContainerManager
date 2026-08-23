@@ -24,8 +24,5 @@ def base_config_schema():
             "Name": And(str, Use(str.lower)),
             "HostedZoneId": str,
         },
-        Optional("AlertSubscription", default={}): {
-            Optional("Email"): str,
-        },
         Optional("AlertSubscription", default={}): sns_schema,
     })

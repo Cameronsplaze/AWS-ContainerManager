@@ -114,6 +114,7 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                 # Bump it down in the dev stack to save money:
                 lambda days: days if maturity == Maturity.PROD else 7),
             ),
+            Optional("DefaultEfsCacheFileMb", default=256): And(int, lambda mb: mb >= 0),
             "Paths": [{
                 "Path": And(
                     str,

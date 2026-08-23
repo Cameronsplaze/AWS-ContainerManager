@@ -118,11 +118,26 @@ Everything goes inside a single S3 bucket behind the scenes. It has `Intelligent
 
 ### `Volume.KeepBackupDays`
 
-- (`int`, Optional, default=`30`): How many days to keep backups for. (If you don't [enable backups](#volumeenablebackups), this option is ignored).
+- (`int`, Optional, default=`90`): How many days to keep backups for. (If you don't [enable backups](#volumeenablebackups), this option is ignored). This is forced to `7` days if on `maturity.DEVEL` to save costs.
 
 ### `Volume.KeepOnDelete`
 
 - (`bool`, Optional, default=`if "maturity" == "prod"`): If you should keep the data when the stack is destroyed. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
+
+### `Volume.DefaultEfsCacheFileMb`
+
+- (`int`, Optional, default=`256`): `AWS S3 Files` will pull files into EFS that's less than this size. This gives us a fast "cache", useful for heavy read-writes (which all game-servers are).
+
+  Media Servers need to set this to `0` on their media directory. Otherwise a read on a single video, would try to pull the entire library into EFS. Even videos larger than this, would still get "read", and pulled out of Intelligent Tiering. `S3 Files` is disabled at `0` for that path.
+
+  Anything that does random I/O should be under this size (like databases). If it's a sequential I/O, it can be larger than this and be fine.
+
+   ```yaml
+   Volume:
+     DefaultEfsCacheFileMb: 256
+     Paths:
+       - Path: /opt/valheim
+   ```
 
 ### `Volume.Paths`
 
@@ -157,17 +172,16 @@ Everything goes inside a single S3 bucket behind the scenes. It has `Intelligent
 
 ### `Volume.Paths[*].EfsCacheFileMb`
 
-- (`int`, Optional, default=`256`): `AWS S3 Files` will pull files into EFS that's less than this size. This gives us a fast "cache", useful for heavy read-writes (which all game-servers are).
-
-  Media Servers need to set this to `0` on their media directory. Otherwise a read on a single video, would try to pull the entire library into EFS. Even videos larger than this, would still get "read", and pulled out of Intelligent Tiering. `S3 Files` is disabled at `0` for that path.
-
-  Anything that does random I/O should be under this size (like databases). If it's a sequential I/O, it can be larger than this and be fine.
+- (`int`, Optional, default=`None`): Overrides the [Volume.DefaultEfsCacheFileMb](#volumedefaultefscachefilemb) for **this path only**. (Useful for media servers, where you want to disable the EFS Cache.).
 
    ```yaml
    Volume:
      Paths:
-       - Path: /opt/valheim
-         EfsCacheFileMb: 256
+       - Path: /var/config
+
+       - Path: /media
+         EfsCacheFileMb: 0
+   ```
 
 ---
 
