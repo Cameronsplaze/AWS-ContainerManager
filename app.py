@@ -76,7 +76,10 @@ if file_path:
     leaf_config = load_leaf_config(file_path, maturity=maturity)
     # You can override container_id if you need to:
     container_id = app.node.try_get_context("container-id")
+    # Only default the container-id if you have a file-name to derive it from:
     if not container_id:
+        if file_path.startswith(("http", "https")):
+            raise ValueError("If you set config-file to a URL, you must also use container-id.")
         container_id = os.path.basename(os.path.splitext(file_path)[0])
     container_id = container_id.lower()
     # For stack names, turn "minecraft.java.example" into "MinecraftJavaExample":

@@ -55,7 +55,7 @@ def log_lambda_outcome(handler, event, context):
     """ Log the result, with the appended keys attached. """
     try:
         handler(event, context)
-        logger.info("Successfully started the system.")
+        logger.info("Successfully processed the event.")
     except Exception:
         logger.exception("Failed to start the system.")
         raise
@@ -84,10 +84,13 @@ def is_client_allowed(client_subnets: list[str]) -> bool:
         2) They only give the IP range, so there's 255 IP's *minimum* that could match.
     """
     env = get_env_vars()
+    # If nothing is allowed, don't even try:
+    if not env.ALLOWED_CIDR_IPS:
+        return False
     # The resolver doesn't always send an ip (like cloudflare). Just spin up the instance
     if "-" in client_subnets:
         return True
-    # Check against the partial cidr they send us (they don't send the full IP).
+    # Check against the partial cidr they sent us (they don't send the full IP).
     return any(
         ipaddress.ip_network(subnet).overlaps(ipaddress.ip_network(cidr))
         for subnet in client_subnets

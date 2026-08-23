@@ -122,7 +122,7 @@ class Volume(NestedStack):
         )
         s3_files_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["s3:AbortMultipartUpload", "s3:DeleteObject", "s3:GetObject*", "s3:List*", "s3:PutObject*"],
+                actions=["s3:AbortMultipartUpload", "s3:DeleteObject*", "s3:GetObject*", "s3:List*", "s3:PutObject*"],
                 resources=[s3_bucket.arn_for_objects("*")],
             )
         )

@@ -221,7 +221,7 @@ Those are the only charges I've seen of note in my account.
 
 These are the core commands of cdk. Both deploy and destroy are broken into two for the base and leaf stacks. So in total, you have: `cdk-synth`, `cdk-deploy-base`, `cdk-deploy-leaf`, `cdk-destroy-base`, `cdk-destroy-leaf`.
 
-The `maturity` flag works for BOTH `*-leaf` and `*-base` commands. The other two (`config-file` and `container-id`) are only for the `*-leaf` commands.
+The `maturity` flag works for BOTH `cdk-*-leaf` and `cdk-*-base` commands. The other two (`config-file` and `container-id`) are only for the `cdk-*-leaf` commands.
 
 > ![NOTE]
 > When deploying/destroying a stack, all three parameters must be exactly the same as the first deployment.
@@ -241,16 +241,23 @@ The `maturity` flag works for BOTH `*-leaf` and `*-base` commands. The other two
   make cdk-synth config-file=./Examples/<MyConfig>.yaml
   ```
 
-  **Required** for both `*-leaf` commands:
+  **Required** for both `cdk-*-leaf` commands:
 
   ```bash
   make cdk-deploy-leaf config-file=./Examples/Minecraft.java.example.yaml
   # Domain will be: `minecraft.java.example.<YOUR_DOMAIN>`
   ```
 
+  You can also use a URL to a RAW yaml file. This could be useful if you don't want to fork the entire repo, or if you're maintaining a fork and don't want version conflicts ([keep your files in gist](https://stackoverflow.com/questions/12522539/github-gist-editing-without-changing-url/14529686#14529686), for example). `container-id` is required if you use this.
+
+  ```bash
+  # DO NOT use the 'Raw' button, it links to that specific VERSION of the gist. Just append '/raw' to the end.
+  make cdk-deploy-leaf container-id=<ContainerID> config-file="https://gist.github.com/<Username>/<GistID>/raw"
+  ```
+
 #### container-id
 
-- Optional for all three commands. This fixes two issues:
+- Optional for all three `cdk-*` commands. This fixes two issues:
 
   - The `container-id` has to be unique per **aws account**. If you want to deploy two of the same yaml to your account, at least one will need to set this.
   - This overrides the domain prefix. If you want a descriptive yaml name, but small domain name, use this.
