@@ -12,21 +12,29 @@ Factored this out to avoid circular imports. This NestedStack contains the secur
 
 This creates the EC2 Task Definition and Container Definition for the stack.
 
-### Volumes
+### Volume
 
-Elastic File System (EFS), is the persistent storage for the leaf_stack. This adds to the container definition, the ability to mount the EFS volume. Backups happen outside of the volume you mount as well, so if someone is able to hack your container somehow, they can't access the backups.
+We switched to [AWS S3 Files](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files.html#s3-files-what-is) for our persistent storage, which is basically a vanilla S3 bucket with a EFS cache in front of it. This gives us a cheap bucket for storage and a solid console to work from, along side fast read-writes of the EFS. *This still works with BIG files*, because they naturally [bypass the EFS cache](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-performance.html#s3-files-performance-how) and go straight to the container.
 
-I can't find how to see which AZ a backup is stored in, but [this AWS blog post](https://docs.aws.amazon.com/aws-backup/latest/devguide/disaster-recovery-resiliency.html) *suggests* they're multi-AZ. This is important since if the AZ our single-zone EFS is in goes down, we want the backups in a DIFFERENT AS to let us restore the data. We also don't have to pay for the data being "replicated", beyond the cost of having backups that we're already paying.
+```mermaid
+flowchart LR
+    S3 --"S3 EventBridge Trigger"--> EFS
+    EFS --"Write back Game Files every minute" --> S3
+    S3 --"Read Big Files (media server)" --> Ec2
+    EFS --"Fast Reads" --> Ec2
+    Ec2 --"Fast Writes" --> EFS
+    Ec2 --"Connection"--> User{User}
+```
 
-**EFS vs EBS**: (Went with EFS)I went with EFS just because I don't want to manage growing / shrinking partitions, plus it integrates with ECS nicely. By making it only exist in one zone by default, it's about the same cost anyways. It gets expensive if you duplicate storage across AZ's, and we don't need that.
+- How we calculate the User Traffic, by `Ec2.TrafficIn - (S3.BytesDownloaded + EFS.DataReadBytes)`. The traffic into the container from it's volume is also apart of it's traffic in. By removing it, we're left with only traffic from the user. And thus, we can scale down the ASG when not in use.
+- Since [EFS uses S3 Notifications to know when to sync](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-synchronization.html#s3-files-sync-changes-from-bucket) from the S3, there's no "polling metric" you need to subtract from the equation.
+- Files stay in EFS for 1 day, and only get [written to S3 when modified, once a minute](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-performance.html#s3-files-performance-sync). If a bunch of files move to EFS at once, the metric might be negative for one period, I want to keep on eye on this and see how it behaves. Since by default the system only goes down if you're low for 7+ periods, and ignores negatives, it should be fine to get off the ground.
 
 ### EcsAsg
 
 This creates the Ecs Cluster/Service, AutoScaling Group, and EC2 Launch Template for the ASG. This is basically the stack for managing the single EC2 instance itself. (ASG is used to simplify management, instead of juggling EC2 directly). It also needs the Efs component to mount it TO the instance itself. (It's also mounted to the container already). The reason is if it's mounted to the instance, you can use SFTP and other tools to access the data directly. No need to duplicate the data to S3 and pay extra costs for storage.
 
-- For mounting, the tasks themselves use access points for security, and keeping the data uid:gid owned by ec2-user. We mount the EFS itself directly to the host, so even if access points get renamed, you can access *everything* stored inside the EFS.
-
-**Volume Mount into Instance**: The EFS gets mounted into the instance here, because DataSync duplicates all the data, and this avoids us having to pay x2 for storage. You can use the Ec2 instance that's already running, to SSH in and access/modify/copy the files directly.
+**Volume Mount into Instance**: The S3 Files EFS gets mounted into the instance here. You can use the Ec2 instance that's already running, to SSH in and access/modify/copy the files directly.
 
 **ECS: Ec2 vs Fargate**: (Went with Ec2). Fargate's `awsvpc` takes a couple extra seconds, because it has to attach a ENI card. With using fargate, you have no access to the underlying `ecs.config` file either. Plus Ec2 is cheaper when you're using 100% of the container, you only save money with fargate when it can balloon the CPU/RAM usage. Since our instance is only up when it's actively being used, we're always at/near that %100.
 
@@ -38,7 +46,7 @@ There are three alarms that trigger the scaling down of the ASG:
 
 #### Alarm: Container Activity
 
-This is the component for checking if anyone is connected to the container. It uses the "ec2 traffic IN" metric for this. We ignore OUT because it's too noisy, and the container could just be sending telemetry out. IN will only detect someone trying to talk to the container, or it downloading updates, which is what we want to know. Once it detects no one is on for *X* many times, it scales down the ASG. For more info/customization, see [Watchdog.Threshold](../../../Examples/README.md#watchdogthreshold).
+This monitors the traffic INTO the container, to detect if it's in use. It also combines it with DNS, so a DNS hit can reset how long we're waiting to spin down. For more info/customization, see [Watchdog.Threshold](../../../Examples/README.md#watchdogthreshold).
 
 #### Alarm: Instance Left Up
 

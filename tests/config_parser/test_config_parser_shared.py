@@ -107,7 +107,7 @@ class TestConfigParser:
 
     @pytest.mark.parametrize(
         "config",
-        [config for config in CONFIGS_VALID if config.expected_output is not None],
+        [config for config in CONFIGS_VALID if config.expected_output != {}],
         ids=lambda s: s.label
     )
     def test_no_extra_keys_exist_in_config(self, config):

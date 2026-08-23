@@ -9,14 +9,14 @@ Click here to jump to '[Config File Options](#config-file-options)'. It's the la
 ## Gotchas when Writing Configs
 
 - [Environment Variables](#containerenvironment) to set **for the container itself** when Writing Configs:
-  - **For backups**: Completely Disable. We use EFS behind the scenes. Use the [Volumes.EnableBackups](#volumesidenablebackups) option if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too.
+  - **For backups**: Completely Disable. We use EFS behind the scenes. Use the [Volume.EnableBackups](#volumeenablebackups) option if you want backups. **IF you do it inside the container**, you'll be doing backups of backups, and pay a lot more for storage. Plus if your container gets hacked, they'll have access to the backups too.
   - **For updating the server**: Since the container is only up when someone is connected, any "idle update" strategy won't work. The container has to check for updates when it **first** spins up. Also disable so that it doesn't conflict with the [Watchdog.Threshold](#watchdogthreshold) and keep the container up.
   - **For file permissions (UID/GID)**: Set to `1000:1000`. When you access the files through the EC2, this'll make them a LOT easier to modify/upload to.
 - **Whitelist users inside of the Configs**: All the containers I've tested so far provide some form of whitelist. You can use it, but it means you have to re-deploy this project every time you add someone. It takes forever, and (might?) kick everyone for a bit. If you can, use the game's built-in whitelist feature instead. (Unless maybe you don't expect it changing often, like with an admin list.)
 
 ## Adding a new Example Config to the Repo
 
-1) Ask if it's a game I'll want to support, either by [Issues](https://github.com/Cameronsplaze/AWS-ContainerManager/issues) or [Discussions](https://github.com/Cameronsplaze/AWS-ContainerManager/discussions/categories/q-a). (Even if I don't add it here, I might still help you add it to your fork)
+1) Ask if it's a container I'll want to support, either by [Issues](https://github.com/Cameronsplaze/AWS-ContainerManager/issues) or [Discussions](https://github.com/Cameronsplaze/AWS-ContainerManager/discussions/categories/q-a). (Even if I don't add it here, I might still help you add it to your fork)
 2) Create a new file in this [./Examples](./) directory. Make sure it ends with `*.example.yaml`.
 3) Make sure it correctly Synths. (If you're doing a PR, it'll happen automatically)
 4) Once it Synths, add it to the "Settings -> Branches -> `main` -> Required Status Checks" list. (If you don't have permissions, remind me to inside the PR please).
@@ -44,6 +44,14 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
      InstanceType: m5.large
    ```
 
+### `Ec2.SshCidrAllowed`
+
+- (`list[str]`, Optional, default=`["0.0.0.0/0"]`): A list of CIDR blocks allowed to SSH into the EC2 instance. Set to an empty list to disable completely. Default allows all IP's, but you still need the key-pair from the console to log in. You can lock it to a single IP with `["<YOUR_IP>/32"].`
+
+### `Ec2.GameCidrAllowed`
+
+- (`list[str]`, Optional, default=`["0.0.0.0/0"]`): A list of CIDR blocks allowed to connect to the container ports. Same rules as [Ec2.SshCidrAllowed](#ec2sshcidrallowed) apply.
+
 ---
 
 ### `Container`
@@ -61,7 +69,7 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ### `Container.Ports`
 
-- (`list`, **Required**): The list of ports to expose, in the form of `Type: number`. I.e:
+- (`list`, **Required**): The list of ports to expose, in the form of `Protocol: PortNumber`. I.e:
 
    ```yaml
    Container:
@@ -85,74 +93,94 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ---
 
-### `Volumes`
+### `Volume`
 
-- (`dict`, Optional): Config options for Volumes (Persistent Storage).
+- (`dict`, Optional): Config options for the Volume (Persistent Storage).
 
-   Each "block" defines one volume, for example:
+   For Example:
 
    ```yaml
-   Volumes:
-     ## Minimal Volume:
-     # EnableBackups, and KeepOnDelete are True by default
-     Data: # <- The Id of the volume
-       Paths:
-         - Path: /data
-     ## Or if you wanted something persistent, but not backed up:
-     #     (i.e the path to the valheim server binary. Saves
-     #      on startup time, but not critical if lost.)
-     DownloadCache: # <- The Id of the volume
-       EnableBackups: False
-       KeepOnDelete: False
-       Paths:
-         - Path: /opt/valheim
+  Volume:
+    EnableBackups: True
+    KeepBackupDays: 365
+    Paths:
+      # Holds server config info
+      - Path: /config
+      # Holds server download file (Faster startup if it doesn't have to re-download every time).
+      - Path: /opt/valheim
    ```
 
-> [!NOTE]
-> The filesystems inside `/mnt/efs` are labeled `Efs-<Id>` (I.e `Efs-Data` above). The Id **MUST** be unique in the config file. If you change it's Id after deploying, CDK will create a new EFS and you'll have to transfer data over manually (assuming KeepOnDelete is enabled. Otherwise the data is lost).
+Everything goes inside a single S3 bucket behind the scenes. It has `Intelligent Tiering` enabled, so files will move to cheaper storage if they're not accessed for a month.
 
-### `Volumes.<Id>.Type`
+### `Volume.EnableBackups`
 
-- (`str`, Optional, default=`EFS`): The type of volume to use. Currently only `EFS` is supported.
+- (`bool`, Optional, default=`if "maturity" == "prod"`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)). Backups are taken whenever the container spins down.
 
-   I plan to add [`S3` support](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/10) when I get a chance, this is here for future-proofing.
+### `Volume.KeepBackupDays`
 
-### `Volumes.<Id>.EnableBackups`
+- (`int`, Optional, default=`90`): How many days to keep backups for. (If you don't [enable backups](#volumeenablebackups), this option is ignored). This is forced to `7` days if on `maturity.DEVEL` to save costs.
 
-- (`bool`, Optional, default=`if "maturity" == "prod"`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
-
-### `Volumes.<Id>.KeepOnDelete`
+### `Volume.KeepOnDelete`
 
 - (`bool`, Optional, default=`if "maturity" == "prod"`): If you should keep the data when the stack is destroyed. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
 
-### `Volumes.<Id>.Paths`
+### `Volume.DefaultEfsCacheFileMb`
 
-- (`list`, **Required**): The list of paths to persist INSIDE the container.
+- (`int`, Optional, default=`256`): `AWS S3 Files` will pull files into EFS that's less than this size. This gives us a fast "cache", useful for heavy read-writes (which all game-servers are).
 
-   For example, if you **didn't** want to backup data directory in the [above example](#volumes), you could add it to the Server Binary's EFS:
+  Media Servers need to set this to `0` on their media directory. Otherwise a read on a single video, would try to pull the entire library into EFS. Even videos larger than this, would still get "read", and pulled out of Intelligent Tiering. `S3 Files` is disabled at `0` for that path.
+
+  Anything that does random I/O should be under this size (like databases). If it's a sequential I/O, it can be larger than this and be fine.
 
    ```yaml
-   Volumes:
-     - EnableBackups: False
-       KeepOnDelete: False
-       Paths:
-         - Path: /opt/valheim
-         - Path: /data
+   Volume:
+     DefaultEfsCacheFileMb: 256
+     Paths:
+       - Path: /opt/valheim
    ```
 
-### `Volumes.<Id>.Paths[*].Path`
+### `Volume.Paths`
+
+- (`list[dict]`, **Required**): Info on each path to persist, and configuration options for that path.
+
+   ```yaml
+   Volume:
+     EnableBackups: False
+     KeepOnDelete: False
+     Paths:
+       - Path: /opt/valheim
+         EfsCacheFileMb: 256
+
+       - Path: /data
+         ReadOnly: False
+   ```
+
+### `Volume.Paths[*].Path`
 
 - (`str`, **Required**): The path inside the container to persist. I.e `/data`, `/opt/valheim`, `/config`, etc.
 
-### `Volumes.<Id>.Paths[*].ReadOnly`
+### `Volume.Paths[*].ReadOnly`
 
 - (`bool`, Optional, default=`False`): If the path should be read-only.
 
    ```yaml
-   Volumes:
-     - Paths:
-        - Path: /config
-          ReadOnly: True
+   Volume:
+     Paths:
+       - Path: /config
+         ReadOnly: True
+   ```
+
+### `Volume.Paths[*].EfsCacheFileMb`
+
+- (`int`, Optional, default=`None`): Overrides the [Volume.DefaultEfsCacheFileMb](#volumedefaultefscachefilemb) for **this path only**. (Useful for media servers, where you want to disable the EFS Cache.).
+
+   ```yaml
+   Volume:
+     Paths:
+       - Path: /var/config
+
+       - Path: /media
+         EfsCacheFileMb: 0
    ```
 
 ---
@@ -163,13 +191,13 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ### `Watchdog.Threshold`
 
-- (`int`, **Required**): Bytes per Second. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
+- (`int`, **Required**): Kilobytes per Minute. If there's less than this for `MinutesWithoutConnections` long, the container will spin down.
 
-   **To find this number**: just set it to `20` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. This is low, so it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
+   **To find this number**: just set it to `1` to deploy the stack. Then go into the `ContainerManager-<container-id>-Dashboard` and check the `Alarm: Container Activity` Graph. Since you set a low value, it won't ever spin down. **DON'T** connect, just watch the graph for ~15 minutes and see what it peaks at. Set this value to just above that.
 
    If you're having problems with the container spinning down too quickly, you'll have to lower this number. If it's staying up too long, you'll have to raise it.
 
-   I couldn't make this have a default, because it's too different for each game. If I default it to 20, there's a risk of people not reading docs, and having a instance left up 24/7.
+   I couldn't make this have a default, because it's way too different for each game. If I default it to 20, there's a risk of people not reading docs, and having an instance left up 24/7.
 
 ### `Watchdog.MinutesWithoutConnections`
 
@@ -177,8 +205,8 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
    ```yaml
    Watchdog:
-     # If you don't get more than 900 bytes per second for 10 minutes, shut down:
-     Threshold: 900
+     # If you don't get more than 220 KiB per minute into the container for 10 minutes, shut down:
+     Threshold: 220
      MinutesWithoutConnections: 10
    ```
 

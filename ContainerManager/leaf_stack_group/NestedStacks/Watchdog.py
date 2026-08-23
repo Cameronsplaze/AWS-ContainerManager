@@ -20,6 +20,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from ContainerManager.leaf_stack_group.lambda_functions.lambda_powertools import PowertoolsFunction
+
 class Watchdog(NestedStack):
     """
     This sets up the logic for watching the container for
@@ -28,11 +30,11 @@ class Watchdog(NestedStack):
     def __init__(
         self,
         scope: Construct,
-        leaf_construct_id: str,
         container_id: str,
         watchdog_config: dict,
         auto_scaling_group: autoscaling.AutoScalingGroup,
-        metric_volume_bytes_out_per_second: cloudwatch.MathExpression,
+        # metric_volume_kb_out_per_min: cloudwatch.MathExpression,
+        metric_container_traffic_in: cloudwatch.MathExpression,
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
         ecs_cluster: ecs.Cluster,
@@ -63,7 +65,7 @@ class Watchdog(NestedStack):
         ## These variables are also used in link_together_stack.py, so
         #    if someone is connecting, it'll reset the alarm:
         self.threshold = watchdog_config["Threshold"]
-        self.metric_namespace = leaf_construct_id
+        self.metric_namespace = container_id
         self.metric_unit = cloudwatch.Unit.COUNT
         self.metric_dimension_map = {
             "ContainerNameID": container_id,
@@ -79,47 +81,15 @@ class Watchdog(NestedStack):
             unit=self.metric_unit,
         )
 
-        ## ASG Traffic In:
-        # Originally Added 'Out' too, but it was too noisy. You only care about
-        # people connecting to container, or container downloading anyways.
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
-        traffic_in_metric = cloudwatch.Metric(
-            label="Network In",
-            metric_name="NetworkIn",
-            namespace="AWS/EC2",
-            dimensions_map={"AutoScalingGroupName": auto_scaling_group.auto_scaling_group_name},
-            period=Duration.minutes(1),
-            statistic="Sum",
-        )
-
-        ## Get traffic INTO the container
-        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html#ec2-cloudwatch-metrics
-        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
-        # BUT the DIFF_TIME function can cause divide by 0, and errors on first metric. Just grab period instead:
-        self.bytes_in_per_second = cloudwatch.MathExpression(
-            label="(Container) Bytes IN per Second",
-            # https://repost.aws/knowledge-center/efs-monitor-cloudwatch-metrics
-            expression="b_in/PERIOD(b_in)",
-            using_metrics={
-                "b_in": traffic_in_metric,
-            },
-            period=Duration.minutes(1),
-        )
-
         ## Combine metrics here before creating the alarm:
         # Docs: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         # Info: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.watchdog_traffic_metric = cloudwatch.MathExpression(
             label="Watchdog Container Traffic",
-            # Only push data if positive. Also don't push anything otherwise: This happens when efs
-            # is accessed at the end of one poll, and it's traffic_in is in the next poll. Garbage
-            # anyways, so ignore it. (If you need to add it back, put '0' as a third augment to IF)
-            expression="IF(traffic_in - volumes_out > 0, traffic_in - volumes_out) + dns_hit",
+            expression="MAX([traffic_in, dns_hit])",
             using_metrics={
-                # Traffic in (to container) minus volumes out (of efs), to get traffic only from clients:
-                "traffic_in": self.bytes_in_per_second,
-                "volumes_out": metric_volume_bytes_out_per_second,
+                "traffic_in": metric_container_traffic_in,
                 "dns_hit": self.traffic_dns_metric,
             },
             period=Duration.minutes(1),
@@ -133,11 +103,11 @@ class Watchdog(NestedStack):
         self.alarm_container_activity = self.watchdog_traffic_metric.create_alarm(
             self,
             "AlarmContainerActivity",
-            alarm_name=f"Container Activity - [{leaf_construct_id}]",
+            alarm_name=f"Container Activity - [{container_id}]",
             alarm_description="Trigger if 0 people are connected for too long",
             evaluation_periods=evaluation_periods,
             threshold=self.threshold,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.MISSING,
         )
         ## Call this if switching to ALARM:
@@ -151,7 +121,7 @@ class Watchdog(NestedStack):
         ## Instance Up too-long Logic ##
         ################################
 
-        ## Use the `traffic_in_metric` from above. If it has data, the instance is up:
+        ## Use the `metric_container_traffic_in` from above. If it has data, the instance is up:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
         self.instance_is_up = cloudwatch.MathExpression(
             # Doing N/A or 1, so alarms are blank if no instance/data:
@@ -159,9 +129,9 @@ class Watchdog(NestedStack):
             label="Instance is Up (Bool)",
             expression="network_in >= 0",
             using_metrics={
-                "network_in": traffic_in_metric,
+                "network_in": metric_container_traffic_in,
             },
-            period=traffic_in_metric.period,
+            period=metric_container_traffic_in.period,
         )
 
         ## Trigger if the instance is up too long:
@@ -170,7 +140,7 @@ class Watchdog(NestedStack):
         self.alarm_asg_instance_left_up = self.instance_is_up.create_alarm(
             self,
             "AlarmInstanceLeftUp",
-            alarm_name=f"Instance Left Up - [{leaf_construct_id}]",
+            alarm_name=f"Instance Left Up - [{container_id}]",
             alarm_description="To warn if the instance is up too long",
             ### This way if the period changes, this will stay the same duration:
             # Total Duration = Number of Periods * Period length... so
@@ -232,13 +202,11 @@ class Watchdog(NestedStack):
 
         ## Lambda function spin down ASG if container errors/throws:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_break_crash_loop = aws_lambda.Function(
+        self.lambda_break_crash_loop = PowertoolsFunction(
             self,
             "BreakCrashLoop",
             description=f"{container_id_alpha}-break-crash-loop: Triggered if container throws, to spins down ASG.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/spin_down_asg_on_error/"),
-            handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
             log_group=log_group_break_crash_loop,
             role=role_break_crash_loop,
             environment={
@@ -302,13 +270,13 @@ class Watchdog(NestedStack):
 
         metric_break_crash_loop_count = self.lambda_break_crash_loop.metric_invocations(
             unit=cloudwatch.Unit.COUNT,
-            statistic="Maximum",
+            statistic="Sum",
             period=Duration.minutes(1),
         )
         self.alarm_break_crash_loop_count = metric_break_crash_loop_count.create_alarm(
             self,
             "AlarmBreakCrashLoop",
-            alarm_name=f"Break Crash Loop - [{leaf_construct_id}]",
+            alarm_name=f"Break Crash Loop - [{container_id}]",
             alarm_description="Spin down the ASG if the container crashes or can't start",
             threshold=0,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,

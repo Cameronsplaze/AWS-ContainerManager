@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 jobs:
-  run-tests:
+  pytest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -32,14 +32,7 @@ jobs:
       ## Setup Python:
       - name: Setup Python
         uses: ./.github/workflows/composite-setup-python
-        with:
-          # Tox will install them into it's own env:
-          install-packages: False
-
-      ## Install Tox:
-      - name: Install Tox
-        run: python3 -m pip install tox
 
       ## Run Pytest:
       - name: Run Pytest
-        run: make test
+        run: tox

@@ -10,13 +10,13 @@ MAKEFLAGS += --no-print-directory
 #    If you forgot to source it, vars like `EMAILS` wouldn't exist,
 #    and remove resources when deployed locally.
 # Also doing it here lets `MATURITY` be set if desired.
--include ./vars.env
+load-vars := if [ -f ./vars.env ]; then set -a; . ./vars.env; set +a; fi;
 
 ### Figure out the application variables:
 #    Do here instead of the cdk app, so they're not duplicated in both and
 #    avoid getting out of sync. Just pass them in
 ##  Precedence: CLI > EnvVar > Default
-maturity := $(or $(maturity),$(MATURITY),Prod)
+maturity := $(or $(maturity),$(shell $(load-vars) echo "$$MATURITY"),Prod)
 # Make the first-letter uppercase, so it's easy to see in resource names:
 override maturity := $(shell echo "$(maturity)" | sed 's/^\(.\)\(.*\)/\U\1\L\2/')
 ## The _application_id and _base_stack_name are only here to have in one place (Makefile vs CDK App),
@@ -47,7 +47,7 @@ _cdk-deploy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Deploying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
 	echo ""
-	cdk deploy "$(stack-regix)" \
+	$(load-vars) cdk deploy "$(stack-regix)" \
 		--require-approval never \
 		--no-previous-parameters \
 	    --context _application_id="$(_application_id)" \
@@ -78,7 +78,7 @@ _cdk-destroy-helper: guard-stack-regix # empty config-file is okay here
 	echo "Destroying Stack..."
 	echo "Starting at: `date +'%-I:%M%P (%Ss)'`"
 	echo ""
-	cdk destroy "$(stack-regix)" \
+	$(load-vars) cdk destroy "$(stack-regix)" \
 		--force \
 	    --context _application_id="$(_application_id)" \
 		--context _base_stack_name="$(_base_stack_name)" \
@@ -117,11 +117,11 @@ cdk-synth:
 		echo "Config File: $(config-file)"; \
 	else \
 		echo "No Config File"; \
-		echo "    (Pass in with 'make cdk-synth config-file=<config>' to synth that stack too!)"; \
+		echo "    (Pass in with 'make cdk-synth config-file=<config> <ContainerID>' to synth that stack too!)"; \
 	fi
 	echo "Synthesizing Stack..."
 	echo ""
-	cdk synth \
+	$(load-vars) cdk synth \
 	    --context _application_id="$(_application_id)" \
 		--context _base_stack_name="$(_base_stack_name)" \
 		--context config-file="$(config-file)" \
@@ -143,10 +143,6 @@ lint: lint-python lint-markdown
 ###################
 ## Misc Commands ##
 ###################
-
-.PHONY: test
-test:
-	python3 -m tox --conf tests/tox.ini --root ./ run
 
 .PHONY: aws-whoami
 aws-whoami:
@@ -177,10 +173,7 @@ update-npm-cdk:
 .PHONY: update-python
 update-python:
 	echo "Updating Python Stuff..."
-	python3 -m pip install --upgrade \
-		pip \
-		-r requirements.txt \
-		-r requirements-dev.txt
+	tox devenv .tox/py
 	echo ""
 
 .PHONY: update

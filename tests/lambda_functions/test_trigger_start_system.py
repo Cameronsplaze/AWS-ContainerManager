@@ -15,6 +15,7 @@ class TestTriggerStartSystem:
         cls.env = {
             "ASG_NAME": "test-asg",
             "MANAGER_STACK_REGION": "us-west-2",
+            "ALLOWED_CIDR_IPS": json.dumps(["0.0.0.0/0"]),
             # For not letting the system spin down if someone is trying to connect:
             "METRIC_NAMESPACE": "test-namespace",
             "METRIC_NAME": "test-metric",

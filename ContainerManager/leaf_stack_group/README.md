@@ -92,10 +92,10 @@ flowchart TD
             lambda-asg-StateChange --" Updates DNS Record "--> sub-hosted-zone
             lambda-asg-StateChange --" (AWS Daemon) Updates Task Count "--> Ec2Service
 
-            subgraph Volumes.py
+            subgraph Volume.py
                 persistent-volume[Persistent Volume]
             end
-            class Volumes.py purple
+            class Volume.py purple
             Ec2Instance --" Mounts "--> persistent-volume
 
             subgraph Container.py
@@ -117,7 +117,7 @@ flowchart TD
                 lambda-break-crash-loop[Lambda: Break Crash Loop]
                 alarm-break-crash-loop[Alarm: Break Crash Loop]
 
-                metric-traffic-in --" Bytes/Second "--> alarm-container-activity
+                metric-traffic-in --" KiB/Minute "--> alarm-container-activity
                 metric-traffic-dns --" DNS Query Hit "--> alarm-container-activity
                 alarm-container-activity --" If No Traffic "--> scale-down-asg-action
                 metric-traffic-in --" If ANY traffic for VERY long time "--> alarm-instance-up

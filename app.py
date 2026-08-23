@@ -23,7 +23,9 @@ from ContainerManager.utils import load_base_config, load_leaf_config, Maturity
 
 # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.App.html
 app = App()
-application_id = app.node.get_context("_application_id")
+application_id = app.node.try_get_context("_application_id")
+if not application_id:
+    raise ValueError("Use the Makefile commands when working with this project!")
 APPLICATION_ID_TAG_NAME = "ApplicationId"
 ### TODO: Finish going through all the cdk_nag checks:
 # Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True))
@@ -126,6 +128,7 @@ if file_path:
         domain_stack=domain_stack,
         container_manager_stack=container_manager_stack,
         container_id=container_id,
+        config=leaf_config,
     )
     for key, val in stack_tags.items():
         Tags.of(start_system_stack).add(key, val)

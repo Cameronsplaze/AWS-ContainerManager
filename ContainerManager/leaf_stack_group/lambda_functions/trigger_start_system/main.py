@@ -5,10 +5,20 @@ Lambda code for starting the system when someone tries to connect.
 
 import os
 import json
+import ipaddress
+from typing import Any
 from functools import cache
 from dataclasses import dataclass, asdict
 
 import boto3
+
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.data_classes import CloudWatchLogsEvent, event_source
+from aws_lambda_powertools.utilities.data_classes.cloud_watch_logs_event import CloudWatchLogsDecodedData
+from aws_lambda_powertools.utilities.typing import LambdaContext
+from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
+
+logger = Logger()
 
 # frozen=True: This should never be modified (change cdk inputs instead)
 @dataclass(frozen=True)
@@ -17,22 +27,38 @@ class EnvVars:
     # pylint: disable=invalid-name
     ASG_NAME: str
     MANAGER_STACK_REGION: str
+    ALLOWED_CIDR_IPS: list[str]
     # For not letting the system spin down if someone is trying to connect:
     METRIC_NAMESPACE: str
     METRIC_NAME: str
-    METRIC_THRESHOLD: str
+    METRIC_THRESHOLD: int
     METRIC_UNIT: str
-    METRIC_DIMENSIONS: str
+    METRIC_DIMENSIONS: dict[str, str]
     # pylint: enable=invalid-name
 
 @cache
 def get_env_vars() -> EnvVars:
     """ Lazy-load and Validate the environment variables """
+    env_vars: dict[str, Any] = {
+        # If it's supposed to be a string already, DON'T json.loads it:
+        k: os.environ[k] if var_type is str else json.loads(os.environ[k])
+        for k, var_type in EnvVars.__annotations__.items()
+        if k in os.environ
+    }
     # EnvVars will naturally error with ALL the missing env-vars on creation:
-    return EnvVars(**{
-        # DON'T use getenv. We don't want the key to exist if it's missing.
-        k: os.environ[k] for k in EnvVars.__annotations__.keys() if k in os.environ
-    })
+    return EnvVars(**env_vars)
+
+## Log the Outcome of the Invocation
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/middleware_factory/
+@lambda_handler_decorator
+def log_lambda_outcome(handler, event, context):
+    """ Log the result, with the appended keys attached. """
+    try:
+        handler(event, context)
+        logger.info("Successfully started the system.")
+    except Exception:
+        logger.exception("Failed to start the system.")
+        raise
 
 ## Boto3 Clients:
 # ALWAYS use @cache for clients. Even if they're always called, it helps
@@ -49,34 +75,76 @@ def get_asg_client():
     env = get_env_vars()
     return boto3.client('autoscaling', region_name=env.MANAGER_STACK_REGION)
 
+def is_client_allowed(client_subnets: list[str]) -> bool:
+    """If ANY of the client_subnets overlaps ANY of the ALLOWED_CIDR_IPS. 
 
-def lambda_handler(event, context):
-    """ Main function of the lambda. """
+    THIS IS JUST A COST-SAVER (And to lessen start-up email spam).
+    The real security is on the EC2 Security Group.
+        1) The client IP is optional (and "-" when not sent)
+        2) They only give the IP range, so there's 255 IP's *minimum* that could match.
+    """
     env = get_env_vars()
-    print(json.dumps({"Event": event, "Context": context, "Env": asdict(env)}, default=str))
+    # The resolver doesn't always send an ip (like cloudflare). Just spin up the instance
+    if "-" in client_subnets:
+        return True
+    # Check against the partial cidr they send us (they don't send the full IP).
+    return any(
+        ipaddress.ip_network(subnet).overlaps(ipaddress.ip_network(cidr))
+        for subnet in client_subnets
+        for cidr in env.ALLOWED_CIDR_IPS
+    )
 
-    ### Let the metric know someone is trying to connect, to stop it
-    ### from alarming and spinning down the system:
-    ###   (Also if the system is in alarm, this resets it so it can spin down again)
-    dimensions_input = json.loads(env.METRIC_DIMENSIONS)
-    # Change it to the format boto3 cloudwatch wants:
-    dimension_map = [{"Name": k, "Value": v} for k, v in dimensions_input.items()]
+def push_metric_connection() -> None:
+    """Push a metric to cloudwatch. This is used to keep the system from spinning down."""
+    ## YOU CANNOT USE POWERTOOLS METRICS HERE: It does not have any cross-region
+    #    support, since it uses EMF JSON, and not put_metric_data behind the scenes.
+    env = get_env_vars()
     cloudwatch_client = get_cloudwatch_client()
-    cloudwatch_client.put_metric_data(
+    # Change the dimension map to the format boto3 cloudwatch wants:
+    dimension_map = [{"Name": k, "Value": v} for k, v in env.METRIC_DIMENSIONS.items()]
+    response =cloudwatch_client.put_metric_data(
         Namespace=env.METRIC_NAMESPACE,
         MetricData=[{
             'MetricName': env.METRIC_NAME,
             'Dimensions': dimension_map,
             'Unit': env.METRIC_UNIT,
-            # One greater than the threshold, to make sure the alarm doesn't error:
-            'Value': 1+int(env.METRIC_THRESHOLD),
+            'Value': env.METRIC_THRESHOLD,
         }],
     )
+    logger.debug("Pushed metric to cloudwatch.", extra={"response": response})
 
-    ## Spin up the instance. The instance-StateChange-hook will do the rest:
+def spin_up_asg() -> None:
+    """Spin up the system. The instance-StateChange-hook will do the rest."""
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling.html#AutoScaling.Client.update_auto_scaling_group
+    env = get_env_vars()
     asg_client = get_asg_client()
-    asg_client.update_auto_scaling_group(
+    response = asg_client.update_auto_scaling_group(
         AutoScalingGroupName=env.ASG_NAME,
         DesiredCapacity=1,
     )
+    logger.debug("Updated ASG desired capacity to 1.", extra={"response": response})
+
+@log_lambda_outcome()
+## Decompress CloudWatch Logs:
+# https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/#cloudwatch-logs
+@event_source(data_class=CloudWatchLogsEvent)
+@logger.inject_lambda_context(clear_state=True)
+def lambda_handler(event: CloudWatchLogsEvent, context: LambdaContext): # pylint: disable=unused-argument
+    """ Main function of the lambda. """
+    env = get_env_vars()
+    logger.append_keys(env_vars=asdict(env))
+    # The event is compressed, then base64'd. This makes it readable again:
+    decompressed_log: CloudWatchLogsDecodedData = event.parse_logs_data()
+
+    ## Fields Are:
+    # [version, timestamp, hosted_zone_id, domain_name, dns_record_type,
+    #   response_code, protocol, edge_location, dns_resolver_ip, client_subnet]
+    client_subnets = [x.message.split()[9] for x in decompressed_log.log_events]
+    # Append to the rest of the messages this run:
+    logger.append_keys(client_subnets=client_subnets)
+    if not is_client_allowed(client_subnets):
+        logger.warning("No client subnet overlaps ALLOWED_CIDR_IPS, NOT starting the system.")
+        return
+
+    push_metric_connection()
+    spin_up_asg()

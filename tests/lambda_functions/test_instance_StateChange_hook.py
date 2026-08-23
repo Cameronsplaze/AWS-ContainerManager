@@ -1,4 +1,5 @@
 
+import logging
 from moto import mock_aws
 import pytest
 
@@ -87,7 +88,7 @@ class TestInstanceStateChangeHook:
         ("EC2 Instance Launch Successful", 1),
         ("EC2 Instance-terminate Lifecycle Action", 0),
     ])
-    def test_lambda_sets_ip_events(self, setup_env, monkeypatch, event_type, desired_capacity):
+    def test_lambda_sets_ip_events(self, setup_env, monkeypatch, lambda_context, event_type, desired_capacity):
         """ Test that the lambda sets the IP correctly on both event types """
         setup_env(self.env)
         ## First, update the ASG:
@@ -121,7 +122,7 @@ class TestInstanceStateChangeHook:
                     "EC2InstanceId": instance_id
                 }
             },
-            context={},
+            context=lambda_context,
         )
         ## Check the record:
         records = self.route53_client.list_resource_record_sets(
@@ -130,7 +131,7 @@ class TestInstanceStateChangeHook:
         a_record = records[2]
         assert a_record["ResourceRecords"] == [{"Value": "1.2.3.4"}]
 
-    def test_lambda_exit_if_asg_instance_coming_up_on_terminate(self, setup_env, monkeypatch):
+    def test_lambda_exit_if_asg_instance_coming_up_on_terminate(self, setup_env, monkeypatch, lambda_context, caplog):
         """
         If you flag a instance to terminate, right when the other is coming up, there's a
         window where the terminate one will happen just after the new one comes up, and
@@ -160,7 +161,7 @@ class TestInstanceStateChangeHook:
             lambda *args, **kwargs: mock_asg_response
         )
         ## Run the lambda, expect it to exit:
-        with pytest.raises(SystemExit, match=f"Instance '{instance_id}' is in '{lifecycle_state}', skipping this termination event."):
+        with caplog.at_level(logging.WARNING):
             instance_StateChange_hook.lambda_handler(
                 event={
                     "detail-type": "EC2 Instance-terminate Lifecycle Action",
@@ -169,10 +170,12 @@ class TestInstanceStateChangeHook:
                         "EC2InstanceId": instance_id
                     }
                 },
-                context={},
+                context=lambda_context,
             )
+        assert len(caplog.records) == 1
+        assert f"Instance '{instance_id}' is in '{lifecycle_state}', skipping this termination event." in caplog.text
 
-    def test_lambda_raises_on_unknown_event(self, setup_env):
+    def test_lambda_raises_on_unknown_event(self, setup_env, lambda_context):
         """ Test that the lambda raises an error on an unknown event type """
         setup_env(self.env)
         event_type = "Unknown Event"
@@ -181,5 +184,5 @@ class TestInstanceStateChangeHook:
                 event={
                     "detail-type": event_type,
                 },
-                context={},
+                context=lambda_context,
             )

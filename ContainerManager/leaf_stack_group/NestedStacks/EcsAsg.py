@@ -2,19 +2,22 @@
 """
 This module contains the EcsAsg NestedStack class.
 """
-
 from aws_cdk import (
+    Duration,
     NestedStack,
+    # Validations,
+    # Acknowledgment,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
     aws_sns as sns,
-    aws_efs as efs,
+    aws_s3 as s3,
+    aws_s3files as s3files,
     aws_autoscaling as autoscaling,
+    aws_cloudwatch as cloudwatch,
 )
 from constructs import Construct
 
-from cdk_nag import NagSuppressions
 
 
 
@@ -34,7 +37,7 @@ class EcsAsg(NestedStack):
         task_definition: ecs.Ec2TaskDefinition,
         ec2_config: dict,
         sg_ec2_instance_traffic: ec2.SecurityGroup,
-        efs_file_systems: dict[efs.FileSystem, efs.AccessPoint],
+        file_systems: list[dict],
         **kwargs,
     ) -> None:
         super().__init__(scope, "EcsAsgNestedStack", **kwargs)
@@ -48,56 +51,104 @@ class EcsAsg(NestedStack):
             "EcsCluster",
             cluster_name=f"{leaf_construct_id}-ecs-cluster",
             vpc=vpc,
+            # There are some VERY nice metrics we use because of this:
+            container_insights_v2=ecs.ContainerInsights.ENHANCED,
         )
 
-        ## Permissions for inside the instance/host of the container:
-        self.ec2_role = iam.Role(
+        ## Permissions for inside the ec2-instance/host of the container:
+        self.ec2_permissions_role = iam.Role(
             self,
-            "Ec2ExecutionRole",
+            "Ec2PermissionsRole",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             description="The instance's permissions (HOST of the container)",
         )
 
         ## Let the instance register itself to a ecs cluster:
-        # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#instance-iam-role-permissions
-        self.ec2_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
+        # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#security-iam-awsmanpol-AmazonEC2ContainerServiceforEC2Role
+        self.ec2_permissions_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonEC2ContainerServiceforEC2Role"))
+
+        ## CloudWatch Metric Permissions - S3 Files:
+        self.ec2_permissions_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                # AWS Doesn't support locking down by dimensions :(
+                conditions={
+                    "StringEquals": {
+                        # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-monitoring-cloudwatch.html
+                        "cloudwatch:namespace": ["AWS/S3/Files", "efs-utils/S3Files"],
+                    },
+                },
+            )
+        )
 
         ### For Running Commands on container when it starts up:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.UserData.html
         self.ec2_user_data = ec2.UserData.for_linux() # (Can also set to python, etc. Default bash)
 
-        efs_root_host = "/mnt/efs"
-        ### Tie all the EFS's to the host:
-        for efs_file_system, mount_paths in efs_file_systems.items():
-            ### Give EC2 access to the EFS:
-            efs_file_system.grant_read_write(self.ec2_role)
+        s3_files_root_host = "/mnt/s3files"
 
-            # Mount on host, each has to be unique. (/mnt/efs/Efs-1, /mnt/efs/Efs-2, etc.)
-            efs_mount_point = f"{efs_root_host}/{efs_file_system.node.id}"
+        for file_system_info in file_systems:
+            s3_bucket: s3.Bucket = file_system_info["Bucket"]
+            s3_file_system: s3files.CfnFileSystem = file_system_info["FileSystem"]
+            mount_paths: list[str] = file_system_info["Paths"]
+
+            ### Give EC2 access to the bucket:
+            s3_bucket.grant_read_write(self.ec2_permissions_role)
+
+            # Mount on host, each has to be unique. (/mnt/s3files/S3FilesFs-<ID>)
+            s3_files_mount_point = f"{s3_files_root_host}/{s3_file_system.node.id}"
 
             # NOTE: The docs didn't have 'iam', but you get permission denied without it:
             #      (You can also mount efs directly by removing the access-point flag)
-            # https://docs.aws.amazon.com/efs/latest/ug/mounting-access-points.html
+            # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-mounting.html
+            # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-prereq-policies.html
             # https://docs.aws.amazon.com/efs/latest/ug/mount-fs-auto-mount-update-fstab.html
             # https://docs.aws.amazon.com/efs/latest/ug/mount-helper-setting.html
             self.ec2_user_data.add_commands(
                 # Make sure the EFS Mount Point exists:
-                f'mkdir -p "{efs_mount_point}"',
-                ## Add the entry to fstab, so it mounts on boot:
-                f'echo "{efs_file_system.file_system_id} {efs_mount_point} efs _netdev,tls,iam 0 0" >> /etc/fstab',
+                f'mkdir --parents "{s3_files_mount_point}"',
+                ## Add the entry to fstab, so it mounts s3's root on boot:
+                f'echo "{s3_file_system.attr_file_system_id}:/ {s3_files_mount_point} s3files _netdev,tls,iam 0 0" >> /etc/fstab',
                 ## Mount that specific entry:
-                f'mount {efs_mount_point}',
+                f'mount {s3_files_mount_point}',
             )
             for mount_path in mount_paths:
-                # Make sure each specific mount path exists INSIDE the EFS, now that it's mounted:
-                full_mount_path = f"{efs_mount_point}/{mount_path.lstrip('/')}"
+                # Make sure each specific mount path exists INSIDE S3, now that it's mounted:
+                # - os.path.join and pathlib don't let you combine absolute paths (for some god-forsaken reason), so no benefit:
+                full_mount_path = f"{s3_files_mount_point}/{mount_path.lstrip('/')}"
                 self.ec2_user_data.add_commands(
                     ### I tried everything possible to avoid the 777 here. The problem is:
                     #     - We need to support ANY container, and they have different UID:GID's.
                     #     - Some container's don't support overriding UID:GID's.
                     #     - This is only the *last* directory in the path, and not any files too.
-                    f'mkdir -p -m 777 "{full_mount_path}"',
+                    f'mkdir --parents --mode=777 "{full_mount_path}"',
                 )
+
+            ### Give EC2 access to mount/write the file system:
+            # (No grant_* helper like EFS has - CfnFileSystem is L1-only, so do it by hand.)
+            # https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonS3FilesClientFullAccess.html
+            self.ec2_permissions_role.add_to_policy(
+                iam.PolicyStatement(
+                    # Added s3files:ClientRootAccess, missing from docs. Required to write to root dir.
+                    actions=["s3files:ClientMount", "s3files:ClientWrite", "s3files:ClientRootAccess"],
+                    resources=[s3_file_system.attr_file_system_arn],
+                )
+            )
+            ### Lets reads bypass the file-system layer straight to S3 (S3 Files does this
+            #   automatically for large/uncached reads, but needs the permission to do it):
+            self.ec2_permissions_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["s3:GetObject", "s3:GetObjectVersion"],
+                    resources=[s3_bucket.arn_for_objects("*")],
+                )
+            )
+            self.ec2_permissions_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["s3:ListBucket"],
+                    resources=[s3_bucket.bucket_arn],
+                )
+            )
 
         ## Add ECS Agent Config Variables:
         # (Full list at: https://github.com/aws/amazon-ecs-agent/blob/master/README.md#environment-variables)
@@ -112,8 +163,10 @@ class EcsAsg(NestedStack):
             'echo "ECS_SELINUX_CAPABLE=true" >> /etc/ecs/ecs.config',
             ### Instance isn't ever on long enough to worry about cleanup anyways:
             'echo "ECS_DISABLE_IMAGE_CLEANUP=true" >> /etc/ecs/ecs.config',
+            ### Enable optional GPU support if it exists on the instance:
+            f'echo "ECS_ENABLE_GPU_SUPPORT={str(ec2_config["GpuExists"]).lower()}" >> /etc/ecs/ecs.config',
+            f'echo "ECS_CLUSTER={self.ecs_cluster.cluster_name}" >> /etc/ecs/ecs.config',
         )
-
 
         ## Contains the configuration information to launch an instance, and stores launch parameters
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2.LaunchTemplate.html
@@ -123,11 +176,13 @@ class EcsAsg(NestedStack):
             instance_type=ec2.InstanceType(ec2_config["InstanceType"]),
             ## Needs to be an "EcsOptimized" image to register to the cluster
             # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs.EcsOptimizedImage.html
-            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(), # DON'T set hardware type here, not sure if it switches to ARM automatically.
+            machine_image=ecs.EcsOptimizedImage.amazon_linux2023(
+                ecs.AmiHardwareType.GPU if ec2_config["GpuExists"] else ecs.AmiHardwareType.STANDARD,
+            ),
             # Lets Specific traffic to/from the instance:
             security_group=sg_ec2_instance_traffic,
             user_data=self.ec2_user_data,
-            role=self.ec2_role,
+            role=self.ec2_permissions_role,
             key_pair=ssh_key_pair,
             ## Console recommends to enable IMDSv2:
             http_tokens=ec2.LaunchTemplateHttpTokens.REQUIRED,
@@ -166,10 +221,11 @@ class EcsAsg(NestedStack):
             "AsgCapacityProvider",
             auto_scaling_group=self.auto_scaling_group,
             ## To let me delete the stack!!:
-            # Although this doesn't do anything now, since we switched to Daemon mode.
+            # Although this might not do anything now, since we switched to Daemon mode.
             enable_managed_termination_protection=False,
             ## Let the instance exit by itself for 5 minutes. If it doesn't, hard-kill it.
             # If this is false, the instance will wait for 5 min before hard-killing always.
+            # A lot of containers will do a quick-save, when told to gracefully exit, and kill after.
             enable_managed_draining=True,
             ## We directly manage the ASG, that's how this architecture is designed.
             # And since we'll ever have 1 or 0 instances, we don't need this. Save on
@@ -194,11 +250,36 @@ class EcsAsg(NestedStack):
             min_healthy_percent=0,
             max_healthy_percent=100,
             ## We use the 'spin-down-asg-on-error' lambda to take care of circuit breaker-like
-            ## logic. If we *just* spun down the task, the instance would still be running.
+            ## logic. If we *just* spun down the task, the ec2-instance would still be running.
             ## That'd both charge money, and not let the system "spin back up/reset".
             # circuit_breaker={
             #     "rollback": False # Don't keep trying to restart the container if it fails
             # },
+        )
+
+        ## Network Traffic In
+        # Requires Ecs Enhanced Metrics. Should be network traffic WITHOUT the Volume too!
+        # https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-enhanced-observability-metrics-ECS.html
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.Metric.html
+        traffic_in = cloudwatch.Metric(
+            label="Network In - Container (Bytes/Sec)",
+            namespace="ECS/ContainerInsights",
+            metric_name="NetworkRxBytes",
+            dimensions_map={
+                "ClusterName": self.ecs_cluster.cluster_name,
+                "ServiceName": self.ec2_service.service_name,
+            },
+            period=Duration.minutes(1),
+            statistic="Sum",
+        )
+        # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_cloudwatch.MathExpression.html
+        self.container_traffic_in = cloudwatch.MathExpression(
+            label="Network In - Container",
+            expression="container_traffic_in * 60 / 1024", # KiB/min
+            using_metrics={
+                "container_traffic_in": traffic_in,
+            },
+            period=Duration.minutes(1),
         )
 
         #####################
@@ -206,60 +287,62 @@ class EcsAsg(NestedStack):
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
 
-        NagSuppressions.add_resource_suppressions(
-            self.auto_scaling_group,
-            [
-                # Lambda Function:
-                {
-                    "id": "AwsSolutions-L1",
-                    "reason": "This lambda function is controlled by cdk, can't update to latest version.",
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                # SNS Drain Hook:
-                {
-                    "id": "AwsSolutions-SNS2",
-                    "reason": "This sns topic is controlled by cdk, can't add server-side encryption."
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                {
-                    "id": "AwsSolutions-SNS3",
-                    "reason": "This sns topic is controlled by cdk, can't add ssl/tls encryption."
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                # ASG Permissions:
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
-                    "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
-                },
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "\n".join([
-                        "There's a bunch of '*' permissions, but they're either only 'Describe' type, or locked down by the 'conditions' key.",
-                        "(cdk code here: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-ecs/lib/drain-hook/instance-drain-hook.ts)"
-                    ]),
-                    "appliesTo": ["Resource::*"],
-                },
-                # ASG Notifications:
-                {
-                    "id": "AwsSolutions-AS3",
-                    "reason": "\n".join([
-                        "We have the important notifications on instance lifecycles, but not all.",
-                        "(We tell users when it *finishes* coming up, but who cares about when it *starts* to...)"
-                    ]),
-                    # "appliesTo": "N/A (Does not exist)"
-                },
-                # ASG EBS Encryption:
-                {
-                    "id": "AwsSolutions-EC26",
-                    "reason": "\n".join([
-                        "This is the default EBS storage cdk creates and attaches to the ASG EC2 Instances.",
-                        "We can create one ourselves so the default is overidden with one with encryption,",
-                        "but I don't want to maintain those settings, just use the one the cdk team supports.",
-                        "(This Issue will add support anyways: https://github.com/aws/aws-cdk/issues/6459)"
-                    ]),
-                    # "appliesTo": "N/A (Does not exist)"
-                }
-            ],
-            apply_to_children=True,
-        )
+        # https://github.com/cdklabs/cdk-nag#migrating-from-v2
+
+        # NagSuppressions.add_resource_suppressions(
+        #     self.auto_scaling_group,
+        #     [
+        #         # Lambda Function:
+        #         {
+        #             "id": "AwsSolutions-L1",
+        #             "reason": "This lambda function is controlled by cdk, can't update to latest version.",
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         # SNS Drain Hook:
+        #         {
+        #             "id": "AwsSolutions-SNS2",
+        #             "reason": "This sns topic is controlled by cdk, can't add server-side encryption."
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         {
+        #             "id": "AwsSolutions-SNS3",
+        #             "reason": "This sns topic is controlled by cdk, can't add ssl/tls encryption."
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         # ASG Permissions:
+        #         {
+        #             "id": "AwsSolutions-IAM5",
+        #             "reason": "It's flagging on the built-in auto-scaling arn. Nothing to do. (The '*' between autoScalingGroup and autoScalingGroupName.)",
+        #             "appliesTo": [{"regex": "/^Resource::arn:aws:autoscaling:(.*):(.*):autoScalingGroup:\\*:autoScalingGroupName/(.*)$/g"}],
+        #         },
+        #         {
+        #             "id": "AwsSolutions-IAM5",
+        #             "reason": "\n".join([
+        #                 "There's a bunch of '*' permissions, but they're either only 'Describe' type, or locked down by the 'conditions' key.",
+        #                 "(cdk code here: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-ecs/lib/drain-hook/instance-drain-hook.ts)"
+        #             ]),
+        #             "appliesTo": ["Resource::*"],
+        #         },
+        #         # ASG Notifications:
+        #         {
+        #             "id": "AwsSolutions-AS3",
+        #             "reason": "\n".join([
+        #                 "We have the important notifications on instance lifecycles, but not all.",
+        #                 "(We tell users when it *finishes* coming up, but who cares about when it *starts* to...)"
+        #             ]),
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         },
+        #         # ASG EBS Encryption:
+        #         {
+        #             "id": "AwsSolutions-EC26",
+        #             "reason": "\n".join([
+        #                 "This is the default EBS storage cdk creates and attaches to the ASG EC2 Instances.",
+        #                 "We can create one ourselves so the default is overidden with one with encryption,",
+        #                 "but I don't want to maintain those settings, just use the one the cdk team supports.",
+        #                 "(This Issue will add support anyways: https://github.com/aws/aws-cdk/issues/6459)"
+        #             ]),
+        #             # "appliesTo": "N/A (Does not exist)"
+        #         }
+        #     ],
+        #     apply_to_children=True,
+        # )

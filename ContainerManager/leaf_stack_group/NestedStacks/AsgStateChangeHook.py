@@ -7,6 +7,8 @@ from aws_cdk import (
     NestedStack,
     Duration,
     RemovalPolicy,
+    Validations,
+    Acknowledgment,
     aws_lambda,
     aws_sns as sns,
     aws_iam as iam,
@@ -16,9 +18,9 @@ from aws_cdk import (
     aws_autoscaling as autoscaling,
 )
 from constructs import Construct
-from cdk_nag import NagSuppressions
 
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
+from ContainerManager.leaf_stack_group.lambda_functions.lambda_powertools import PowertoolsFunction
 
 class AsgStateChangeHook(NestedStack):
     """
@@ -33,6 +35,7 @@ class AsgStateChangeHook(NestedStack):
         auto_scaling_group: autoscaling.AutoScalingGroup,
         base_stack_sns_topic: sns.Topic,
         leaf_stack_sns_topic: sns.Topic,
+        lambda_trigger_aws_backup: aws_lambda.Function | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, "AsgStateChangeHook", **kwargs)
@@ -68,13 +71,11 @@ class AsgStateChangeHook(NestedStack):
 
         ## Lambda function to update the DNS record:
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda.Function.html
-        self.lambda_asg_state_change_hook = aws_lambda.Function(
+        self.lambda_asg_state_change_hook = PowertoolsFunction(
             self,
             "AsgStateChangeHook",
             description=f"{container_id_alpha}-ASG-StateChange: Triggered by ec2 state changes. Updates DNS with the EC2 IP, or '{domain_stack.unavailable_ip}'.",
             code=aws_lambda.Code.from_asset("./ContainerManager/leaf_stack_group/lambda_functions/instance_StateChange_hook/"),
-            handler="main.lambda_handler",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             log_group=self.log_group_asg_statechange_hook,
             role=self.asg_state_change_role,
@@ -165,20 +166,21 @@ class AsgStateChangeHook(NestedStack):
                 events_targets.SnsTopic(leaf_stack_sns_topic, message=message_down),
             ],
         )
+        ## If backup is enabled, snapshot the volume whenever we spin down:
+        if lambda_trigger_aws_backup:
+            self.rule_asg_state_change_trigger_down.add_target(
+                events_targets.LambdaFunction(lambda_trigger_aws_backup),
+            )
 
         #####################
         ### cdk_nag stuff ###
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
 
-        NagSuppressions.add_resource_suppressions(
-            self.asg_state_change_policy,
-            [
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "These actions require the wildcard resource, since they're 'Describe'.",
-                    "appliesTo": ["Resource::*"]
-                }
-            ],
-            apply_to_children=True,
+        Validations.of(self.asg_state_change_policy).acknowledge(
+            Acknowledgment(
+                id='AwsSolutions-SNS2[{"appliesTo": ["Resource::*"]}]',
+                reason="These actions require the wildcard resource, since they're 'Describe'.",
+                # apply_to_children=True,
+            ),
         )

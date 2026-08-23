@@ -1,6 +1,8 @@
 
 Ec2:
   InstanceType: m5.large # 2vCPUs, 8GB RAM
+  SshCidrAllowed:
+    - !ENV ${SSH_IP_CIDR}
 
 Container:
   # Docs here: https://docker-minecraft-server.readthedocs.io/en/latest/
@@ -58,18 +60,16 @@ Container:
     VERSION_FROM_MODRINTH_PROJECTS: True
 
 
-Volumes:
-  Data:
-    Type: EFS # EFS or (eventually) S3. EFS is the default.
-    EnableBackups: True
-    KeepOnDelete: True
-    Paths:
-      - Path: /data
-        ReadOnly: False
+Volume:
+  EnableBackups: True
+  KeepBackupDays: 720
+  Paths:
+    - Path: /data
+      ReadOnly: False
 
 ## Config options for how to monitor for players:
 Watchdog:
-  Threshold: 1175
+  Threshold: 45
   InstanceLeftUp:
     # Just notify:
     DurationHours: 8

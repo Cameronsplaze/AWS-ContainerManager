@@ -7,10 +7,11 @@ import re
 
 from aws_cdk import (
     Stack,
+    Validations,
+    Acknowledgment,
     aws_sns as sns,
 )
 from constructs import Construct
-from cdk_nag import NagSuppressions
 
 from ContainerManager.base_stack import BaseStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
@@ -31,7 +32,7 @@ class ContainerManagerStack(Stack):
         if "NestedStackResource" in element.node.id:
             match = re.search(r'([a-zA-Z0-9]+)\.NestedStackResource', element.node.id)
             if match:
-                # Returns "VolumesNestedStack" instead of "VolumesNestedStackVolumesNestedStackResource..."
+                # Returns "VolumeNestedStack" instead of "VolumeNestedStackVolumeNestedStackResource..."
                 return match.group(1)
             # Fail fast. If the logical_id ever changes on a existing stack, you replace everything and might loose data.
             raise RuntimeError(f"Could not find 'NestedStackResource' in {element.node.id}. Did a CDK update finally fix NestedStack names?")
@@ -83,6 +84,7 @@ class ContainerManagerStack(Stack):
             vpc=base_stack.vpc,
             container_id=container_id,
             container_ports_config=config["Container"]["Ports"],
+            ec2_config=config["Ec2"],
         )
 
         ### All the info for the Container Stuff
@@ -95,15 +97,18 @@ class ContainerManagerStack(Stack):
             container_config=config["Container"],
         )
 
-        ### All the info for Volumes Stuff
-        self.volumes_nested_stack = NestedStacks.Volumes(
+        ### All the info for Volume Stuff
+        self.volume_nested_stack = NestedStacks.Volume(
             self,
             description=f"Volume Logic for {construct_id}",
             vpc=base_stack.vpc,
             task_definition=self.container_nested_stack.task_definition,
             container=self.container_nested_stack.container,
-            volumes_config=config["Volumes"],
+            container_id=container_id,
+            volume_config=config["Volume"],
+            volume_backup_vault=base_stack.backup_vault,
             sg_efs_traffic=self.sg_nested_stack.sg_efs_traffic,
+            base_stack_sns_topic=base_stack.sns_notify_topic,
         )
 
         ### All the info for the ECS and ASG Stuff
@@ -118,18 +123,18 @@ class ContainerManagerStack(Stack):
             task_definition=self.container_nested_stack.task_definition,
             ec2_config=config["Ec2"],
             sg_ec2_instance_traffic=self.sg_nested_stack.sg_ec2_instance_traffic,
-            efs_file_systems=self.volumes_nested_stack.efs_file_systems,
+            file_systems=self.volume_nested_stack.file_systems,
         )
 
         ### All the info for the Watchdog Stuff
         self.watchdog_nested_stack = NestedStacks.Watchdog(
             self,
             description=f"Watchdog Logic for {construct_id}",
-            leaf_construct_id=construct_id,
             container_id=container_id,
             watchdog_config=config["Watchdog"],
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
-            metric_volume_bytes_out_per_second=self.volumes_nested_stack.bytes_out_per_second,
+            # metric_volume_kb_out_per_min=self.volume_nested_stack.kb_out_per_min,
+            metric_container_traffic_in=self.ecs_asg_nested_stack.container_traffic_in,
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
             ecs_cluster=self.ecs_asg_nested_stack.ecs_cluster,
@@ -144,6 +149,7 @@ class ContainerManagerStack(Stack):
             auto_scaling_group=self.ecs_asg_nested_stack.auto_scaling_group,
             base_stack_sns_topic=base_stack.sns_notify_topic,
             leaf_stack_sns_topic=self.sns_notify_topic,
+            lambda_trigger_aws_backup=self.volume_nested_stack.lambda_trigger_aws_backup,
         )
 
         ######################
@@ -159,7 +165,7 @@ class ContainerManagerStack(Stack):
 
                 domain_stack=domain_stack,
                 container_nested_stack=self.container_nested_stack,
-                volumes_nested_stack=self.volumes_nested_stack,
+                volume_nested_stack=self.volume_nested_stack,
                 ecs_asg_nested_stack=self.ecs_asg_nested_stack,
                 watchdog_nested_stack=self.watchdog_nested_stack,
                 asg_state_change_hook_nested_stack=self.asg_state_change_hook_nested_stack,
@@ -169,9 +175,9 @@ class ContainerManagerStack(Stack):
         ### cdk_nag stuff ###
         #####################
         # Do at very end, they have to "suppress" after everything's created to work.
-        NagSuppressions.add_resource_suppressions(self.sns_notify_topic, [
-            {
-                "id": "AwsSolutions-SNS2",
-                "reason": "KMS is costing ~3/month, and this isn't sensitive data anyways.",
-            },
-        ])
+        Validations.of(self.sns_notify_topic).acknowledge(
+            Acknowledgment(
+                id="AwsSolutions-SNS2",
+                reason="KMS is costing ~3/month, and this isn't sensitive data anyways.",
+            ),
+        )

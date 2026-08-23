@@ -3,6 +3,7 @@ Leaf Config Parser
 
 The docs for schema is at: https://github.com/keleshev/schema
 """
+import ipaddress
 from functools import cache
 
 from schema import Schema, And, Or, Use, Optional
@@ -50,14 +51,33 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
     """ Leaf config schema for the leaf stack. """
     return Schema({
         "Ec2": And(
-            {"InstanceType": Use(str.lower)},
+            {
+                "InstanceType": Use(str.lower),
+                # List of CIDR's allowed to SSH into the instance
+                Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
+                    Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
+                ],
+                # List of CIDR's allowed to connect to the Container's Ports. (Game traffic, etc.)
+                Optional("GameCidrAllowed", default=["0.0.0.0/0"]): [
+                    Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
+                ],
+            },
             ## Cast the InstanceType to the boto3 response with ALL it's info:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_types.html#EC2.Client.describe_instance_types
+            # (Keep "SshCidrAllowed" around too, it doesn't come from this boto3 call):
             Use(lambda info: get_ec2_client().describe_instance_types(
-                InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0],
+                InstanceTypes=[info["InstanceType"]])["InstanceTypes"][0] | {
+                    "SshCidrAllowed": info["SshCidrAllowed"],
+                    "GameCidrAllowed": info["GameCidrAllowed"],
+                },
             ),
             # Make sure we have at LEAST 2 GB for Host, and 1 GB for guest:
             lambda instance_info: instance_info["MemoryInfo"]["SizeInMiB"] >= 3*1024, # # 3 GB
+            # Combine any other keys into the Ec2 Config:
+            Use(lambda instance_info: instance_info | {
+                # Add a "GpuExists" flag, so downstream code doesn't need to re-check "GpuInfo" itself:
+                "GpuExists": bool("GpuInfo" in instance_info and len(instance_info["GpuInfo"]["Gpus"]) > 0),
+            }),
         ),
         "Container": {
             "Image": Use(str.lower),
@@ -75,33 +95,38 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                     )),
                 ),
             ],
-            # Key: Optional, but defaults value to empty dict if not declared:
-            # Value: Either a empty dict, or a dict of strings (that casts all values to string).
-            #        Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
-            Optional("Environment", default={}): Or({Use(str): Use(
-                # All values must be strings. If it's a bool, also make it all-lowercase:
-                lambda val: str(val).lower() if isinstance(val, bool) else str(val))},
+            Optional("Environment", default={}): Or(
+                {
+                    # Key: Optional, but defaults value to empty dict if not declared:
+                    # Value: ALL env-vars are expected to be strings, and error if they're not.
+                    # Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
+                    Use(str): Use(lambda val: str(val).lower() if isinstance(val, bool) else str(val))
+                },
                 # You're allowed to set an empty dict here:
                 {},
             ),
         },
-        Optional("Volumes", default={}): {
-            # The ID can be anything:
-            str: {
-                # Contents of each volume config:
-                Optional("Type", default="EFS"): And(
-                    Use(str.upper),
-                    # Add S3 as apart of the Or here when it's supported!
-                    Or("EFS")
+        ## No Volume declared == an empty dict == NO bucket at all:
+        Optional("Volume", default={}): {
+            Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
+            Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
+            Optional("KeepBackupDays", default=90): And( int, Use(
+                # Bump it down in the dev stack to save money:
+                lambda days: days if maturity == Maturity.PROD else 7),
+            ),
+            Optional("DefaultEfsCacheFileMb", default=256): And(int, lambda mb: mb >= 0),
+            "Paths": [{
+                "Path": And(
+                    str,
+                    # Must start with a /, flag if it doesn't:
+                    lambda path: path.startswith("/"),
+                    # Put a slash at the end if it doesn't have one:
+                    Use(lambda path: f"{path.rstrip('/')}/"),
                 ),
-                Optional("EnableBackups", default=bool(maturity == Maturity.PROD)): bool,
-                Optional("KeepOnDelete", default=bool(maturity == Maturity.PROD)): bool,
-                # List of Path Configs to save:
-                "Paths": [{
-                    "Path": str,
-                    Optional("ReadOnly", default=False): bool,
-                }],
-            },
+                Optional("ReadOnly", default=False): bool,
+                # Default=None, don't override the default EFS cache.
+                Optional("EfsCacheFileMb", default=None): And(int, lambda mb: mb >= 0),
+            }],
         },
         "Watchdog": {
             "Threshold": int,
