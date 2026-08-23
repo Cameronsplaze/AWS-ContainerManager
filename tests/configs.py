@@ -152,6 +152,32 @@ LEAF_MINIMAL = ConfigInfo(
     },
 )
 
+LEAF_EC2_CIDR_ALLOWED = LEAF_MINIMAL.copy(
+    label="LeafEc2CidrAllowed",
+    config_input=LEAF_MINIMAL.config_input | {
+        "Ec2": LEAF_MINIMAL.config_input["Ec2"] | {
+            "SshCidrAllowed": [
+                "1.2.3.4/16",
+            ],
+            "GameCidrAllowed": [
+                "5.6.7.8/32",
+            ],
+        },
+    },
+    expected_output=LEAF_MINIMAL.expected_output | {
+        "Ec2": LEAF_MINIMAL.expected_output["Ec2"] | {
+            "SshCidrAllowed": [
+                # A /16 will simplify:
+                "1.2.0.0/16",
+            ],
+            "GameCidrAllowed": [
+                # A /32 won't change:
+                "5.6.7.8/32",
+            ],
+        },
+    },
+)
+
 LEAF_CONTAINER_PORTS = LEAF_MINIMAL.copy(
     label="LeafContainerPorts",
     # This is messy, but it's the only way to keep it in-line AND
@@ -297,11 +323,21 @@ LEAF_VOLUME_MULTIPLE_PATHS = LEAF_MINIMAL.copy(
     },
 )
 
+LEAF_MIX_CIDR_ALLOWED_PORTS = LEAF_EC2_CIDR_ALLOWED.copy(
+    label="LeafMixCidrAllowedPorts",
+    config_input=LEAF_EC2_CIDR_ALLOWED.config_input | {
+        "Container": LEAF_CONTAINER_PORTS.config_input["Container"],
+    },
+    expected_output=LEAF_EC2_CIDR_ALLOWED.expected_output | {
+        "Container": LEAF_CONTAINER_PORTS.expected_output["Container"],
+    },
+)
+
 BASE_CONFIG_LOADED = ConfigInfo(
     label="base-stack-config.yaml",
     loader=load_base_config,
     config_input=_parse_config("./base-stack-config.yaml"),
-    expected_output=None, # We don't care about the output here
+    expected_output={}, # We don't care about the output here
 )
 
 LEAF_CONFIGS_LOADED = []
@@ -312,7 +348,7 @@ for file_path in glob.glob("./Examples/*.yaml") + glob.glob("./Examples/*.yml"):
         label=file_path.split("/")[-1],
         loader=load_leaf_config,
         config_input=_parse_config(file_path),
-        expected_output=None, # We don't care about the output here
+        expected_output={}, # We don't care about the output here
     )
     LEAF_CONFIGS_LOADED.append(loaded_config)
 
@@ -330,9 +366,11 @@ LEAF_VOLUMES = [
 ]
 # All valid configs:
 CONFIGS_VALID = CONFIGS_MINIMAL + CONFIGS_LOADED + LEAF_VOLUMES + [
+    LEAF_MIX_CIDR_ALLOWED_PORTS,
     BASE_VPC_MAXAZS,
     BASE_ALERT_SUBSCRIPTION,
     BASE_ALERT_SUBSCRIPTION_NONE,
+    LEAF_EC2_CIDR_ALLOWED,
     LEAF_CONTAINER_PORTS,
     LEAF_CONTAINER_ENVIRONMENT,
 ]

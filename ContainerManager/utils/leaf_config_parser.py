@@ -54,12 +54,10 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             {
                 "InstanceType": Use(str.lower),
                 # List of CIDR's allowed to SSH into the instance
-                # TODO: Add tests for this...
                 Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
                     Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
                 # List of CIDR's allowed to connect to the Container's Ports. (Game traffic, etc.)
-                # TODO: Add tests for this...
                 Optional("GameCidrAllowed", default=["0.0.0.0/0"]): [
                     Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
