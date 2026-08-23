@@ -24,3 +24,4 @@ runs:
       run: |
         python3 -m pip install tox
         make update-python
+        echo "$PWD/.tox/py/bin" >> "$GITHUB_PATH"
