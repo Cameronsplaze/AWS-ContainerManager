@@ -10,6 +10,7 @@ from ContainerManager.base_stack import BaseStack
 from ContainerManager.leaf_stack_group.domain_stack import DomainStack
 from ContainerManager.leaf_stack_group.container_manager_stack import ContainerManagerStack
 from ContainerManager.leaf_stack_group.start_system_stack import StartSystemStack
+from ContainerManager.utils import Maturity
 
 from tests.configs import (
     ConfigInfo,
@@ -54,7 +55,9 @@ class CdkApp():
     ) -> None:
         application_id="test-app"
         container_id="test-stack"
-        self.app = cdk.App()
+        self.app = cdk.App(
+            context={"maturity": Maturity.PROD.value},
+        )
         ## Stacks:
         # Create the base stack:
         self.base_stack = BaseStack(
@@ -62,7 +65,7 @@ class CdkApp():
             "TestBaseStack",
             config=base_config.create_config(),
             application_id_tag_name="ApplicationId",
-            application_id_tag_value=application_id
+            application_id_tag_value=application_id,
         )
         # Create the domain stack:
         self.domain_stack = DomainStack(
@@ -88,6 +91,7 @@ class CdkApp():
             domain_stack=self.domain_stack,
             container_manager_stack=self.container_manager_stack,
             container_id=container_id,
+            config=leaf_config.create_config(),
         )
         ## Templates:
         # You can't modify the stack after you create the template (It gets synthed),

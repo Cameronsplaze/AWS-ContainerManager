@@ -104,8 +104,7 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             #        Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
             Optional("Environment", default={}): Or(
                 {
-                    # All values must be strings. If it's a bool, also make it all-lowercase:
-                    # TODO: With the json.loads, double-check the lower-case logic.
+                    # The container's I've seen expect bool's all lower, or ignore case completely. This covers both:
                     Use(str): Use(lambda val: str(val).lower() if isinstance(val, bool) else str(val))
                 },
                 # You're allowed to set an empty dict here:

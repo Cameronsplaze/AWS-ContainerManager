@@ -68,7 +68,7 @@ class TestS3Volumes():
             "ImportDataRules": [
                 {
                     "Prefix": "",
-                    "SizeLessThan": 10 * 1024 * 1024 * 1024, # 10 GB
+                    "SizeLessThan": 256 * 1024 * 1024, # 256 MiB
                     "Trigger": "ON_DIRECTORY_FIRST_ACCESS",
                 },
             ],

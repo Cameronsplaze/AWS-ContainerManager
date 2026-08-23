@@ -42,7 +42,7 @@ class TestSpinDownASGOnError:
         assert asg["MaxSize"] == 1
 
     @pytest.mark.parametrize("starting_capacity", [0, 1])
-    def test_lambda_spins_down_asg(self, setup_env, starting_capacity):
+    def test_lambda_spins_down_asg(self, lambda_context, setup_env, starting_capacity):
         """Test that the lambda spins down the ASG to 0, regardless of starting capacity."""
         # First, update the ASG:
         setup_env(self.env)
@@ -57,7 +57,7 @@ class TestSpinDownASGOnError:
         assert asg_info["DesiredCapacity"] == starting_capacity
 
         # Call the lambda:
-        spin_down_asg_on_error.lambda_handler(event={}, context={})
+        spin_down_asg_on_error.lambda_handler(event={}, context=lambda_context)
 
         # Check if the ASG Is spun down (DesiredCapacity = 0):
         asg_info = self.asg_client.describe_auto_scaling_groups(
