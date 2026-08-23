@@ -51,10 +51,6 @@ class Volume(NestedStack):
         self.lambda_trigger_aws_backup: aws_lambda.Function | None = None
         self.alarm_aws_backup_errors: cloudwatch.Alarm | None = None
 
-        # TODO: Major doc update on volumes. No point in multiple anymore, and removed "Type".
-        # TODO: Make sure there's a test for no volume config. I'll always have one for prod, so I won't see bugs.
-        #         (Just comment out one of the self.* above to check.)
-
         ## No "Volume" in the config == no storage at all. Declare anything
         #   other stacks use above this.
         if not volume_config:
@@ -148,8 +144,6 @@ class Volume(NestedStack):
                 resources=["arn:aws:events:*:*:rule/*"],
             )
         )
-
-        # TODO: Document this variable!!! Media servers can set to 0 to disable.
 
         ## Controls what files get pulled into the EFS cache.
         # YOU ONLY GET 10 RULES TOTAL. Only create one if they override the default.
@@ -278,7 +272,6 @@ class Volume(NestedStack):
                     "BUCKET_ARN": s3_bucket.bucket_arn,
                     "BACKUP_ROLE_ARN": backup_role.role_arn,
                     "FILE_SYSTEM_ID": s3_files_fs.attr_file_system_id,
-                    # TODO: Document this Variable:
                     "DELETE_AFTER_DAYS": str(volume_config["KeepBackupDays"]),
                 },
             )

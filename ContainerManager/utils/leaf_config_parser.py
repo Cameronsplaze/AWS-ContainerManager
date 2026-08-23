@@ -54,14 +54,12 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
             {
                 "InstanceType": Use(str.lower),
                 # List of CIDR's allowed to SSH into the instance
-                # TODO: Doc this. Including setting it to an empty list to disable. (Or /32 for single IP)
-                # TODO: And add tests for this...
+                # TODO: Add tests for this...
                 Optional("SshCidrAllowed", default=["0.0.0.0/0"]): [
                     Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
                 # List of CIDR's allowed to connect to the Container's Ports. (Game traffic, etc.)
-                # TODO: Doc this. Including setting it to an empty list to disable.
-                # TODO: And add tests for this...
+                # TODO: Add tests for this...
                 Optional("GameCidrAllowed", default=["0.0.0.0/0"]): [
                     Use(lambda cidr: str(ipaddress.ip_network(cidr, strict=False))),
                 ],
@@ -99,12 +97,11 @@ def leaf_config_schema(maturity: Maturity) -> Schema:
                     )),
                 ),
             ],
-            # Key: Optional, but defaults value to empty dict if not declared:
-            # Value: Either a empty dict, or a dict of strings (that casts all values to string).
-            #        Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
             Optional("Environment", default={}): Or(
                 {
-                    # The container's I've seen expect bool's all lower, or ignore case completely. This covers both:
+                    # Key: Optional, but defaults value to empty dict if not declared:
+                    # Value: ALL env-vars are expected to be strings, and error if they're not.
+                    # Make bools all lowercase. Some containers are case-insensitive, others expect all lower.
                     Use(str): Use(lambda val: str(val).lower() if isinstance(val, bool) else str(val))
                 },
                 # You're allowed to set an empty dict here:

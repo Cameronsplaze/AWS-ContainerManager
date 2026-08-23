@@ -66,7 +66,6 @@ Volume:
   Paths:
     - Path: /data
       ReadOnly: False
-      EfsCacheFileMb: 64
 
 ## Config options for how to monitor for players:
 Watchdog:

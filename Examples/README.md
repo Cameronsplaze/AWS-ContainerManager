@@ -16,7 +16,7 @@ Click here to jump to '[Config File Options](#config-file-options)'. It's the la
 
 ## Adding a new Example Config to the Repo
 
-1) Ask if it's a game I'll want to support, either by [Issues](https://github.com/Cameronsplaze/AWS-ContainerManager/issues) or [Discussions](https://github.com/Cameronsplaze/AWS-ContainerManager/discussions/categories/q-a). (Even if I don't add it here, I might still help you add it to your fork)
+1) Ask if it's a container I'll want to support, either by [Issues](https://github.com/Cameronsplaze/AWS-ContainerManager/issues) or [Discussions](https://github.com/Cameronsplaze/AWS-ContainerManager/discussions/categories/q-a). (Even if I don't add it here, I might still help you add it to your fork)
 2) Create a new file in this [./Examples](./) directory. Make sure it ends with `*.example.yaml`.
 3) Make sure it correctly Synths. (If you're doing a PR, it'll happen automatically)
 4) Once it Synths, add it to the "Settings -> Branches -> `main` -> Required Status Checks" list. (If you don't have permissions, remind me to inside the PR please).
@@ -44,6 +44,14 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
      InstanceType: m5.large
    ```
 
+### `Ec2.SshCidrAllowed`
+
+- (`list[str]`, Optional, default=`["0.0.0.0/0"]`): A list of CIDR blocks allowed to SSH into the EC2 instance. Set to an empty list to disable completely. Default allows all IP's, but you still need the key-pair from the console to log in. You can lock it to a single IP with `["<YOUR_IP>/32"].`
+
+### `Ec2.GameCidrAllowed`
+
+- (`list[str]`, Optional, default=`["0.0.0.0/0"]`): A list of CIDR blocks allowed to connect to the container ports. Same rules as [Ec2.SshCidrAllowed](#ec2sshcidrallowed) apply.
+
 ---
 
 ### `Container`
@@ -61,7 +69,7 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ### `Container.Ports`
 
-- (`list`, **Required**): The list of ports to expose, in the form of `Type: number`. I.e:
+- (`list`, **Required**): The list of ports to expose, in the form of `Protocol: PortNumber`. I.e:
 
    ```yaml
    Container:
@@ -85,75 +93,81 @@ The options for the base stack are in [/ContainerManager/README.md](../Container
 
 ---
 
-### `Volumes`
+### `Volume`
 
-- (`dict`, Optional): Config options for Volumes (Persistent Storage).
+- (`dict`, Optional): Config options for the Volume (Persistent Storage).
 
-   Each "block" defines one volume, for example:
+   For Example:
 
    ```yaml
-   Volumes:
-     ## Minimal Volume:
-     # EnableBackups, and KeepOnDelete are True by default
-     Data: # <- The Id of the volume
-       Paths:
-         - Path: /data
-     ## Or if you wanted something persistent, but not backed up:
-     #     (i.e the path to the valheim server binary. Saves
-     #      on startup time, but not critical if lost.)
-     DownloadCache: # <- The Id of the volume
-       EnableBackups: False
-       KeepOnDelete: False
-       Paths:
-         - Path: /opt/valheim
+  Volume:
+    EnableBackups: True
+    KeepBackupDays: 365
+    Paths:
+      # Holds server config info
+      - Path: /config
+      # Holds server download file (Faster startup if it doesn't have to re-download every time).
+      - Path: /opt/valheim
    ```
 
-> [!NOTE]
-> The filesystems inside `/mnt/efs` are labeled `Efs-<Id>` (I.e `Efs-Data` above). The Id **MUST** be unique in the config file. If you change it's Id after deploying, CDK will create a new EFS and you'll have to transfer data over manually (assuming KeepOnDelete is enabled. Otherwise the data is lost).
+Everything goes inside a single S3 bucket behind the scenes. It has `Intelligent Tiering` enabled, so files will move to cheaper storage if they're not accessed for a month.
 
-### `Volumes.<Id>.Type`
+### `Volume.EnableBackups`
 
-- (`str`, Optional, default=`EFS`): The type of volume to use. Currently only `EFS` is supported.
+- (`bool`, Optional, default=`if "maturity" == "prod"`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)). Backups are taken whenever the container spins down.
 
-   I plan to add [`S3` support](https://github.com/Cameronsplaze/AWS-ContainerManager/issues/10) when I get a chance, this is here for future-proofing.
+### `Volume.KeepBackupDays`
 
-### `Volumes.<Id>.EnableBackups`
+- (`int`, Optional, default=`30`): How many days to keep backups for. (If you don't [enable backups](#volume-enablebackups), this option is ignored).
 
-- (`bool`, Optional, default=`if "maturity" == "prod"`): If you should enable backups for the volume. This will increase the cost of the volume, BUT you'll have backups. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
-
-### `Volumes.<Id>.KeepOnDelete`
+### `Volume.KeepOnDelete`
 
 - (`bool`, Optional, default=`if "maturity" == "prod"`): If you should keep the data when the stack is destroyed. (Maturity defaults to `prod` if not set. See [more info here](../README.md#maturity)).
 
-### `Volumes.<Id>.Paths`
+### `Volume.Paths`
 
-- (`list`, **Required**): The list of paths to persist INSIDE the container.
-
-   For example, if you **didn't** want to backup data directory in the [above example](#volumes), you could add it to the Server Binary's EFS:
+- (`list[dict]`, **Required**): Info on each path to persist, and configuration options for that path.
 
    ```yaml
-   Volumes:
-     - EnableBackups: False
-       KeepOnDelete: False
-       Paths:
-         - Path: /opt/valheim
-         - Path: /data
+   Volume:
+     EnableBackups: False
+     KeepOnDelete: False
+     Paths:
+       - Path: /opt/valheim
+         EfsCacheFileMb: 256
+
+       - Path: /data
+         ReadOnly: False
    ```
 
-### `Volumes.<Id>.Paths[*].Path`
+### `Volume.Paths[*].Path`
 
 - (`str`, **Required**): The path inside the container to persist. I.e `/data`, `/opt/valheim`, `/config`, etc.
 
-### `Volumes.<Id>.Paths[*].ReadOnly`
+### `Volume.Paths[*].ReadOnly`
 
 - (`bool`, Optional, default=`False`): If the path should be read-only.
 
    ```yaml
-   Volumes:
-     - Paths:
-        - Path: /config
-          ReadOnly: True
+   Volume:
+     Paths:
+       - Path: /config
+         ReadOnly: True
    ```
+
+### `Volume.Paths[*].EfsCacheFileMb`
+
+- (`int`, Optional, default=`256`): `AWS S3 Files` will pull files into EFS that's less than this size. This gives us a fast "cache", useful for heavy read-writes (which all game-servers are).
+
+  Media Servers need to set this to `0` on their media directory. Otherwise a read on a single video, would try to pull the entire library into EFS. Even videos larger than this, would still get "read", and pulled out of Intelligent Tiering. `S3 Files` is disabled at `0` for that path.
+
+  Anything that does random I/O should be under this size (like databases). If it's a sequential I/O, it can be larger than this and be fine.
+
+   ```yaml
+   Volume:
+     Paths:
+       - Path: /opt/valheim
+         EfsCacheFileMb: 256
 
 ---
 
