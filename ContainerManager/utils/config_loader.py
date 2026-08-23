@@ -20,7 +20,7 @@ from .leaf_config_parser import leaf_config_schema
 from .base_config_parser import base_config_schema
 from .maturity import Maturity
 
-# I broke this out, to make sure the test-suite and the stack always use the same "default_value":
+# This is broken out for the test suite to hook into:
 def _parse_config(path: str) -> dict:
     return parse_config(path, default_value=None)
 
