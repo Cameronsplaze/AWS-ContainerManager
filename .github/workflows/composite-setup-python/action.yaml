@@ -8,11 +8,6 @@ inputs:
     required: False
     default: "3.12"
 
-  install-packages:
-    description: "Whether to install the requirements(-dev).txt packages"
-    required: False
-    default: "True"
-
 runs:
   using: "composite"
   steps:
@@ -25,7 +20,6 @@ runs:
 
     - name: Install Python Dependencies
       # GH ignores case when comparing strings:
-      if: ${{ inputs.install-packages == 'true' }}
       shell: bash
       run: |
         python3 -m pip install tox
