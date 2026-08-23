@@ -8,8 +8,7 @@ Also modifies data to a better format CDK can digest in places.
 
 
 import tempfile
-from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib import parse, request
 
 ## Using pyaml_env config for management, so you can have BOTH yaml and Env Vars:
 # https://github.com/mkaranasou/pyaml_env
@@ -27,8 +26,8 @@ from .maturity import Maturity
 # This is broken out for the test suite to hook into:
 def _parse_config(path: str) -> dict:
     # parse_config only takes paths, so download URL's to a temp file first.
-    if urlparse(path).scheme in ("http", "https"):
-        with urlopen(path, timeout=30) as response, tempfile.NamedTemporaryFile("wb", suffix=".yaml") as tmp:
+    if parse.urlparse(path).scheme in ("http", "https"):
+        with request.urlopen(path, timeout=30) as response, tempfile.NamedTemporaryFile("wb", suffix=".yaml") as tmp:
             tmp.write(response.read())
             # Make sure it's written to disk before parse_config reads it
             tmp.flush()
