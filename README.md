@@ -83,7 +83,7 @@ If it's installing updates, keep spamming refresh. It sees those connection atte
 
 You have to clean up all the 'leaf stacks' first, *then* the 'base stack'.
 
-If your config has [Volume.KeepOnDelete](./Examples/README.md#volumesidkeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
+If your config has [Volume.KeepOnDelete](./Examples/README.md#volumekeepondelete) set to `True` (the default), it'll keep the server files inside AWS but still remove the stack.
 
 ```bash
 # Destroying one leaf:
@@ -96,7 +96,7 @@ make cdk-destroy-base
 
 ## Running Commands on the Host / Accessing Files
 
-More info on volumes in the [volume config](./Examples/README.md#volumes).
+More info on volumes in the [volume config](./Examples/README.md#volume).
 
 ### SSM Session Manager
 

@@ -36,10 +36,6 @@ jobs:
           # Tox will install them into it's own env:
           install-packages: False
 
-      ## Install Tox:
-      - name: Install Tox
-        run: python3 -m pip install tox
-
       ## Run Pytest:
       - name: Run Pytest
         run: tox
