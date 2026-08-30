@@ -69,7 +69,6 @@ class Volume(NestedStack):
 
         ## S3 Files needs a *general purpose* bucket, but it's cheapest anyways.
         # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.Bucket.html
-        FILTER_ID = "S3FilesFilter"
         s3_bucket = s3.Bucket(
             self,
             # Reversed so it shows up nicely in the console:
@@ -100,11 +99,6 @@ class Volume(NestedStack):
                         ),
                     ],
                 ),
-            ],
-            metrics=[
-                ## Opt into the paid metrics:
-                # https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_s3.BucketMetrics.html
-                s3.BucketMetrics(id=FILTER_ID),
             ],
         )
 
