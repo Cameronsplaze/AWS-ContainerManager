@@ -82,10 +82,6 @@ class TestS3Volumes():
             "VersioningConfiguration": {
                 "Status": "Enabled",
             },
-            # Make sure we opted into the (paid) metrics:
-            "MetricsConfigurations": [
-                {"Id": "S3FilesFilter"},
-            ],
             "LifecycleConfiguration": {
                 "Rules": [
                     {
