@@ -1,6 +1,6 @@
 aws-cdk-lib==2.277.0
-aws_lambda_powertools==3.40.0
-boto3==1.44.2
+aws_lambda_powertools==3.41.0
+boto3==1.44.7
 cdk-nag==3.0.2
 constructs>=10.8.1,<11.0.0
 GitPython==3.2.1
